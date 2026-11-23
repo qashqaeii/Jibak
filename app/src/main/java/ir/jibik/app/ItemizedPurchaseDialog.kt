@@ -51,7 +51,8 @@ private fun PurchaseDraftItem.asPurchaseLine(): PurchaseLine? {
     val count = parseTomanDraft(quantity)?.takeIf { it in 1L..10_000L }?.toInt()
     val price = parseTomanDraft(unitPrice)
     return if (name.isNotBlank() && name.length <= 80 &&
-        count != null && price != null && price >= 0L && category.isNotBlank()
+        count != null && price != null && price >= 0L &&
+        ExpenseCategoryCatalog.byDisplayName(category) != null
     ) PurchaseLine(name.trim(), category.trim(), count, price) else null
 }
 
@@ -78,11 +79,7 @@ internal fun ItemizedPurchaseDialog(
     }.getOrNull() else null
     val valid = !isSaving && total != null && total > 0L &&
         drafts.size in 1..20 && accounts.any { it.id == accountId }
-    val groceries = remember {
-        ExpenseCategoryCatalog.leaves().filter {
-            it.ids.size == 3 && it.ids.first() == "food"
-        }
-    }
+    var selectingCategoryIndex by rememberSaveable { mutableStateOf(-1) }
 
     AlertDialog(
         modifier = Modifier.liquidGlass(tone = GlassTone.FROSTED, radius = 28.dp, elevation = 15.dp),
@@ -186,26 +183,38 @@ internal fun ItemizedPurchaseDialog(
                                     allowZero = true,
                                 )
                             }
-                            Text("دسته کالا", fontSize = 12.sp, color = JibikStyle.muted)
-                            Row(
-                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                            Text(
+                                "دسته‌بندی این کالا",
+                                color = JibikStyle.muted, fontSize = 12.sp,
+                            )
+                            LiquidGlassCard(
+                                onClick = {
+                                    if (!isSaving) selectingCategoryIndex = index
+                                },
+                                tone = GlassTone.CRYSTAL,
+                                padding = androidx.compose.foundation.layout.PaddingValues(
+                                    horizontal = 12.dp, vertical = 11.dp,
+                                ),
                             ) {
-                                groceries.forEach { category ->
-                                    JibikGlassChip(
-                                        text = category.labels.last(),
-                                        selected = draft.category == category.displayName,
-                                        onClick = {
-                                            drafts[index] = draft.copy(
-                                                category = category.displayName
-                                            )
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Text(
+                                        draft.category.ifBlank {
+                                            "انتخاب دسته و زیر‌دسته کالا"
                                         },
-                                        enabled = !isSaving,
+                                        color = if (draft.category.isBlank())
+                                            JibikStyle.muted else JibikStyle.ink,
+                                        modifier = Modifier.weight(1f),
+                                        fontSize = 12.sp, maxLines = 3,
                                     )
+                                    Text("‹ انتخاب", color = JibikStyle.forest, fontSize = 11.sp)
                                 }
                             }
-                            if (draft.category.isBlank()) {
-                                JibikFormHint("دسته این کالا رو انتخاب کن.", isWarning = true)
+                            if (ExpenseCategoryCatalog.byDisplayName(draft.category) == null) {
+                                JibikFormHint("دسته معتبر برای این قلم انتخاب کن.", isWarning = true)
                             } else if (lineTotal != null) {
                                 Text(
                                     "جمع قلم: " + money(lineTotal),
@@ -278,4 +287,16 @@ internal fun ItemizedPurchaseDialog(
             TextButton(onClick = onDismiss, enabled = !isSaving) { Text("انصراف") }
         },
     )
+    if (selectingCategoryIndex in drafts.indices && !isSaving) {
+        val itemIndex = selectingCategoryIndex
+        CategoryPickerDialog(
+            income = false,
+            selected = drafts[itemIndex].category,
+            onSelected = { chosen ->
+                drafts[itemIndex] = drafts[itemIndex].copy(category = chosen)
+                selectingCategoryIndex = -1
+            },
+            onDismiss = { selectingCategoryIndex = -1 },
+        )
+    }
 }
