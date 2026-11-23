@@ -152,6 +152,9 @@ private fun JibikApp(store: LocalLedgerStore) {
     val accounts = remember { mutableStateListOf<Account>() }
     val goals = remember { mutableStateListOf<SavingsGoalEntity>() }
     val customCategories = remember { mutableStateListOf<CustomCategoryEntity>() }
+    val categoryBudgets = remember { mutableStateListOf<CategoryBudgetEntity>() }
+    val obligations = remember { mutableStateListOf<FinancialObligationEntity>() }
+    val obligationPayments = remember { mutableStateListOf<ObligationPaymentEntity>() }
     val scope = rememberCoroutineScope()
     val notifications = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -194,6 +197,9 @@ private fun JibikApp(store: LocalLedgerStore) {
             val loadedAccounts = store.loadAccounts()
             val persistedGoals = store.loadSavingsGoals()
             val persistedCategories = store.loadCustomCategories()
+            val persistedBudgets = store.loadCategoryBudgets()
+            val persistedObligations = store.loadObligations()
+            val persistedPayments = store.loadObligationPayments()
             // Account definitions first, so the ledger can never reference a missing account.
             accounts.clear()
             accounts.addAll(loadedAccounts)
@@ -201,6 +207,12 @@ private fun JibikApp(store: LocalLedgerStore) {
             goals.addAll(persistedGoals)
             customCategories.clear()
             customCategories.addAll(persistedCategories)
+            categoryBudgets.clear()
+            categoryBudgets.addAll(persistedBudgets)
+            obligations.clear()
+            obligations.addAll(persistedObligations)
+            obligationPayments.clear()
+            obligationPayments.addAll(persistedPayments)
             records.clear()
             records.addAll(persisted)
             savedReceiptLines.clear()
@@ -248,6 +260,11 @@ private fun JibikApp(store: LocalLedgerStore) {
     var showItemizedPurchase by rememberSaveable { mutableStateOf(false) }
     var budget by remember { mutableStateOf(store.budgetToman()) }
     var showEditBudget by remember { mutableStateOf(false) }
+    var editingCategoryBudget by remember { mutableStateOf<CategoryBudgetEntity?>(null) }
+    var showCategoryBudgetDialog by remember { mutableStateOf(false) }
+    var showObligations by rememberSaveable { mutableStateOf(false) }
+    var showNewObligation by remember { mutableStateOf(false) }
+    var settlingObligationId by remember { mutableStateOf<String?>(null) }
     var jiboAiFeature by remember { mutableStateOf<JiboAiFeature?>(null) }
 
     if (!welcomed) {
@@ -335,6 +352,28 @@ private fun JibikApp(store: LocalLedgerStore) {
                 spent = monthTotals.expenseToman,
                 budget = budget,
                 monthTitle = currentMonth.title,
+                categoryBudgets = categoryBudgets,
+                categoryUsage = monthlyCategoryBudgetUsage(categoryBudgets, categorySpending),
+                isSaving = isSaving,
+                onEditCategory = {
+                    editingCategoryBudget = it
+                    showCategoryBudgetDialog = true
+                },
+                onRemoveCategory = { path ->
+                    if (!isSaving) {
+                        isSaving = true
+                        scope.launch {
+                            try {
+                                store.removeCategoryBudget(path)
+                                categoryBudgets.clear()
+                                categoryBudgets.addAll(store.loadCategoryBudgets())
+                                notifications.showSnackbar("سقف این دسته حذف شد.")
+                            } catch (_: Exception) {
+                                storageError = "سقف بودجه تغییر نکرد."
+                            } finally { isSaving = false }
+                        }
+                    }
+                },
                 modifier = Modifier.padding(insets),
                 onEdit = { showEditBudget = true },
                 onAi = { jiboAiFeature = JiboAiFeature.BUDGET },
@@ -564,6 +603,31 @@ private fun JibikApp(store: LocalLedgerStore) {
             title = { Text("خطا در ثبت اطلاعات") },
             text = { Text(storageError ?: "") },
             confirmButton = { TextButton(onClick = { storageError = null }) { Text("متوجه شدم") } },
+        )
+    }
+    if (showCategoryBudgetDialog) {
+        CategoryBudgetDialog(
+            previous = editingCategoryBudget,
+            existingBudgets = categoryBudgets,
+            customCategories = customCategories,
+            isSaving = isSaving,
+            onDismiss = { if (!isSaving) showCategoryBudgetDialog = false },
+            onSave = { cap ->
+                if (!isSaving) {
+                    isSaving = true
+                    scope.launch {
+                        try {
+                            store.saveCategoryBudget(cap)
+                            categoryBudgets.clear()
+                            categoryBudgets.addAll(store.loadCategoryBudgets())
+                            showCategoryBudgetDialog = false
+                            notifications.showSnackbar("سقف دسته ذخیره شد.")
+                        } catch (_: Exception) {
+                            storageError = "سقف دسته ذخیره نشد؛ مقدار قبلی محفوظ است."
+                        } finally { isSaving = false }
+                    }
+                }
+            },
         )
     }
     if (showEditBudget) {
@@ -1110,6 +1174,11 @@ private fun Budget(
     spent: Long,
     budget: Long,
     monthTitle: String,
+    categoryBudgets: List<CategoryBudgetEntity>,
+    categoryUsage: List<CategoryBudgetUsage>,
+    isSaving: Boolean,
+    onEditCategory: (CategoryBudgetEntity?) -> Unit,
+    onRemoveCategory: (String) -> Unit,
     modifier: Modifier,
     onEdit: () -> Unit,
     onAi: () -> Unit,
@@ -1187,6 +1256,13 @@ private fun Budget(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+        CategoryBudgetsPanel(
+            budgets = categoryBudgets,
+            usage = categoryUsage,
+            onAddOrEdit = onEditCategory,
+            onRemove = onRemoveCategory,
+            isSaving = isSaving,
+        )
         Spacer(Modifier.height(16.dp))
     }
 }
