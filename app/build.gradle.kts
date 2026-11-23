@@ -16,6 +16,11 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         vectorDrawables.useSupportLibrary = true
+        // Only the public Jibik API URL is injected at build time.
+        // Never compile the Arvan API key or any server secret into Android.
+        val apiBase = providers.gradleProperty("JIBIK_API_BASE_URL").orNull.orEmpty()
+        val escaped = apiBase.replace("\\", "\\\\").replace("\"", "\\\"")
+        buildConfigField("String", "JIBIK_API_BASE_URL", "\"$escaped\"")
     }
 
     buildTypes {
@@ -26,6 +31,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     compileOptions {
