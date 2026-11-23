@@ -22,7 +22,7 @@ internal fun JiboMascot(modifier: Modifier = Modifier) {
         val unit = size.minDimension / 100f
         val origin = Offset((size.width - unit * 100f) / 2f, (size.height - unit * 100f) / 2f)
         fun p(x: Float, y: Float) = Offset(origin.x + x * unit, origin.y + y * unit)
-        fun box(x: Float, y: Float, w: Float, h: Float) =
+        fun box(w: Float, h: Float) =
             Size(w * unit, h * unit)
         fun triangle(ax: Float, ay: Float, bx: Float, by: Float, cx: Float, cy: Float): Path =
             Path().apply {
