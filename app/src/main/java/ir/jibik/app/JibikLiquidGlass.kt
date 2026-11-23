@@ -30,6 +30,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -261,6 +263,42 @@ internal fun LiquidGlassButton(
             },
             fontWeight = FontWeight.Bold,
             fontSize = 13.sp,
+        )
+    }
+}
+
+/** Low-profile glass chips with a clear selected state and an accessible target. */
+@Composable
+internal fun JibikGlassChip(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    Box(
+        modifier = modifier
+            .heightIn(min = 44.dp)
+            .liquidGlass(
+                tone = if (selected && enabled) GlassTone.EMERALD else GlassTone.CRYSTAL,
+                radius = 15.dp,
+                elevation = 2.dp,
+            )
+            .semantics { this.selected = selected }
+            .clickable(enabled = enabled, role = Role.RadioButton, onClick = onClick)
+            .padding(horizontal = 13.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            maxLines = 1,
+            color = when {
+                !enabled -> Color(0xFF788985)
+                selected -> Color.White
+                else -> Color(0xFF31574F)
+            },
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
         )
     }
 }
