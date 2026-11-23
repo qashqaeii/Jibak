@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -53,6 +54,7 @@ internal fun ReportsScreen(
     records: List<LedgerRecord>,
     categorySpending: List<CategoryExpense>,
     modifier: Modifier = Modifier,
+    onExportCsv: () -> Unit = {},
 ) {
     val month = currentJalaliMonth()
     val totals = periodTotals(records, month.startMillis, month.endExclusiveMillis)
@@ -175,6 +177,26 @@ internal fun ReportsScreen(
                     }
                 }
             }
+        }
+        JibikSurfaceCard {
+            Text(
+                "دریافت گردش مالی",
+                color = Ink, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp,
+            )
+            Text(
+                "فایل CSV شامل همه تراکنش‌های ثبت‌شده، تاریخ، مبلغ، حساب‌ها و توضیحات است. " +
+                    "خروجی فقط با انتخاب خودت در محل دلخواه ذخیره می‌شه.",
+                color = Muted, fontSize = 12.sp, lineHeight = 20.sp,
+            )
+            Button(
+                onClick = onExportCsv,
+                modifier = Modifier.fillMaxWidth().height(49.dp),
+                shape = RoundedCornerShape(15.dp),
+            ) { Text("ذخیره فایل CSV") }
+            JibikFormHint(
+                "این فایل اطلاعات مالی شخصی داره؛ فقط در جای امن ذخیره یا ارسالش کن. " +
+                    "CSV نسخه پشتیبان قابل بازیابی نیست.",
+            )
         }
         Text(
             "انتقال بین حساب‌ها در مجموع درآمد و هزینه حساب نمی‌شود. " +
