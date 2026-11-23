@@ -962,6 +962,8 @@ private fun Budget(
 private fun AddTransactionDialog(
     accounts: List<Account>,
     initialKind: LedgerKind,
+    initialTargetAccountId: String? = null,
+    isSaving: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (LedgerRecord) -> Unit,
 ) {
@@ -969,12 +971,19 @@ private fun AddTransactionDialog(
     var amount by rememberSaveable { mutableStateOf("") }
     var category by rememberSaveable { mutableStateOf("خوراک") }
     var note by rememberSaveable { mutableStateOf("") }
-    var sourceId by rememberSaveable { mutableStateOf(accounts.first().id) }
-    var targetId by rememberSaveable { mutableStateOf(accounts.getOrNull(1)?.id ?: accounts.first().id) }
-    val numericAmount = parseMoney(amount)
+    var sourceId by rememberSaveable {
+        mutableStateOf(accounts.firstOrNull()?.id.orEmpty())
+    }
+    var targetId by rememberSaveable(initialTargetAccountId) {
+        mutableStateOf(
+            initialTargetAccountId?.takeIf { id -> accounts.any { it.id == id } }
+                ?: accounts.firstOrNull { it.id != sourceId }?.id.orEmpty(),
+        )
+    }
+    val numericAmount = parseTomanDraft(amount)
     val sourceValid = accounts.any { it.id == sourceId }
     val targetValid = accounts.any { it.id == targetId }
-    val canSave = numericAmount != null && numericAmount > 0L &&
+    val canSave = !isSaving && numericAmount != null && numericAmount > 0L &&
         sourceValid && (kind != LedgerKind.TRANSFER ||
             (accounts.size > 1 && targetValid && sourceId != targetId)) &&
         (kind == LedgerKind.TRANSFER || category.isNotBlank())
@@ -984,132 +993,166 @@ private fun AddTransactionDialog(
         listOf("خوراک", "خرید منزل", "حمل‌ونقل", "قبوض", "درمان", "تفریح")
     }
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(
-            if (kind == LedgerKind.TRANSFER) "انتقال پول" else "ثبت تراکنش",
-            color = Deep, fontWeight = FontWeight.ExtraBold, fontSize = 21.sp,
-        ) },
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+            ) {
+                JibikBrandLogo(Modifier.size(39.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        if (kind == LedgerKind.TRANSFER) "انتقال بین حساب‌ها" else "تراکنش جدید",
+                        color = Deep, fontWeight = FontWeight.ExtraBold,
+                        fontSize = 20.sp,
+                    )
+                    Text(
+                        "ثبت ساده و مطمئن",
+                        color = Quiet, fontSize = 11.sp,
+                    )
+                }
+            }
+        },
         text = {
             Column(
-                modifier = Modifier.heightIn(max = 450.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(13.dp),
             ) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
                     listOf(
                         LedgerKind.EXPENSE to "هزینه",
                         LedgerKind.INCOME to "درآمد",
                         LedgerKind.TRANSFER to "انتقال",
                     ).forEach { (option, label) ->
                         Button(
-                            onClick = { kind = option; category = if (option == LedgerKind.INCOME) "حقوق" else "خوراک" },
+                            onClick = {
+                                kind = option
+                                category = if (option == LedgerKind.INCOME) "حقوق" else "خوراک"
+                                if (option == LedgerKind.TRANSFER && targetId == sourceId) {
+                                    targetId = accounts.firstOrNull {
+                                        it.id != sourceId
+                                    }?.id.orEmpty()
+                                }
+                            },
                             modifier = Modifier.weight(1f),
-                            enabled = option != LedgerKind.TRANSFER || accounts.size > 1,
+                            enabled = !isSaving &&
+                                (option != LedgerKind.TRANSFER || accounts.size > 1),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (kind == option) Forest else Color(0xFFE9F1EC),
+                                containerColor = if (kind == option) Forest else
+                                    Color(0xFFE8F2EC),
                                 contentColor = if (kind == option) Paper else Forest,
                             ),
                             shape = RoundedCornerShape(13.dp),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                horizontal = 2.dp, vertical = 8.dp
+                            ),
                         ) { Text(label, fontSize = 12.sp, maxLines = 1) }
                     }
                 }
-                OutlinedTextField(
-                    value = amount, onValueChange = { amount = it },
-                    label = { Text("مبلغ (تومان)") }, singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
+                JibikTomanField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = "مبلغ تراکنش",
                 )
-                Text(
-                    if (kind == LedgerKind.INCOME) "حساب دریافت‌کننده" else "برداشت از حساب",
-                    color = Quiet, fontSize = 12.sp,
-                )
-                Row(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    accounts.forEach { account ->
-                        FilterChip(
-                            selected = sourceId == account.id,
-                            onClick = { sourceId = account.id },
-                            label = { Text(account.title, fontSize = 12.sp, maxLines = 1) },
-                            shape = RoundedCornerShape(12.dp),
-                        )
-                    }
-                }
-                if (kind == LedgerKind.TRANSFER) {
-                    Text("انتقال به حساب", color = Quiet, fontSize = 12.sp)
-                    Row(
-                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        accounts.filter { it.id != sourceId }.forEach { account ->
-                            FilterChip(
-                                selected = targetId == account.id,
-                                onClick = { targetId = account.id },
-                                label = { Text(account.title, fontSize = 12.sp, maxLines = 1) },
-                                shape = RoundedCornerShape(12.dp),
-                            )
+                JibikAccountChoice(
+                    title = if (kind == LedgerKind.INCOME)
+                        "حساب دریافت‌کننده" else "برداشت از حساب",
+                    accounts = accounts,
+                    selectedId = sourceId,
+                    onSelect = { selected ->
+                        sourceId = selected
+                        if (selected == targetId) {
+                            targetId = accounts.firstOrNull {
+                                it.id != selected
+                            }?.id.orEmpty()
                         }
-                    }
-                    Text("انتقال، درآمد یا هزینه محسوب نمی‌شود.", color = Quiet, fontSize = 12.sp)
+                    },
+                )
+                if (kind == LedgerKind.TRANSFER) {
+                    JibikAccountChoice(
+                        title = "انتقال به حساب",
+                        accounts = accounts.filter { it.id != sourceId },
+                        selectedId = targetId,
+                        onSelect = { targetId = it },
+                        emptyHint = "برای انتقال ابتدا حساب دوم بساز.",
+                    )
+                    JibikFormHint("انتقال بین حساب‌ها درآمد یا هزینه محسوب نمی‌شه.")
                 } else {
-                    Text("دسته‌های پیشنهادی", color = Quiet, fontSize = 12.sp)
+                    Text("دسته‌بندی", fontSize = 12.sp, color = Quiet)
                     Row(
                         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
                     ) {
                         suggestedCategories.forEach { option ->
                             FilterChip(
                                 selected = category == option,
                                 onClick = { category = option },
+                                enabled = !isSaving,
                                 label = { Text(option, fontSize = 12.sp) },
                                 shape = RoundedCornerShape(12.dp),
                             )
                         }
                     }
                     if (kind == LedgerKind.EXPENSE) {
-                        Text("جزئیات خرید منزل", color = Quiet, fontSize = 12.sp)
+                        Text("جزئیات خرید منزل", fontSize = 12.sp, color = Quiet)
                         Row(
                             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
                         ) {
-                            ExpenseCategoryCatalog.leaves()
-                                .filter { it.ids.size == 3 && it.ids.first() == "food" }
-                                .forEach { option ->
-                                    FilterChip(
-                                        selected = category == option.displayName,
-                                        onClick = { category = option.displayName },
-                                        label = { Text(option.labels.last(), fontSize = 12.sp) },
-                                        shape = RoundedCornerShape(12.dp),
-                                    )
-                                }
+                            ExpenseCategoryCatalog.leaves().filter {
+                                it.ids.size == 3 && it.ids.first() == "food"
+                            }.forEach { option ->
+                                FilterChip(
+                                    selected = category == option.displayName,
+                                    onClick = { category = option.displayName },
+                                    enabled = !isSaving,
+                                    label = {
+                                        Text(option.labels.last(), fontSize = 12.sp,
+                                            maxLines = 1)
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                )
+                            }
                         }
                     }
                     OutlinedTextField(
-                        value = category, onValueChange = { category = it },
-                        label = { Text("دسته‌بندی") }, singleLine = true,
+                        value = category,
+                        onValueChange = { category = it.take(120) },
+                        label = { Text("نام دسته") },
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
+                        enabled = !isSaving,
+                        shape = RoundedCornerShape(15.dp),
                     )
                 }
                 OutlinedTextField(
-                    value = note, onValueChange = { note = it },
+                    value = note,
+                    onValueChange = { note = it.take(180) },
                     label = { Text("توضیحات (اختیاری)") },
+                    singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
+                    enabled = !isSaving,
+                    shape = RoundedCornerShape(15.dp),
                 )
+                if (!canSave && numericAmount == null && amount.isNotBlank()) {
+                    JibikFormHint("مبلغ معتبر وارد کن.", isWarning = true)
+                }
             }
         },
         confirmButton = {
             Button(
                 enabled = canSave,
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(15.dp),
                 onClick = {
                     val value = numericAmount ?: return@Button
                     val destination = if (kind == LedgerKind.TRANSFER) {
-                        accounts.firstOrNull { it.id == targetId && it.id != sourceId }?.id
-                            ?: return@Button
+                        accounts.firstOrNull {
+                            it.id == targetId && it.id != sourceId
+                        }?.id ?: return@Button
                     } else sourceId
                     onSave(
                         LedgerRecord(
@@ -1121,12 +1164,22 @@ private fun AddTransactionDialog(
                             category = if (kind == LedgerKind.TRANSFER) "" else category.trim(),
                             note = note.trim(),
                             timestampMillis = System.currentTimeMillis(),
-                        )
+                        ),
                     )
                 },
-            ) { Text(if (kind == LedgerKind.TRANSFER) "ثبت انتقال" else "ثبت تراکنش") }
+            ) {
+                Text(
+                    if (isSaving) "در حال ثبت..."
+                    else if (kind == LedgerKind.TRANSFER) "ثبت انتقال"
+                    else "ثبت تراکنش",
+                )
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isSaving) {
+                Text("انصراف")
+            }
+        },
         containerColor = Paper,
         tonalElevation = 0.dp,
         shape = RoundedCornerShape(26.dp),
@@ -1134,36 +1187,44 @@ private fun AddTransactionDialog(
 }
 
 @Composable
-private fun BudgetDialog(current: Long, onDismiss: () -> Unit, onSave: (Long) -> Unit) {
+private fun BudgetDialog(
+    current: Long,
+    onDismiss: () -> Unit,
+    onSave: (Long) -> Unit,
+) {
     var value by rememberSaveable { mutableStateOf(current.toString()) }
-    val parsed = parseMoney(value)
+    val parsed = parseTomanDraft(value)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("ویرایش بودجه", color = Deep, fontWeight = FontWeight.ExtraBold) },
+        containerColor = Paper,
+        tonalElevation = 0.dp,
+        shape = RoundedCornerShape(26.dp),
+        title = {
+            Text("ویرایش سقف بودجه", color = Deep, fontWeight = FontWeight.ExtraBold)
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("این سقف برای هر ماه شمسی تکرار می‌شود.", fontSize = 13.sp, color = Quiet)
-                OutlinedTextField(
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                JibikFormHint(
+                    "این سقف برای هر ماه شمسی تکرار می‌شه. " +
+                        "تراکنش‌های گذشته حذف یا ویرایش نمی‌شن.",
+                )
+                JibikTomanField(
                     value = value,
                     onValueChange = { value = it },
-                    label = { Text("سقف هزینه (تومان)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
+                    label = "سقف ماهانه",
                 )
             }
         },
         confirmButton = {
             Button(
-                enabled = parsed != null && parsed > 0,
+                enabled = parsed != null && parsed > 0L,
                 onClick = { parsed?.let(onSave) },
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(15.dp),
             ) { Text("ذخیره بودجه") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("لغو") } },
-        containerColor = Paper,
-        tonalElevation = 0.dp,
-        shape = RoundedCornerShape(26.dp),
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("انصراف") }
+        },
     )
 }
 
