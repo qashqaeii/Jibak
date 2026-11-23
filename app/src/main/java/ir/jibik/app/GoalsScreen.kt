@@ -104,17 +104,19 @@ internal fun GoalsScreen(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            OutlinedButton(
+            LiquidGlassButton(
+                text = "بازگشت",
                 onClick = onBack,
+                tone = GlassTone.CRYSTAL,
                 modifier = Modifier.weight(0.35f).height(50.dp),
-                shape = RoundedCornerShape(15.dp),
-            ) { Text("بازگشت", fontSize = 12.sp) }
-            Button(
+            )
+            LiquidGlassButton(
+                text = "＋ ساخت هدف",
                 onClick = onAdd,
                 enabled = eligible,
+                tone = GlassTone.HONEY,
                 modifier = Modifier.weight(0.65f).height(50.dp),
-                shape = RoundedCornerShape(15.dp),
-            ) { Text("＋ ساخت هدف", fontSize = 13.sp) }
+            )
         }
         if (goals.isEmpty()) {
             JibikSurfaceCard {
@@ -150,11 +152,9 @@ internal fun GoalsScreen(
                 .toFloat().coerceIn(0f, 1f)
             val accountName = accounts.firstOrNull { it.id == goal.accountId }?.title
                 ?: "حساب نامشخص"
-            Card(
+            LiquidGlassCard(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(23.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                tone = GlassTone.CRYSTAL,
             ) {
                 Column(
                     Modifier.fillMaxWidth().padding(17.dp),
@@ -208,17 +208,14 @@ internal fun GoalsScreen(
                             fontSize = 12.sp, color = JibikStyle.forest,
                         )
                     }
-                    OutlinedButton(
+                    LiquidGlassButton(
+                        text = if (fraction >= 1f) "انتقال پول به این حساب"
+                            else "افزودن پول به هدف",
                         onClick = { onTransferTo(goal.accountId) },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(15.dp),
                         enabled = accounts.any { it.id != goal.accountId },
-                    ) {
-                        Text(
-                            if (fraction >= 1f) "انتقال پول به این حساب"
-                            else "افزودن پول به هدف",
-                        )
-                    }
+                        tone = GlassTone.HONEY,
+                    )
                 }
             }
         }
