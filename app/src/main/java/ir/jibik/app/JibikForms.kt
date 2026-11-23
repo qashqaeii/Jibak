@@ -163,18 +163,10 @@ internal fun JibikAccountChoice(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 accounts.forEach { account ->
-                    FilterChip(
+                    JibikGlassChip(
+                        text = account.title,
                         selected = selectedId == account.id,
                         onClick = { onSelect(account.id) },
-                        label = {
-                            Text(
-                                account.title,
-                                fontSize = 12.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        },
-                        shape = RoundedCornerShape(13.dp),
                     )
                 }
             }
