@@ -192,19 +192,15 @@ internal fun ItemizedPurchaseDialog(
                                 horizontalArrangement = Arrangement.spacedBy(7.dp),
                             ) {
                                 groceries.forEach { category ->
-                                    FilterChip(
+                                    JibikGlassChip(
+                                        text = category.labels.last(),
                                         selected = draft.category == category.displayName,
                                         onClick = {
                                             drafts[index] = draft.copy(
                                                 category = category.displayName
                                             )
                                         },
-                                        label = {
-                                            Text(category.labels.last(), fontSize = 11.sp,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis)
-                                        },
-                                        shape = RoundedCornerShape(12.dp),
+                                        enabled = !isSaving,
                                     )
                                 }
                             }
