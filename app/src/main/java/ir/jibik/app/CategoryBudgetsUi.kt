@@ -34,6 +34,7 @@ internal fun CategoryBudgetsPanel(
     onRemove: (String) -> Unit,
     isSaving: Boolean,
 ) {
+    var pendingDelete by rememberSaveable { mutableStateOf<String?>(null) }
     JibikSectionTitle(
         title = "بودجه دسته‌ها و زیر‌دسته‌ها",
         subtitle = "هر سقف مستقل است؛ بودجه‌های والد و فرزند با هم جمع نمی‌شوند.",
@@ -97,7 +98,7 @@ internal fun CategoryBudgetsPanel(
                         modifier = Modifier.weight(1f),
                     )
                     TextButton(
-                        onClick = { onRemove(line.categoryPath) }, enabled = !isSaving,
+                        onClick = { pendingDelete = line.categoryPath }, enabled = !isSaving,
                         modifier = Modifier.weight(1f),
                     ) {
                         Text("حذف سقف", color = JibikStyle.coral, fontSize = 12.sp)
@@ -105,6 +106,37 @@ internal fun CategoryBudgetsPanel(
                 }
             }
         }
+    }
+    pendingDelete?.let { path ->
+        AlertDialog(
+            modifier = Modifier.liquidGlass(
+                tone = GlassTone.FROSTED, radius = 24.dp, elevation = 12.dp,
+            ),
+            containerColor = Color.Transparent,
+            onDismissRequest = { if (!isSaving) pendingDelete = null },
+            title = { Text("حذف سقف دسته", color = JibikStyle.ink,
+                fontWeight = FontWeight.ExtraBold) },
+            text = { Text(
+                "فقط سقف بودجه «" + path + "» حذف می‌شود؛ تراکنش‌ها و " +
+                    "گزارش‌های قبلی بدون تغییر می‌مانند.",
+                color = JibikStyle.muted, fontSize = 13.sp,
+            ) },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (!isSaving) {
+                        pendingDelete = null
+                        onRemove(path)
+                    }
+                }, enabled = !isSaving) {
+                    Text("حذف سقف", color = JibikStyle.coral)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }, enabled = !isSaving) {
+                    Text("انصراف", color = JibikStyle.forest)
+                }
+            },
+        )
     }
 }
 
