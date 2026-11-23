@@ -334,6 +334,8 @@ private fun JibikApp(store: LocalLedgerStore) {
             Section.REPORTS -> ReportsScreen(
                 records = records,
                 categorySpending = categorySpending,
+                receiptLines = savedReceiptLines.toMap(),
+                onTransactionClick = { selectedTransactionId = it.id },
                 modifier = Modifier.padding(insets),
                 onExportCsv = {
                     if (!isExporting) {
