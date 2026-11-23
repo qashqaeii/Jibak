@@ -110,6 +110,34 @@ class ReceiptCategoryReportTest {
         assertEquals(70_000L, allFood.sumOf { it.amountToman })
     }
 
+    @Test fun incomeCategoriesGroupWithoutCountingTransfersOrExpenses() {
+        val salary = LedgerRecord(
+            "salary", LedgerKind.INCOME, 1_000_000L,
+            toAccountId = "wallet",
+            category = "حقوق و دستمزد / دریافتی شغلی / حقوق ثابت",
+            timestampMillis = 1200L,
+        )
+        val bonus = salary.copy(
+            id = "bonus", amountToman = 200_000L,
+            category = "حقوق و دستمزد / دریافتی شغلی / پاداش",
+        )
+        val transfer = salary.copy(
+            id = "transfer", kind = LedgerKind.TRANSFER,
+            amountToman = 300_000L, fromAccountId = "wallet",
+        )
+        val income = detailedIncomeCategories(
+            listOf(salary, bonus, transfer), start, end,
+        )
+        assertEquals(1_200_000L, income.sumOf { it.amountToman })
+        val roots = categoryReportRows(income)
+        assertEquals(1, roots.size)
+        assertEquals(1_200_000L, roots.first().amountToman)
+        assertEquals(2, categoryReportContributions(
+            classifiedIncomeLines(listOf(salary, bonus, transfer), start, end),
+            "حقوق و دستمزد", directOnly = false,
+        ).size)
+    }
+
     @Test fun excludesOtherMonthsAndPreventsDoubleCounting() {
         val previous = LedgerRecord(
             "old", LedgerKind.EXPENSE, 123L,
