@@ -55,8 +55,7 @@ private fun PurchaseDraftItem.asPurchaseLine(): PurchaseLine? {
     ) PurchaseLine(name.trim(), category.trim(), count, price) else null
 }
 
-private fun money(value: Long): String =
-    NumberFormat.getNumberInstance(Locale("fa", "IR")).format(value) + " تومان"
+private fun money(value: Long): String = formatToman(value)
 
 /** One receipt means exactly one expense; a validation error cannot deduct any money. */
 @Composable
