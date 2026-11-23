@@ -141,6 +141,7 @@ private fun JibikApp(store: LocalLedgerStore) {
     val accounts = remember { mutableStateListOf<Account>() }
     val goals = remember { mutableStateListOf<SavingsGoalEntity>() }
     val scope = rememberCoroutineScope()
+    val notifications = remember { SnackbarHostState() }
     val context = LocalContext.current
     var isExporting by remember { mutableStateOf(false) }
     val exportLauncher = rememberLauncherForActivityResult(
@@ -174,7 +175,6 @@ private fun JibikApp(store: LocalLedgerStore) {
     var retryLoad by remember { mutableIntStateOf(0) }
     var storageError by remember { mutableStateOf<String?>(null) }
     var isSaving by remember { mutableStateOf(false) }
-    val notifications = remember { SnackbarHostState() }
     LaunchedEffect(store, retryLoad) {
         try {
             val persisted = store.load()
