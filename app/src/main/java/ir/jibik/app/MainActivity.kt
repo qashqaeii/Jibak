@@ -1,6 +1,8 @@
 package ir.jibik.app
 
 import android.os.Bundle
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -63,6 +65,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -84,7 +87,9 @@ import ir.jibik.core.finance.periodTotals
 import java.text.NumberFormat
 import java.util.Locale
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val Forest = Color(0xFF07574C)
 private val Deep = Color(0xFF102D31)
@@ -136,6 +141,34 @@ private fun JibikApp(store: LocalLedgerStore) {
     val accounts = remember { mutableStateListOf<Account>() }
     val goals = remember { mutableStateListOf<SavingsGoalEntity>() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var isExporting by remember { mutableStateOf(false) }
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv"),
+    ) { uri ->
+        if (uri != null && !isExporting) {
+            // Read a fresh persisted snapshot, not a potentially stale UI list.
+            isExporting = true
+            scope.launch {
+                try {
+                    val snapshot = store.load()
+                    val snapshotAccounts = store.loadAccounts()
+                    withContext(Dispatchers.IO) {
+                        val output = context.contentResolver.openOutputStream(uri, "w")
+                            ?: error("Unable to open selected export document")
+                        output.use { LedgerCsvExport.write(it, snapshotAccounts, snapshot) }
+                    }
+                    notifications.showSnackbar("فایل گردش مالی ذخیره شد.")
+                } catch (_: Exception) {
+                    notifications.showSnackbar(
+                        "ذخیره خروجی کامل نشد؛ فایل انتخاب‌شده را بررسی یا حذف کن."
+                    )
+                } finally {
+                    isExporting = false
+                }
+            }
+        }
+    }
     var isLoaded by remember { mutableStateOf(false) }
     var loadingFailed by remember { mutableStateOf(false) }
     var retryLoad by remember { mutableIntStateOf(0) }
@@ -295,6 +328,11 @@ private fun JibikApp(store: LocalLedgerStore) {
                 records = records,
                 categorySpending = categorySpending,
                 modifier = Modifier.padding(insets),
+                onExportCsv = {
+                    if (!isExporting) {
+                        exportLauncher.launch("jibik-ledger.csv")
+                    }
+                },
             )
             Section.ACCOUNTS -> if (showGoals) {
                 Box(Modifier.padding(insets)) {
