@@ -26,6 +26,7 @@ internal class LocalLedgerStore(context: Context) {
     private val categoryBudgetDao = database.categoryBudgetDao()
     private val obligationDao = database.obligationDao()
     private val obligationPaymentDao = database.obligationPaymentDao()
+    private val bankSmsDao = database.bankSmsCandidateDao()
 
     fun hasFinishedWelcome(): Boolean = preferences.getBoolean("welcome_finished", false)
 
@@ -229,6 +230,85 @@ internal class LocalLedgerStore(context: Context) {
             )
             record
         }
+    }
+
+    suspend fun bankSmsSuggestions(): List<BankSmsCandidateEntity> =
+        withContext(Dispatchers.IO) { bankSmsDao.recent() }
+
+    /**
+     * Intake is idempotent: matching duplicate messages from broadcast and inbox
+     * become exactly one candidate. Only minimal metadata is persisted, no SMS body.
+     */
+    suspend fun importBankSms(matches: List<BankSmsMatch>): Int =
+        withContext(Dispatchers.IO) {
+            require(matches.size <= 500)
+            database.withTransaction {
+                var inserted = 0
+                for (match in matches) {
+                    if (match.amountToman == null || match.fingerprint.length != 64) continue
+                    if (bankSmsDao.insertIgnore(
+                        BankSmsCandidateEntity(
+                            id = match.fingerprint,
+                            bankId = match.bankId,
+                            bankTitle = match.bankTitle,
+                            income = match.income,
+                            amountRial = match.amountRial,
+                            accountLast4 = match.accountLast4,
+                            receivedAtMillis = match.receivedAtMillis,
+                        )
+                    ) != -1L) inserted++
+                }
+                inserted
+            }
+        }
+
+    suspend fun ignoreBankSms(id: String): Boolean = withContext(Dispatchers.IO) {
+        bankSmsDao.ignore(id) == 1
+    }
+
+    /**
+     * Do not call ordinary append(): approval must link the candidate and ledger
+     * atomically. A repeated tap, import or process crash cannot create two entries.
+     */
+    suspend fun registerBankSms(id: String, record: LedgerRecord): LedgerRecord =
+        withContext(Dispatchers.IO) {
+            ensureDefaultWallet()
+            migrateLegacyIfNeeded()
+            database.withTransaction {
+                val candidate = bankSmsDao.find(id) ?: error("Bank suggestion not found")
+                check(candidate.state == "PENDING") { "Already handled" }
+                val amount = candidate.amountRial.takeIf { it > 0 && it % 10L == 0L }
+                    ?.div(10L) ?: error("Imprecise Rial amount")
+                require(record.amountToman == amount) { "SMS amount was changed" }
+                require(record.kind == if (candidate.income) LedgerKind.INCOME else LedgerKind.EXPENSE) {
+                    "Wrong transfer direction"
+                }
+                require(record.timestampMillis == candidate.receivedAtMillis) {
+                    "SMS timestamp must not be changed silently"
+                }
+                val accounts = accountDao.list().map { it.toAccount() }
+                val selectedId = if (candidate.income) record.toAccountId else record.fromAccountId
+                require(accounts.any { it.id == selectedId }) { "Missing account" }
+                val category = isSelectableCategory(
+                    record.category,
+                    income = candidate.income,
+                    custom = customCategoryDao.list(),
+                )
+                require(category) { "Invalid category" }
+                require(record.note.length <= 250)
+                FinanceEngine.balances(
+                    accounts, dao.getAll().map { it.toRecord() } + record,
+                )
+                dao.insert(record.toEntity())
+                check(bankSmsDao.markRegistered(id, record.id) == 1)
+                record
+            }
+        }
+
+    suspend fun clearOldBankSmsHistory() = withContext(Dispatchers.IO) {
+        bankSmsDao.purgeOlderHandled(
+            System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000
+        )
     }
 
     suspend fun loadSavingsGoals(): List<SavingsGoalEntity> =
