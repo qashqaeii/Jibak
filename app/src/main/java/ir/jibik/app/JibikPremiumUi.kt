@@ -26,6 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /**
  * Shared visual foundation for the Jibik Android app. Geometry and gradients
@@ -92,11 +94,17 @@ internal fun JibikSectionTitle(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, color = JibikStyle.ink, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+            Text(
+                title, color = JibikStyle.ink, fontSize = 17.sp,
+                fontWeight = FontWeight.ExtraBold,
+                lineHeight = 23.sp,
+                modifier = Modifier.semantics { heading() },
+            )
             if (subtitle != null) {
                 Text(
                     subtitle, color = JibikStyle.muted, fontSize = 12.sp,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    maxLines = 2, lineHeight = 18.sp,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -148,6 +156,54 @@ internal fun JibikQuickAction(
             subtitle, color = JibikStyle.muted, fontSize = 10.sp,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+/**
+ * Wide third action on compact devices. The existing three-column layout
+ * remains on larger phones, but on 320–390dp screens no action is clipped.
+ */
+@Composable
+internal fun JibikWideQuickAction(
+    title: String,
+    subtitle: String,
+    symbol: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LiquidGlassCard(
+        modifier = modifier,
+        tone = GlassTone.CRYSTAL,
+        padding = androidx.compose.foundation.layout.PaddingValues(
+            horizontal = 14.dp, vertical = 12.dp,
+        ),
+        onClick = onClick,
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(
+                Modifier.size(42.dp).liquidGlass(
+                    tone = GlassTone.HONEY, radius = 14.dp, elevation = 3.dp,
+                ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(symbol, color = Color(0xFF8C531A),
+                    fontWeight = FontWeight.Bold, fontSize = 21.sp)
+            }
+            Column(
+                Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Text(title, color = JibikStyle.ink, fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold)
+                Text(subtitle, color = JibikStyle.muted, fontSize = 12.sp,
+                    maxLines = 2)
+            }
+            Text("‹", color = JibikStyle.forest, fontSize = 21.sp)
+        }
     }
 }
 
