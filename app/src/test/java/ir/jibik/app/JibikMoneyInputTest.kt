@@ -1,5 +1,6 @@
 package ir.jibik.app
 
+import androidx.compose.ui.text.AnnotatedString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -32,6 +33,16 @@ class JibikMoneyInputTest {
         assertFalse(isAllowedTomanDraft("1.5"))
         assertFalse(isAllowedTomanDraft("تومان"))
         assertTrue(isAllowedTomanDraft("۱٬۲۳۴,٥٦٧"))
+    }
+
+    @Test fun groupedAmountCursorNeverJumpsOverDigit() {
+        val transformed = TomanGroupingTransformation().filter(AnnotatedString("5000000"))
+        assertEquals("5,000,000", transformed.text.text)
+        assertEquals(0, transformed.offsetMapping.transformedToOriginal(0))
+        assertEquals(1, transformed.offsetMapping.transformedToOriginal(1))
+        assertEquals(1, transformed.offsetMapping.transformedToOriginal(2))
+        assertEquals(7, transformed.offsetMapping.transformedToOriginal(9))
+        assertEquals(2, transformed.offsetMapping.originalToTransformed(1))
     }
 
     @Test fun moneyDisplayHasReadableZeroAndUnambiguousCommas() {
