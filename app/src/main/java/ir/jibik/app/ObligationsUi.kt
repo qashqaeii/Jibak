@@ -54,6 +54,7 @@ internal fun ObligationsScreen(
 ) {
     val now = System.currentTimeMillis()
     var expandedPaymentId by rememberSaveable { mutableStateOf("") }
+    var showingHistoryId by rememberSaveable { mutableStateOf("") }
     val active = obligations.filter { !obligationProgress(it, payments).settled }
     val due = active.count { item ->
         val installment = nextUnpaidInstallment(item, payments)
@@ -214,6 +215,17 @@ internal fun ObligationsScreen(
                 Text(itemPayments.size.toString() + " پرداخت/دریافت ثبت‌شده",
                     color = JibikStyle.muted, fontSize = 11.sp)
                 if (itemPayments.isNotEmpty()) {
+                    LiquidGlassButton(
+                        text = if (showingHistoryId == item.id) "بستن سوابق پرداخت"
+                            else "مشاهده سوابق پرداخت",
+                        tone = GlassTone.CRYSTAL,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            showingHistoryId = if (showingHistoryId == item.id) "" else item.id
+                            expandedPaymentId = ""
+                        },
+                    )
+                    if (showingHistoryId == item.id) {
                     Text("سابقه پرداخت‌ها", color = JibikStyle.ink,
                         fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     (if (expandedPaymentId == item.id) itemPayments
@@ -255,6 +267,7 @@ internal fun ObligationsScreen(
                                 color = JibikStyle.forest, fontSize = 12.sp,
                             )
                         }
+                    }
                     }
                 }
                 if (!progress.settled) {
