@@ -249,6 +249,7 @@ private fun JibikApp(store: LocalLedgerStore) {
         }
     }
     var showAdd by remember { mutableStateOf(false) }
+    var repeatRecord by remember { mutableStateOf<LedgerRecord?>(null) }
     var addKind by remember { mutableStateOf(LedgerKind.EXPENSE) }
     var addTargetAccountId by remember { mutableStateOf<String?>(null) }
     var showCreateAccount by remember { mutableStateOf(false) }
@@ -469,6 +470,27 @@ private fun JibikApp(store: LocalLedgerStore) {
                 lines = receiptRows,
                 loadFailed = receiptLoadError,
                 onRetry = { receiptRetry++ },
+                obligationTitle = obligationPayments.firstOrNull {
+                    it.transactionId == record.id
+                }?.let { payment ->
+                    obligations.firstOrNull { it.id == payment.obligationId }?.title
+                },
+                onRepeat = if (
+                    obligationPayments.none { it.transactionId == record.id } &&
+                    receiptRows?.isEmpty() == true &&
+                    (record.kind == LedgerKind.TRANSFER ||
+                        isSelectableCategory(
+                            record.category,
+                            record.kind == LedgerKind.INCOME,
+                            customCategories,
+                        ))
+                ) ({ ->
+                    repeatRecord = record
+                    addKind = record.kind
+                    selectedTransactionId = null
+                    receiptRows = null
+                    showAdd = true
+                }) else null,
                 onDismiss = { selectedTransactionId = null; receiptRows = null },
             )
         }
@@ -640,8 +662,13 @@ private fun JibikApp(store: LocalLedgerStore) {
             customCategories = customCategories,
             initialKind = addKind,
             initialTargetAccountId = addTargetAccountId,
+            repeatRecord = repeatRecord,
             isSaving = isSaving,
-            onDismiss = { if (!isSaving) { showAdd = false; addTargetAccountId = null } },
+            onDismiss = { if (!isSaving) {
+                showAdd = false
+                addTargetAccountId = null
+                repeatRecord = null
+            } },
             onSave = { record ->
                 if (!isSaving) {
                     isSaving = true
@@ -652,6 +679,7 @@ private fun JibikApp(store: LocalLedgerStore) {
                             records.add(0, record)
                             showAdd = false
                             addTargetAccountId = null
+                            repeatRecord = null
                             scope.launch { notifications.showSnackbar("تراکنش ثبت شد.") }
                         } catch (_: Exception) {
                             storageError = "تراکنش ذخیره نشد؛ اطلاعات قبلی شما محفوظ است."
@@ -1340,23 +1368,35 @@ private fun AddTransactionDialog(
     customCategories: List<CustomCategoryEntity>,
     initialKind: LedgerKind,
     initialTargetAccountId: String? = null,
+    repeatRecord: LedgerRecord? = null,
     isSaving: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (LedgerRecord) -> Unit,
 ) {
-    var kind by rememberSaveable { mutableStateOf(initialKind) }
-    var amount by rememberSaveable { mutableStateOf("") }
-    var category by rememberSaveable(initialKind) {
-        mutableStateOf(if (initialKind == LedgerKind.INCOME) "حقوق و دستمزد" else "خوراک")
+    var kind by rememberSaveable(repeatRecord?.id) {
+        mutableStateOf(repeatRecord?.kind ?: initialKind)
+    }
+    var amount by rememberSaveable(repeatRecord?.id) {
+        mutableStateOf(repeatRecord?.amountToman?.toString().orEmpty())
+    }
+    var category by rememberSaveable(repeatRecord?.id) {
+        mutableStateOf(repeatRecord?.category
+            ?: if (initialKind == LedgerKind.INCOME) "حقوق و دستمزد" else "خوراک")
     }
     var showCategoryPicker by rememberSaveable { mutableStateOf(false) }
-    var note by rememberSaveable { mutableStateOf("") }
-    var sourceId by rememberSaveable {
-        mutableStateOf(accounts.firstOrNull()?.id.orEmpty())
+    var note by rememberSaveable(repeatRecord?.id) {
+        mutableStateOf(repeatRecord?.note.orEmpty())
     }
-    var targetId by rememberSaveable(initialTargetAccountId) {
+    var sourceId by rememberSaveable(repeatRecord?.id) {
         mutableStateOf(
-            initialTargetAccountId?.takeIf { id -> accounts.any { it.id == id } }
+            repeatRecord?.fromAccountId ?: repeatRecord?.toAccountId
+                ?: accounts.firstOrNull()?.id.orEmpty()
+        )
+    }
+    var targetId by rememberSaveable(initialTargetAccountId, repeatRecord?.id) {
+        mutableStateOf(
+            (initialTargetAccountId ?: repeatRecord?.toAccountId)
+                ?.takeIf { id -> id != sourceId && accounts.any { it.id == id } }
                 ?: accounts.firstOrNull { it.id != sourceId }?.id.orEmpty(),
         )
     }
