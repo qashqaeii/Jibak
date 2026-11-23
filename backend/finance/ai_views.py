@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .ai_assistant import FEATURES, analyze, analyze_for_context
-from .ai_snapshot import SummarySerializer, summary_context
+from .ai_snapshot import StrictSummarySerializer, SummarySerializer, summary_context
 from .ai_provider import AiError, available
 
 ERRORS = {
@@ -66,7 +66,7 @@ class AiAnalysisView(APIView):
         })
 
 
-class AiMobileRequestSerializer(serializers.Serializer):
+class AiMobileRequestSerializer(StrictSummarySerializer):
     feature = serializers.ChoiceField(choices=FEATURES)
     consent = serializers.BooleanField(required=True)
     summary = SummarySerializer()
@@ -86,8 +86,6 @@ class AiMobileSummaryView(APIView):
     def post(self, request):
         form = AiMobileRequestSerializer(data=request.data)
         form.is_valid(raise_exception=True)
-        if not request.data.get("consent") is True:
-            return no_store({"code": "consent_required"}, 400)
         data = form.validated_data
         try:
             result, cached = analyze_for_context(
