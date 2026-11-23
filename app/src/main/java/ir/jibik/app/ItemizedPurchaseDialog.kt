@@ -47,12 +47,14 @@ import java.text.NumberFormat
 import java.util.Locale
 import java.util.UUID
 
-private fun PurchaseDraftItem.asPurchaseLine(): PurchaseLine? {
+private fun PurchaseDraftItem.asPurchaseLine(
+    customCategories: List<CustomCategoryEntity>,
+): PurchaseLine? {
     val count = parseTomanDraft(quantity)?.takeIf { it in 1L..10_000L }?.toInt()
     val price = parseTomanDraft(unitPrice)
     return if (name.isNotBlank() && name.length <= 80 &&
         count != null && price != null && price >= 0L &&
-        ExpenseCategoryCatalog.byDisplayName(category) != null
+        isSelectableCategory(category, false, customCategories)
     ) PurchaseLine(name.trim(), category.trim(), count, price) else null
 }
 
@@ -62,6 +64,7 @@ private fun money(value: Long): String = formatToman(value)
 @Composable
 internal fun ItemizedPurchaseDialog(
     accounts: List<Account>,
+    customCategories: List<CustomCategoryEntity>,
     onDismiss: () -> Unit,
     onSave: (LedgerRecord, List<PurchaseLine>) -> Unit,
     isSaving: Boolean = false,
@@ -71,7 +74,7 @@ internal fun ItemizedPurchaseDialog(
     val drafts = rememberSaveable(saver = purchaseDraftStateSaver) {
         mutableStateListOf(PurchaseDraftItem())
     }
-    val lines = drafts.mapNotNull { it.asPurchaseLine() }
+    val lines = drafts.mapNotNull { it.asPurchaseLine(customCategories) }
     val total = if (lines.size == drafts.size) runCatching {
         itemizedPurchaseTotal(lines.map {
             ShoppingItem(it.title, it.quantity, it.unitPriceToman)
@@ -112,7 +115,7 @@ internal fun ItemizedPurchaseDialog(
                     onSelect = { accountId = it },
                 )
                 drafts.forEachIndexed { index, draft ->
-                    val line = draft.asPurchaseLine()
+                    val line = draft.asPurchaseLine(customCategories)
                     val lineTotal = line?.let {
                         runCatching { Math.multiplyExact(it.quantity.toLong(), it.unitPriceToman) }
                             .getOrNull()
@@ -213,7 +216,7 @@ internal fun ItemizedPurchaseDialog(
                                     Text("‹ انتخاب", color = JibikStyle.forest, fontSize = 11.sp)
                                 }
                             }
-                            if (ExpenseCategoryCatalog.byDisplayName(draft.category) == null) {
+                            if (!isSelectableCategory(draft.category, false, customCategories)) {
                                 JibikFormHint("دسته معتبر برای این قلم انتخاب کن.", isWarning = true)
                             } else if (lineTotal != null) {
                                 Text(
@@ -292,6 +295,7 @@ internal fun ItemizedPurchaseDialog(
         CategoryPickerDialog(
             income = false,
             selected = drafts[itemIndex].category,
+            custom = customCategories,
             onSelected = { chosen ->
                 drafts[itemIndex] = drafts[itemIndex].copy(category = chosen)
                 selectingCategoryIndex = -1
