@@ -91,7 +91,7 @@ internal fun GoalsScreen(
             Text("راهنمایی مالی، بدون جابه‌جایی پول",
                 color = JibikStyle.muted, fontSize = 12.sp)
         }
-        JibikHero(Modifier.fillMaxWidth()) {
+        JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.GOALS) {
             Text(
                 "مسیر پس‌انداز", color = Color(0xFFDCF3EA), fontSize = 13.sp,
             )
