@@ -400,6 +400,7 @@ private fun JibikApp(store: LocalLedgerStore) {
                     onBack = { showObligations = false },
                     onAdd = { showNewObligation = true },
                     onPay = { settlingObligationId = it },
+                    onPaymentClick = { selectedTransactionId = it },
                     isSaving = isSaving,
                 )
                 showCategoryManager -> CategoryManagementScreen(
