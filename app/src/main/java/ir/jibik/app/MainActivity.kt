@@ -262,7 +262,7 @@ private fun JibikApp(store: LocalLedgerStore) {
     }
 
     Scaffold(
-        containerColor = Cream,
+        containerColor = GlassPalette.backgroundTop,
         snackbarHost = { SnackbarHost(hostState = notifications) },
         bottomBar = {
             Box(
@@ -560,7 +560,7 @@ private fun Home(
     onTransactionClick: (LedgerRecord) -> Unit,
 ) {
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
+        modifier = modifier.fillMaxSize().liquidBackdrop().verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -812,7 +812,7 @@ private fun Transactions(
         filterMatches && searchMatches
     }
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().liquidBackdrop(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 98.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -980,7 +980,7 @@ private fun Budget(
     val remaining = budget - spent
     val usage = (spent.toDouble() / budget.coerceAtLeast(1L).toDouble()).toFloat()
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
+        modifier = modifier.fillMaxSize().liquidBackdrop().verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(15.dp),
     ) {
