@@ -82,8 +82,12 @@ internal class LocalLedgerStore(context: Context) {
         database.withTransaction {
             if (legacy.isNotEmpty()) {
                 dao.insertLegacy(legacy)
-                check(dao.countMatchingIds(legacy.map { it.id }) == legacy.size) {
-                    "Legacy ledger was not completely imported"
+                // IGNORE makes retry idempotent, but an existing row with the
+                // same ID and different financial values must never pass as a
+                // successful import. Compare full rows before setting the marker.
+                val importedById = dao.getAll().associateBy { it.id }
+                check(legacy.all { importedById[it.id] == it }) {
+                    "Legacy ledger conflicts with existing Room transactions"
                 }
             }
         }
