@@ -40,8 +40,7 @@ import java.text.NumberFormat
 import java.util.Locale
 import java.util.UUID
 
-private fun goalMoney(amount: Long) =
-    NumberFormat.getNumberInstance(Locale("fa", "IR")).format(amount) + " تومان"
+private fun goalMoney(amount: Long): String = formatToman(amount)
 
 /** Real balances, not a fabricated savings counter. */
 @Composable
