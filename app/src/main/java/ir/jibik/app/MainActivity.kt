@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +19,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -690,85 +693,135 @@ private fun Transactions(records: List<LedgerRecord>, modifier: Modifier) {
             record.amountToman.toString().contains(search.trim())
         filterMatches && searchMatches
     }
-    Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(13.dp),
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 98.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("تراکنش‌ها", fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = Deep)
-        Text("جستجو و مرور همه درآمدها، هزینه‌ها و انتقال‌ها", color = Quiet, fontSize = 13.sp)
-        OutlinedTextField(
-            value = search,
-            onValueChange = { search = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("جستجو در تراکنش‌ها") },
-            placeholder = { Text("نام، توضیح، دسته‌بندی یا مبلغ") },
-            singleLine = true,
-            shape = RoundedCornerShape(15.dp),
-        )
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            listOf("همه", "هزینه", "درآمد", "انتقال").forEach { option ->
-                FilterChip(
-                    selected = kindFilter == option,
-                    onClick = { kindFilter = option },
-                    label = { Text(option, fontSize = 12.sp) },
-                    shape = RoundedCornerShape(12.dp),
-                )
+        item {
+            JibikSectionTitle(
+                "تراکنش‌ها",
+                "تمام درآمدها، هزینه‌ها و انتقال‌های ثبت‌شده",
+            )
+        }
+        item {
+            OutlinedTextField(
+                value = search,
+                onValueChange = { search = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("جستجو در تراکنش‌ها") },
+                placeholder = { Text("نام، دسته‌بندی یا مبلغ") },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+            )
+        }
+        item {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                listOf("همه", "هزینه", "درآمد", "انتقال").forEach { option ->
+                    FilterChip(
+                        selected = kindFilter == option,
+                        onClick = { kindFilter = option },
+                        label = { Text(option, fontSize = 12.sp) },
+                        shape = RoundedCornerShape(14.dp),
+                    )
+                }
             }
         }
-        Text(
-            "${filtered.size} تراکنش",
-            color = Forest, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-        )
+        item {
+            Text(
+                "${filtered.size} تراکنش",
+                color = Forest, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+            )
+        }
         if (filtered.isEmpty()) {
-            if (records.isEmpty()) EmptyTransactions()
-            else Card(
-                colors = CardDefaults.cardColors(containerColor = Paper),
-                shape = RoundedCornerShape(22.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(Modifier.padding(22.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally) {
-                    JiboMascot(Modifier.size(70.dp))
-                    Text("تراکنشی با این جستجو پیدا نشد.", color = Deep)
+            item {
+                if (records.isEmpty()) EmptyTransactions()
+                else JibikSurfaceCard {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        JiboMascot(Modifier.size(58.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("چیزی پیدا نشد", fontWeight = FontWeight.Bold, color = Deep)
+                            Text("جستجو یا فیلترت رو تغییر بده.", fontSize = 12.sp, color = Quiet)
+                        }
+                    }
                     TextButton(onClick = { search = ""; kindFilter = "همه" }) {
                         Text("پاک‌کردن فیلترها")
                     }
                 }
             }
         } else {
-            filtered.forEach { TransactionCard(it) }
+            items(items = filtered, key = { it.id }) { record ->
+                TransactionCard(record)
+            }
         }
-        Spacer(Modifier.height(90.dp))
     }
 }
 
 @Composable
 private fun TransactionCard(record: LedgerRecord) {
+    val expense = record.kind == LedgerKind.EXPENSE
+    val transfer = record.kind == LedgerKind.TRANSFER
+    val highlight = when {
+        expense -> Coral
+        transfer -> Color(0xFFB26A12)
+        else -> Forest
+    }
+    val tint = when {
+        expense -> Color(0xFFFFEEEB)
+        transfer -> Color(0xFFFFF0DD)
+        else -> Color(0xFFE9F6EF)
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Paper),
-        shape = RoundedCornerShape(17.dp),
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 13.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(record.note.ifBlank { record.category.ifBlank {
-                    if (record.kind == LedgerKind.TRANSFER) "انتقال بین حساب‌ها" else "تراکنش"
-                } }, fontWeight = FontWeight.Bold)
+            Box(
+                Modifier.size(40.dp).background(tint, RoundedCornerShape(13.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    when {
+                        expense -> "−"
+                        transfer -> "⇄"
+                        else -> "+"
+                    },
+                    color = highlight, fontWeight = FontWeight.Bold, fontSize = 20.sp,
+                )
+            }
+            Column(
+                Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Text(
+                    record.note.ifBlank {
+                        record.category.ifBlank { if (transfer) "انتقال بین حساب‌ها" else "تراکنش" }
+                    },
+                    fontWeight = FontWeight.Bold, color = Deep,
+                    fontSize = 13.sp, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Text(
                     when (record.kind) {
                         LedgerKind.EXPENSE -> "هزینه · " + record.category
                         LedgerKind.INCOME -> "درآمد · " + record.category
-                        LedgerKind.TRANSFER -> "انتقال"
+                        LedgerKind.TRANSFER -> "انتقال بین حساب‌ها"
                     },
-                    color = Quiet, fontSize = 12.sp,
+                    color = Quiet, fontSize = 11.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
             Text(
@@ -777,14 +830,17 @@ private fun TransactionCard(record: LedgerRecord) {
                     LedgerKind.INCOME -> "+ "
                     LedgerKind.TRANSFER -> "⇄ "
                 }) + money(record.amountToman),
-                fontWeight = FontWeight.Bold,
-                color = if (record.kind == LedgerKind.EXPENSE) Coral else Forest,
-                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = highlight,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(0.88f),
+                textAlign = TextAlign.End,
             )
         }
     }
 }
-
 
 @Composable
 private fun EmptyTransactions() {
