@@ -1,11 +1,16 @@
 package ir.jibik.app
 
 import android.os.Bundle
+import android.os.Build
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -113,8 +118,21 @@ private val colors = lightColorScheme(
 )
 
 class MainActivity : ComponentActivity() {
+    private val dueReminderOpenSignal = mutableIntStateOf(0)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(LocalDueReminders.OPEN_OBLIGATIONS, false)) {
+            dueReminderOpenSignal.intValue++
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent?.getBooleanExtra(LocalDueReminders.OPEN_OBLIGATIONS, false) == true) {
+            dueReminderOpenSignal.intValue++
+        }
         // Keep system bars visually continuous with the light liquid-glass canvas.
         // Android 15 may manage the bar surfaces itself; icon contrast still applies.
         @Suppress("DEPRECATION")
@@ -129,7 +147,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = colors) {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    JibikApp(store)
+                    JibikApp(store, dueReminderOpenSignal.intValue)
                 }
             }
         }
@@ -145,7 +163,7 @@ private enum class Section(val title: String) {
 }
 
 @Composable
-private fun JibikApp(store: LocalLedgerStore) {
+private fun JibikApp(store: LocalLedgerStore, dueReminderOpenSignal: Int) {
     var welcomed by remember { mutableStateOf(store.hasFinishedWelcome()) }
     val records = remember { mutableStateListOf<LedgerRecord>() }
     val savedReceiptLines = remember { mutableStateMapOf<String, List<PurchaseLine>>() }
@@ -158,6 +176,27 @@ private fun JibikApp(store: LocalLedgerStore) {
     val scope = rememberCoroutineScope()
     val notifications = remember { SnackbarHostState() }
     val context = LocalContext.current
+    var dueRemindersOptedIn by remember {
+        mutableStateOf(LocalDueReminders.isEnabled(context))
+    }
+    val activateDueReminders = {
+        val enabled = runCatching { LocalDueReminders.enable(context) }.getOrDefault(false)
+        dueRemindersOptedIn = enabled
+        scope.launch {
+            notifications.showSnackbar(
+                if (enabled) "یادآوری محلی سررسیدها فعال شد."
+                else "اعلان‌ها از تنظیمات گوشی مجاز نیستند."
+            )
+        }
+    }
+    val duePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) activateDueReminders()
+        else scope.launch {
+            notifications.showSnackbar("برای یادآوری، اجازه اعلان را از تنظیمات گوشی فعال کن.")
+        }
+    }
     var isExporting by remember { mutableStateOf(false) }
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv"),
@@ -264,6 +303,12 @@ private fun JibikApp(store: LocalLedgerStore) {
     var editingCategoryBudget by remember { mutableStateOf<CategoryBudgetEntity?>(null) }
     var showCategoryBudgetDialog by remember { mutableStateOf(false) }
     var showObligations by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(dueReminderOpenSignal) {
+        if (dueReminderOpenSignal > 0) {
+            section = Section.ACCOUNTS
+            showObligations = true
+        }
+    }
     var showNewObligation by remember { mutableStateOf(false) }
     var settlingObligationId by remember { mutableStateOf<String?>(null) }
     var jiboAiFeature by remember { mutableStateOf<JiboAiFeature?>(null) }
@@ -401,6 +446,27 @@ private fun JibikApp(store: LocalLedgerStore) {
                     onAdd = { showNewObligation = true },
                     onPay = { settlingObligationId = it },
                     onPaymentClick = { selectedTransactionId = it },
+                    remindersEnabled = dueRemindersOptedIn &&
+                        LocalDueReminders.permissionAvailable(context),
+                    onEnableReminders = {
+                        if (Build.VERSION.SDK_INT >= 33 &&
+                            ContextCompat.checkSelfPermission(
+                                context, Manifest.permission.POST_NOTIFICATIONS,
+                            ) != PackageManager.PERMISSION_GRANTED
+                        ) {
+                            duePermissionLauncher.launch(
+                                Manifest.permission.POST_NOTIFICATIONS
+                            )
+                        } else activateDueReminders()
+                    },
+                    onDisableReminders = {
+                        if (runCatching { LocalDueReminders.disable(context) }.isSuccess) {
+                            dueRemindersOptedIn = false
+                            scope.launch { notifications.showSnackbar("یادآوری‌ها خاموش شدند.") }
+                        } else scope.launch {
+                            notifications.showSnackbar("خاموش‌کردن اعلان‌ها ناموفق بود.")
+                        }
+                    },
                     isSaving = isSaving,
                 )
                 showCategoryManager -> CategoryManagementScreen(
