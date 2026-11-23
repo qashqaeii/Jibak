@@ -66,8 +66,11 @@ internal fun ReportsScreen(
 ) {
     val month = currentJalaliMonth()
     val totals = periodTotals(records, month.startMillis, month.endExclusiveMillis)
-    val categories = categorySpending
-    val rootCategories = categoryReportRows(categories)
+    var incomeBreakdown by rememberSaveable { mutableStateOf(false) }
+    val categories = if (incomeBreakdown) {
+        detailedIncomeCategories(records, month.startMillis, month.endExclusiveMillis)
+    } else categorySpending
+    val expenseRoots = categoryReportRows(categorySpending)
     var selectedCategoryPath by rememberSaveable { mutableStateOf("") }
     var selectedLeafPath by rememberSaveable { mutableStateOf("") }
     var directOnly by rememberSaveable { mutableStateOf(false) }
@@ -76,7 +79,9 @@ internal fun ReportsScreen(
     val displayed = categoryReportRows(categories, selectedCategoryPath)
     val contributions = if (selectedLeafPath.isNotEmpty()) {
         categoryReportContributions(
-            classifiedExpenseLines(
+            if (incomeBreakdown) classifiedIncomeLines(
+                records, month.startMillis, month.endExclusiveMillis,
+            ) else classifiedExpenseLines(
                 records, receiptLines, month.startMillis, month.endExclusiveMillis,
             ),
             selectedLeafPath, directOnly,
@@ -132,7 +137,7 @@ internal fun ReportsScreen(
             Text("پیشنهادهای کاربردی از روی خلاصه ۳۰ روز گذشته",
                 fontSize = 12.sp, color = Muted)
         }
-        if (rootCategories.isNotEmpty()) {
+        if (expenseRoots.isNotEmpty()) {
             JibikSurfaceCard {
                 Text("بیشترین هزینه در این ماه", color = Muted, fontSize = 12.sp)
                 Row(
@@ -141,12 +146,12 @@ internal fun ReportsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        rootCategories.first().title, color = Ink, fontSize = 15.sp,
+                        expenseRoots.first().title, color = Ink, fontSize = 15.sp,
                         fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        moneyReport(rootCategories.first().amountToman), color = Emerald,
+                        moneyReport(expenseRoots.first().amountToman), color = Emerald,
                         fontSize = 13.sp, fontWeight = FontWeight.ExtraBold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
@@ -157,9 +162,40 @@ internal fun ReportsScreen(
             modifier = Modifier.fillMaxWidth(),
             tone = GlassTone.CRYSTAL,
         ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+            ) {
+                LiquidGlassButton(
+                    text = "هزینه‌ها",
+                    tone = if (!incomeBreakdown) GlassTone.EMERALD else GlassTone.CRYSTAL,
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        incomeBreakdown = false
+                        selectedCategoryPath = ""
+                        selectedLeafPath = ""
+                        showAllCategories = false
+                        visibleTransactions = 15
+                    },
+                )
+                LiquidGlassButton(
+                    text = "درآمدها",
+                    tone = if (incomeBreakdown) GlassTone.EMERALD else GlassTone.CRYSTAL,
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        incomeBreakdown = true
+                        selectedCategoryPath = ""
+                        selectedLeafPath = ""
+                        showAllCategories = false
+                        visibleTransactions = 15
+                    },
+                )
+            }
             JibikSectionTitle(
                 title = if (selectedLeafPath.isNotEmpty()) "جزئیات تراکنش‌های این دسته"
-                else if (selectedCategoryPath.isEmpty()) "هزینه‌ها بر اساس دسته اصلی"
+                else if (selectedCategoryPath.isEmpty())
+                    if (incomeBreakdown) "درآمدها بر اساس دسته اصلی"
+                    else "هزینه‌ها بر اساس دسته اصلی"
                 else "زیر‌دسته‌ها و جزئیات",
                 subtitle = if (selectedLeafPath.isNotEmpty()) selectedLeafPath
                 else selectedCategoryPath.ifEmpty { "برای دیدن جزئیات روی هر دسته بزن" },
@@ -230,7 +266,7 @@ internal fun ReportsScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     JiboMascot(Modifier.size(64.dp))
-                    Text("در این ماه هنوز هزینه‌ای برای نمایش وجود ندارد.",
+                    Text("در این ماه هنوز داده‌ای برای این نوع گزارش وجود ندارد.",
                         color = Muted, fontSize = 13.sp)
                 }
             } else {
