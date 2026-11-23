@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -114,12 +115,14 @@ private enum class Section(val title: String) {
     HOME("خانه"),
     TRANSACTIONS("تراکنش‌ها"),
     BUDGET("بودجه"),
+    ACCOUNTS("حساب‌ها"),
 }
 
 @Composable
 private fun JibikApp(store: LocalLedgerStore) {
     var welcomed by remember { mutableStateOf(store.hasFinishedWelcome()) }
     val records = remember { mutableStateListOf<LedgerRecord>() }
+    val accounts = remember { mutableStateListOf<Account>() }
     val scope = rememberCoroutineScope()
     var isLoaded by remember { mutableStateOf(false) }
     var loadingFailed by remember { mutableStateOf(false) }
@@ -129,6 +132,10 @@ private fun JibikApp(store: LocalLedgerStore) {
     LaunchedEffect(store, retryLoad) {
         try {
             val persisted = store.load()
+            val loadedAccounts = store.loadAccounts()
+            // Account definitions first, so the ledger can never reference a missing account.
+            accounts.clear()
+            accounts.addAll(loadedAccounts)
             records.clear()
             records.addAll(persisted)
             loadingFailed = false
@@ -138,7 +145,6 @@ private fun JibikApp(store: LocalLedgerStore) {
             isLoaded = true
         }
     }
-    val accounts = remember { listOf(Account("wallet", "کیف پول جیبیک")) }
     val summary = FinanceEngine.summary(accounts, records.toList())
     val currentMonth = currentJalaliMonth()
     val monthTotals = periodTotals(
@@ -149,6 +155,8 @@ private fun JibikApp(store: LocalLedgerStore) {
     )
     var section by rememberSaveable { mutableStateOf(Section.HOME) }
     var showAdd by remember { mutableStateOf(false) }
+    var addKind by remember { mutableStateOf(LedgerKind.EXPENSE) }
+    var showCreateAccount by remember { mutableStateOf(false) }
     var budget by remember { mutableStateOf(store.budgetToman()) }
     var showEditBudget by remember { mutableStateOf(false) }
 
@@ -202,7 +210,7 @@ private fun JibikApp(store: LocalLedgerStore) {
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showAdd = true },
+                onClick = { addKind = LedgerKind.EXPENSE; showAdd = true },
                 modifier = Modifier.height(56.dp),
                 containerColor = Orange,
                 contentColor = Deep,
@@ -234,11 +242,43 @@ private fun JibikApp(store: LocalLedgerStore) {
                 modifier = Modifier.padding(insets),
                 onEdit = { showEditBudget = true },
             )
+            Section.ACCOUNTS -> AccountsScreen(
+                accounts = accounts,
+                balances = FinanceEngine.balances(accounts, records.toList()),
+                modifier = Modifier.padding(insets),
+                onAdd = { showCreateAccount = true },
+                onTransfer = { addKind = LedgerKind.TRANSFER; showAdd = true },
+            )
         }
     }
 
+    if (showCreateAccount) {
+        CreateAccountDialog(
+            existing = accounts,
+            onDismiss = { showCreateAccount = false },
+            onSave = { newAccount ->
+                if (!isSaving) {
+                    isSaving = true
+                    scope.launch {
+                        try {
+                            store.addAccount(newAccount)
+                            accounts.clear()
+                            accounts.addAll(store.loadAccounts())
+                            showCreateAccount = false
+                        } catch (_: Exception) {
+                            storageError = "حساب جدید ذخیره نشد؛ اطلاعات قبلی محفوظ است."
+                        } finally {
+                            isSaving = false
+                        }
+                    }
+                }
+            },
+        )
+    }
     if (showAdd) {
         AddTransactionDialog(
+            accounts = accounts,
+            initialKind = addKind,
             onDismiss = { showAdd = false },
             onSave = { record ->
                 if (!isSaving) {
@@ -293,6 +333,8 @@ private fun WelcomeScreen(onStart: () -> Unit) {
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            JibikBrandLogo(Modifier.size(52.dp))
+            Spacer(Modifier.size(8.dp))
             Text("جیبیک", fontSize = 29.sp, color = Forest, fontWeight = FontWeight.ExtraBold)
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -434,13 +476,14 @@ private fun BrandHeader() {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text("جیبیک", fontWeight = FontWeight.ExtraBold, fontSize = 27.sp, color = Forest)
-            Text("دستیار مالی مهربونت", color = Quiet, fontSize = 13.sp)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            JibikBrandLogo(Modifier.size(50.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("جیبیک", fontWeight = FontWeight.ExtraBold, fontSize = 25.sp, color = Forest)
+                Text("دستیار مالی مهربونت", color = Quiet, fontSize = 12.sp)
+            }
         }
-        Surface(color = Color(0xFFFFEBD8), shape = RoundedCornerShape(18.dp)) {
-            JiboMascot(modifier = Modifier.padding(5.dp).size(51.dp))
-        }
+        JiboMascot(Modifier.size(54.dp))
     }
 }
 
@@ -516,7 +559,9 @@ private fun TransactionCard(record: LedgerRecord) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(record.note.ifBlank { record.category.ifBlank { "تراکنش" } }, fontWeight = FontWeight.Bold)
+                Text(record.note.ifBlank { record.category.ifBlank {
+                    if (record.kind == LedgerKind.TRANSFER) "انتقال بین حساب‌ها" else "تراکنش"
+                } }, fontWeight = FontWeight.Bold)
                 Text(
                     when (record.kind) {
                         LedgerKind.EXPENSE -> "هزینه · " + record.category
@@ -527,7 +572,11 @@ private fun TransactionCard(record: LedgerRecord) {
                 )
             }
             Text(
-                (if (record.kind == LedgerKind.EXPENSE) "− " else "+ ") + money(record.amountToman),
+                (when (record.kind) {
+                    LedgerKind.EXPENSE -> "− "
+                    LedgerKind.INCOME -> "+ "
+                    LedgerKind.TRANSFER -> "⇄ "
+                }) + money(record.amountToman),
                 fontWeight = FontWeight.Bold,
                 color = if (record.kind == LedgerKind.EXPENSE) Coral else Forest,
                 fontSize = 13.sp,
@@ -614,76 +663,124 @@ private fun Budget(spent: Long, budget: Long, monthTitle: String, modifier: Modi
 
 
 @Composable
-private fun AddTransactionDialog(onDismiss: () -> Unit, onSave: (LedgerRecord) -> Unit) {
-    var isExpense by rememberSaveable { mutableStateOf(true) }
+private fun AddTransactionDialog(
+    accounts: List<Account>,
+    initialKind: LedgerKind,
+    onDismiss: () -> Unit,
+    onSave: (LedgerRecord) -> Unit,
+) {
+    var kind by rememberSaveable { mutableStateOf(initialKind) }
     var amount by rememberSaveable { mutableStateOf("") }
     var category by rememberSaveable { mutableStateOf("خوراک") }
     var note by rememberSaveable { mutableStateOf("") }
+    var sourceId by rememberSaveable { mutableStateOf(accounts.first().id) }
+    var targetId by rememberSaveable { mutableStateOf(accounts.getOrNull(1)?.id ?: accounts.first().id) }
     val numericAmount = parseMoney(amount)
-    val suggestedCategories = if (isExpense) {
-        listOf("خوراک", "خرید منزل", "حمل‌ونقل", "قبوض", "درمان", "تفریح")
-    } else {
+    val sourceValid = accounts.any { it.id == sourceId }
+    val targetValid = accounts.any { it.id == targetId }
+    val canSave = numericAmount != null && numericAmount > 0L &&
+        sourceValid && (kind != LedgerKind.TRANSFER ||
+            (accounts.size > 1 && targetValid && sourceId != targetId)) &&
+        (kind == LedgerKind.TRANSFER || category.isNotBlank())
+    val suggestedCategories = if (kind == LedgerKind.INCOME) {
         listOf("حقوق", "پاداش", "هدیه", "درآمد جانبی")
+    } else {
+        listOf("خوراک", "خرید منزل", "حمل‌ونقل", "قبوض", "درمان", "تفریح")
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("ثبت تراکنش", color = Deep, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp) },
+        title = { Text(
+            if (kind == LedgerKind.TRANSFER) "انتقال پول" else "ثبت تراکنش",
+            color = Deep, fontWeight = FontWeight.ExtraBold, fontSize = 21.sp,
+        ) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { isExpense = true; category = "خوراک" },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isExpense) Forest else Color(0xFFE9F1EC),
-                            contentColor = if (isExpense) Paper else Forest,
-                        ),
-                        shape = RoundedCornerShape(14.dp),
-                    ) { Text("هزینه") }
-                    Button(
-                        onClick = { isExpense = false; category = "حقوق" },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (!isExpense) Forest else Color(0xFFE9F1EC),
-                            contentColor = if (!isExpense) Paper else Forest,
-                        ),
-                        shape = RoundedCornerShape(14.dp),
-                    ) { Text("درآمد") }
+            Column(
+                modifier = Modifier.heightIn(max = 450.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(
+                        LedgerKind.EXPENSE to "هزینه",
+                        LedgerKind.INCOME to "درآمد",
+                        LedgerKind.TRANSFER to "انتقال",
+                    ).forEach { (option, label) ->
+                        Button(
+                            onClick = { kind = option; category = if (option == LedgerKind.INCOME) "حقوق" else "خوراک" },
+                            modifier = Modifier.weight(1f),
+                            enabled = option != LedgerKind.TRANSFER || accounts.size > 1,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (kind == option) Forest else Color(0xFFE9F1EC),
+                                contentColor = if (kind == option) Paper else Forest,
+                            ),
+                            shape = RoundedCornerShape(13.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                        ) { Text(label, fontSize = 12.sp, maxLines = 1) }
+                    }
                 }
                 OutlinedTextField(
-                    value = amount,
-                    onValueChange = { amount = it },
-                    label = { Text("مبلغ (تومان)") },
-                    singleLine = true,
+                    value = amount, onValueChange = { amount = it },
+                    label = { Text("مبلغ (تومان)") }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                 )
-                Text("دسته‌های پیشنهادی", color = Quiet, fontSize = 12.sp)
+                Text(
+                    if (kind == LedgerKind.INCOME) "حساب دریافت‌کننده" else "برداشت از حساب",
+                    color = Quiet, fontSize = 12.sp,
+                )
                 Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    suggestedCategories.forEach { option ->
+                    accounts.forEach { account ->
                         FilterChip(
-                            selected = category == option,
-                            onClick = { category = option },
-                            label = { Text(option, fontSize = 12.sp) },
+                            selected = sourceId == account.id,
+                            onClick = { sourceId = account.id },
+                            label = { Text(account.title, fontSize = 12.sp, maxLines = 1) },
                             shape = RoundedCornerShape(12.dp),
                         )
                     }
                 }
+                if (kind == LedgerKind.TRANSFER) {
+                    Text("انتقال به حساب", color = Quiet, fontSize = 12.sp)
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        accounts.filter { it.id != sourceId }.forEach { account ->
+                            FilterChip(
+                                selected = targetId == account.id,
+                                onClick = { targetId = account.id },
+                                label = { Text(account.title, fontSize = 12.sp, maxLines = 1) },
+                                shape = RoundedCornerShape(12.dp),
+                            )
+                        }
+                    }
+                    Text("انتقال، درآمد یا هزینه محسوب نمی‌شود.", color = Quiet, fontSize = 12.sp)
+                } else {
+                    Text("دسته‌های پیشنهادی", color = Quiet, fontSize = 12.sp)
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        suggestedCategories.forEach { option ->
+                            FilterChip(
+                                selected = category == option,
+                                onClick = { category = option },
+                                label = { Text(option, fontSize = 12.sp) },
+                                shape = RoundedCornerShape(12.dp),
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = category, onValueChange = { category = it },
+                        label = { Text("دسته‌بندی") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                    )
+                }
                 OutlinedTextField(
-                    value = category,
-                    onValueChange = { category = it },
-                    label = { Text("دسته‌بندی") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                )
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
+                    value = note, onValueChange = { note = it },
                     label = { Text("توضیحات (اختیاری)") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
@@ -692,24 +789,28 @@ private fun AddTransactionDialog(onDismiss: () -> Unit, onSave: (LedgerRecord) -
         },
         confirmButton = {
             Button(
-                enabled = numericAmount != null && numericAmount > 0 && category.isNotBlank(),
+                enabled = canSave,
                 shape = RoundedCornerShape(14.dp),
                 onClick = {
                     val value = numericAmount ?: return@Button
+                    val destination = if (kind == LedgerKind.TRANSFER) {
+                        accounts.firstOrNull { it.id == targetId && it.id != sourceId }?.id
+                            ?: return@Button
+                    } else sourceId
                     onSave(
                         LedgerRecord(
                             id = UUID.randomUUID().toString(),
-                            kind = if (isExpense) LedgerKind.EXPENSE else LedgerKind.INCOME,
+                            kind = kind,
                             amountToman = value,
-                            fromAccountId = if (isExpense) "wallet" else null,
-                            toAccountId = if (isExpense) null else "wallet",
-                            category = category.trim(),
+                            fromAccountId = if (kind == LedgerKind.INCOME) null else sourceId,
+                            toAccountId = if (kind == LedgerKind.EXPENSE) null else destination,
+                            category = if (kind == LedgerKind.TRANSFER) "" else category.trim(),
                             note = note.trim(),
                             timestampMillis = System.currentTimeMillis(),
                         )
                     )
                 },
-            ) { Text("ثبت تراکنش") }
+            ) { Text(if (kind == LedgerKind.TRANSFER) "ثبت انتقال" else "ثبت تراکنش") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } },
         containerColor = Paper,
@@ -717,7 +818,6 @@ private fun AddTransactionDialog(onDismiss: () -> Unit, onSave: (LedgerRecord) -
         shape = RoundedCornerShape(26.dp),
     )
 }
-
 
 @Composable
 private fun BudgetDialog(current: Long, onDismiss: () -> Unit, onSave: (Long) -> Unit) {
