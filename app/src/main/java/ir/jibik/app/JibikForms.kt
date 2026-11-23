@@ -33,6 +33,11 @@ import java.util.Locale
  * Accept ASCII, Arabic-Indic and Persian numerals without silently changing
  * an invalid (negative/fractional) amount into a different value.
  */
+internal fun isAllowedTomanDraft(raw: String): Boolean = raw.all { char ->
+    char in '0'..'9' || char in '۰'..'۹' || char in '٠'..'٩' ||
+        char == '٬' || char == ',' || char == ' '
+}
+
 internal fun normalizeTomanDraft(raw: String): String {
     val builder = StringBuilder()
     for (char in raw) {
@@ -107,7 +112,9 @@ internal fun JibikTomanField(
     Column(verticalArrangement = Arrangement.spacedBy(5.dp), modifier = modifier) {
         OutlinedTextField(
             value = value,
-            onValueChange = { onValueChange(normalizeTomanDraft(it)) },
+            onValueChange = {
+                if (isAllowedTomanDraft(it)) onValueChange(normalizeTomanDraft(it))
+            },
             label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
