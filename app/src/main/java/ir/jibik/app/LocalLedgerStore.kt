@@ -83,6 +83,37 @@ internal class LocalLedgerStore(context: Context) {
         }
     }
 
+    /**
+     * One ledger entry + many receipt lines in the SAME SQLite transaction.
+     * Rejected/failed receipts cannot leave partial deductions behind.
+     */
+    suspend fun appendItemizedPurchase(record: LedgerRecord, lines: List<PurchaseLine>) =
+        withContext(Dispatchers.IO) {
+            validateItemizedPurchase(record, lines)
+            ensureDefaultWallet()
+            migrateLegacyIfNeeded()
+            database.withTransaction {
+                val accounts = accountDao.list().map { it.toAccount() }
+                val existing = dao.getAll().map { it.toRecord() }
+                FinanceEngine.balances(accounts, existing + record)
+                dao.insert(record.toEntity())
+                database.purchaseLineDao().insertAll(lines.mapIndexed { index, line ->
+                    PurchaseLineEntity(
+                        transactionId = record.id, lineIndex = index,
+                        title = line.title.trim(), category = line.category.trim(),
+                        quantity = line.quantity, unitPriceToman = line.unitPriceToman,
+                    )
+                })
+            }
+        }
+
+    suspend fun loadPurchaseLines(transactionId: String): List<PurchaseLine> =
+        withContext(Dispatchers.IO) {
+            database.purchaseLineDao().forTransaction(transactionId).map {
+                PurchaseLine(it.title, it.category, it.quantity, it.unitPriceToman)
+            }
+        }
+
     private suspend fun migrateLegacyIfNeeded() {
         if (preferences.getBoolean("room_ledger_imported_v1", false)) return
 
