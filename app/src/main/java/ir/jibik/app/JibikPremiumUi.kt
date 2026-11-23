@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
@@ -165,5 +166,49 @@ internal fun JibikSurfaceCard(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             content = content,
         )
+    }
+}
+
+/** A consistent recovery/empty state with a real action, not a dead placeholder. */
+@Composable
+internal fun JibikStatePanel(
+    title: String,
+    description: String,
+    modifier: Modifier = Modifier,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+) {
+    JibikSurfaceCard(modifier = modifier) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            JiboMascot(Modifier.size(75.dp))
+            Column(
+                Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                Text(
+                    title,
+                    color = JibikStyle.ink,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Text(
+                    description,
+                    color = JibikStyle.muted,
+                    fontSize = 12.sp,
+                    lineHeight = 20.sp,
+                )
+            }
+        }
+        if (actionLabel != null && onAction != null) {
+            Button(
+                onClick = onAction,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(15.dp),
+            ) { Text(actionLabel) }
+        }
     }
 }
