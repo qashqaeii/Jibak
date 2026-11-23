@@ -853,9 +853,11 @@ private fun JibikApp(
 @Composable
 private fun WelcomeScreen(onStart: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().background(Cream).padding(28.dp),
+        modifier = Modifier.fillMaxSize().liquidBackdrop()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(26.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -867,11 +869,18 @@ private fun WelcomeScreen(onStart: () -> Unit) {
             Text("جیبیک", fontSize = 29.sp, color = Forest, fontWeight = FontWeight.ExtraBold)
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Surface(color = Color(0xFFFFEBD8), shape = RoundedCornerShape(36.dp)) {
-                JiboMascot(Modifier.padding(20.dp).size(160.dp))
+            Box(
+                modifier = Modifier.size(214.dp)
+                    .liquidGlass(GlassTone.CRYSTAL, radius = 40.dp, elevation = 7.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                JiboMascot(Modifier.size(200.dp))
             }
             Spacer(Modifier.height(8.dp))
-            Text("سلام! من جیبو هستم", fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, color = Deep)
+            Text(
+                "سلام! من جیبو هستم", fontSize = 25.sp, fontWeight = FontWeight.ExtraBold,
+                color = Deep, textAlign = TextAlign.Center, lineHeight = 34.sp,
+            )
             Text(
                 "حساب‌وکتاب خونه و زندگی رو با هم ساده‌تر می‌کنیم.",
                 textAlign = TextAlign.Center, color = Quiet, lineHeight = 27.sp, fontSize = 15.sp,
@@ -987,29 +996,40 @@ private fun Home(
                             color = Deep, fontSize = 16.sp)
                         Text("مدیریت سقف هزینه", color = Quiet, fontSize = 11.sp)
                     }
-                    Text(money(budget), color = Forest, fontSize = 13.sp,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                val used = (monthTotals.expenseToman.toDouble() /
-                    budget.coerceAtLeast(1L)).toFloat().coerceIn(0f, 1f)
-                LinearProgressIndicator(
-                    progress = { used },
-                    modifier = Modifier.fillMaxWidth().height(9.dp),
-                    color = if (monthTotals.expenseToman > budget) Coral else Mint,
-                    trackColor = Color(0xFFEAF2EC),
-                )
-                val remaining = budget - monthTotals.expenseToman
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(
-                        if (remaining >= 0) "باقی‌مانده" else "بیش از بودجه",
-                        color = Quiet, fontSize = 12.sp,
-                    )
-                    Text(
-                        money(if (remaining >= 0) remaining else -remaining),
-                        color = if (remaining >= 0) Forest else Coral,
-                        fontWeight = FontWeight.Bold, fontSize = 12.sp,
+                        if (budget > 0L) money(budget) else "بدون سقف",
+                        color = Forest, fontSize = 13.sp,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
+                }
+                if (budget <= 0L) {
+                    Text(
+                        "هنوز سقف هزینه‌ای تعیین نکردی. برای تنظیم بودجه این کارت را لمس کن.",
+                        color = Quiet, fontSize = 13.sp, lineHeight = 21.sp,
+                    )
+                } else {
+                    val used = (monthTotals.expenseToman.toDouble() /
+                        budget.toDouble()).toFloat().coerceIn(0f, 1f)
+                    LinearProgressIndicator(
+                        progress = { used },
+                        modifier = Modifier.fillMaxWidth().height(9.dp),
+                        color = if (monthTotals.expenseToman > budget) Coral else Mint,
+                        trackColor = Color(0xFFEAF2EC),
+                    )
+                    val remaining = budget - monthTotals.expenseToman
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(
+                            if (remaining >= 0) "باقی‌مانده" else "بیش از بودجه",
+                            color = Quiet, fontSize = 12.sp,
+                        )
+                        Text(
+                            money(if (remaining >= 0) remaining else -remaining),
+                            color = if (remaining >= 0) Forest else Coral,
+                            fontWeight = FontWeight.Bold, fontSize = 12.sp,
+                            maxLines = 2, lineHeight = 19.sp,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }
@@ -1131,13 +1151,8 @@ private fun BalanceCard(summary: MoneySummary) {
                 )
             }
         }
-        Text(
-            text = if (balanceVisible) money(summary.balanceToman) else "••••••",
-            color = Paper,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 27.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+        JibikHeroAmount(
+            amount = if (balanceVisible) money(summary.balanceToman) else "••••••",
         )
         HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -1163,8 +1178,9 @@ private fun MetricCard(title: String, amount: Long, accent: Color, modifier: Mod
             }
             Text(
                 money(amount),
-                fontSize = 15.sp, fontWeight = FontWeight.ExtraBold,
-                color = Deep, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                fontSize = if (money(amount).length >= 19) 13.sp else 15.sp,
+                fontWeight = FontWeight.ExtraBold, color = Deep,
+                maxLines = 2, lineHeight = 21.sp, overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -1223,8 +1239,11 @@ private fun Transactions(
                         Text("پیامک‌های بانکی",
                             color = Forest, fontSize = 14.sp,
                             fontWeight = FontWeight.ExtraBold)
-                        Text("تشخیص واریز و برداشت؛ ثبت فقط با تأیید",
-                            color = Quiet, fontSize = 11.sp)
+                        Text(
+                            "آزمایش دستی پیام بانکی؛ دسترسی SMS در نسخه تست غیرفعال است",
+                            color = Quiet, fontSize = 11.sp, lineHeight = 17.sp,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        )
                     }
                     Text("‹", color = Forest, fontSize = 19.sp)
                 }

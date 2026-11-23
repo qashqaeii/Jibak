@@ -103,11 +103,7 @@ internal fun ReportsScreen(
         }
         JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.REPORTS) {
             Text("خالص جریان پول این ماه", fontSize = 13.sp, color = Color(0xFFDAF1E9))
-            Text(
-                moneyReport(cashFlow),
-                fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, color = Color.White,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
+            JibikHeroAmount(moneyReport(cashFlow))
             HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
             Row(
                 Modifier.fillMaxWidth(),

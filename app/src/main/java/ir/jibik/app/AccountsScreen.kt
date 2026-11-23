@@ -96,11 +96,7 @@ internal fun AccountsScreen(
         }
         JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.ACCOUNTS) {
             Text("موجودی کل حساب‌ها", fontSize = 13.sp, color = Color(0xFFDAF1E7))
-            Text(
-                accountMoney(totalBalance),
-                fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, color = White,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
+            JibikHeroAmount(accountMoney(totalBalance))
             Text(
                 "${accounts.size} حساب ثبت‌شده · بدون دوباره‌شماری انتقال‌ها",
                 fontSize = 12.sp, color = Color(0xFFD4EEE6),

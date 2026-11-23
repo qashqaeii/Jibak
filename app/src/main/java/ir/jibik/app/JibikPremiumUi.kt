@@ -49,6 +49,35 @@ internal object JibikStyle {
     val orangeSurface = Color(0xFFFFF0DD)
 }
 
+
+/**
+ * Large totals must remain legible on 360dp devices and at high font scale.
+ * Prefer a second line and smaller text over silently clipping money.
+ */
+@Composable
+internal fun JibikHeroAmount(
+    amount: String,
+    modifier: Modifier = Modifier,
+) {
+    val textSize = when {
+        amount.length >= 27 -> 19.sp
+        amount.length >= 22 -> 22.sp
+        amount.length >= 18 -> 25.sp
+        else -> 28.sp
+    }
+    Text(
+        text = amount,
+        modifier = modifier.fillMaxWidth(),
+        color = Color.White,
+        fontFamily = JibikFontFamily,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = textSize,
+        lineHeight = (textSize.value * 1.36f).sp,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+    )
+}
+
 /** Readable high-contrast brand hero with quiet, vector-only decoration. */
 @Composable
 internal fun JibikHero(

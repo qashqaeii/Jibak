@@ -125,6 +125,7 @@ internal fun JibikTomanField(
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             textStyle = TextStyle(
+                fontFamily = JibikFontFamily,
                 fontSize = 19.sp,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.End,
