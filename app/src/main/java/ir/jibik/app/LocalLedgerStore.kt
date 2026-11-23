@@ -114,6 +114,15 @@ internal class LocalLedgerStore(context: Context) {
             }
         }
 
+    suspend fun loadAllPurchaseLines(): Map<String, List<PurchaseLine>> =
+        withContext(Dispatchers.IO) {
+            database.purchaseLineDao().all()
+                .groupBy { it.transactionId }
+                .mapValues { (_, rows) ->
+                    rows.map { PurchaseLine(it.title, it.category, it.quantity, it.unitPriceToman) }
+                }
+        }
+
     suspend fun loadSavingsGoals(): List<SavingsGoalEntity> =
         withContext(Dispatchers.IO) { database.savingsGoalDao().list() }
 
