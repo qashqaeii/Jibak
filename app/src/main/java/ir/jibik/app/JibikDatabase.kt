@@ -1,6 +1,7 @@
 package ir.jibik.app
 
 import android.content.Context
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -89,6 +90,7 @@ internal data class PurchaseLineEntity(
     val category: String,
     val quantity: Int,
     val unitPriceToman: Long,
+    @ColumnInfo(defaultValue = "'عدد'") val unit: String = "عدد",
 )
 
 @Dao
@@ -166,7 +168,7 @@ internal interface SavingsGoalDao {
         PurchaseLineEntity::class, SavingsGoalEntity::class,
         CustomCategoryEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 internal abstract class JibikDatabase : RoomDatabase() {
@@ -245,13 +247,23 @@ internal abstract class JibikDatabase : RoomDatabase() {
             }
         }
 
+        /** Safe receipt detail upgrade: old rows use the neutral "عدد" unit. */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE purchase_lines ADD COLUMN " +
+                        "unit TEXT NOT NULL DEFAULT 'عدد'"
+                )
+            }
+        }
+
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     JibikDatabase::class.java,
                     "jibik_ledger_v1.db",
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { instance = it }
             }
     }
 }
