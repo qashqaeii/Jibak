@@ -7,7 +7,6 @@ import java.util.Locale
 
 /** Strict Jalali day input: epoch millis always point to Tehran midnight. */
 internal fun parseJalaliDueDate(raw: String): Long? {
-    val normalized = normalizeTomanDraft(raw.replace("/", " / "))
     // Normalize with separators intact; no guessing if input is ambiguous.
     val parts = raw.trim()
         .map { c ->
@@ -55,4 +54,16 @@ internal fun formatJalaliDueDate(millis: Long): String {
         if (digit in '0'..'9') ('۰'.code + digit.code - '0'.code).toChar()
         else digit
     }.joinToString("")
+}
+
+/** nth monthly due date in the Persian calendar, anchored to the first due date. */
+internal fun jalaliInstallmentDueDate(firstDueMillis: Long, index: Int): Long {
+    require(firstDueMillis > 0L && index in 0..119)
+    val calendar = Calendar.getInstance(
+        TimeZone.getTimeZone("Asia/Tehran"),
+        ULocale("fa_IR@calendar=persian"),
+    )
+    calendar.timeInMillis = firstDueMillis
+    calendar.add(Calendar.MONTH, index)
+    return calendar.timeInMillis
 }
