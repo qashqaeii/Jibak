@@ -42,6 +42,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -137,6 +139,7 @@ private fun JibikApp(store: LocalLedgerStore) {
     var retryLoad by remember { mutableIntStateOf(0) }
     var storageError by remember { mutableStateOf<String?>(null) }
     var isSaving by remember { mutableStateOf(false) }
+    val notifications = remember { SnackbarHostState() }
     LaunchedEffect(store, retryLoad) {
         try {
             val persisted = store.load()
@@ -190,22 +193,23 @@ private fun JibikApp(store: LocalLedgerStore) {
         return
     }
     if (loadingFailed) {
-        Column(
-            Modifier.fillMaxSize().background(Cream).padding(28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            ) {
-            Text("امکان خواندن اطلاعات مالی وجود ندارد", fontWeight = FontWeight.Bold, color = Deep)
-            Spacer(Modifier.height(12.dp))
-            Text("برای حفظ اطلاعات قبلی، ثبت تراکنش جدید متوقف شده است.", color = Quiet, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(18.dp))
-            Button(onClick = { isLoaded = false; retryLoad++ }) { Text("تلاش دوباره") }
+        Box(
+            Modifier.fillMaxSize().background(Cream).padding(20.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            JibikStatePanel(
+                title = "امکان خواندن اطلاعات مالی وجود ندارد",
+                description = "برای محافظت از اطلاعات قبلی، ثبت تراکنش جدید متوقف شده. دوباره تلاش کن.",
+                actionLabel = "تلاش دوباره",
+                onAction = { isLoaded = false; retryLoad++ },
+            )
         }
         return
     }
 
     Scaffold(
         containerColor = Cream,
+        snackbarHost = { SnackbarHost(hostState = notifications) },
         bottomBar = {
             NavigationBar(containerColor = Paper, tonalElevation = 0.dp) {
                 Section.entries.forEach { destination ->
@@ -308,6 +312,7 @@ private fun JibikApp(store: LocalLedgerStore) {
                             goals.clear()
                             goals.addAll(store.loadSavingsGoals())
                             showNewGoal = false
+                            scope.launch { notifications.showSnackbar("هدف پس‌انداز ساخته شد.") }
                         } catch (_: Exception) {
                             storageError = "هدف پس‌انداز ذخیره نشد؛ اطلاعات قبلی محفوظ است."
                         } finally {
@@ -331,6 +336,7 @@ private fun JibikApp(store: LocalLedgerStore) {
                             store.appendItemizedPurchase(purchase, lines)
                             records.add(0, purchase)
                             showItemizedPurchase = false
+                            scope.launch { notifications.showSnackbar("خرید با موفقیت ثبت شد.") }
                         } catch (_: Exception) {
                             storageError = "خرید ذخیره نشد؛ هیچ مبلغی از حساب کسر نشده است."
                         } finally {
@@ -355,6 +361,7 @@ private fun JibikApp(store: LocalLedgerStore) {
                             accounts.clear()
                             accounts.addAll(store.loadAccounts())
                             showCreateAccount = false
+                            scope.launch { notifications.showSnackbar("حساب جدید ساخته شد.") }
                         } catch (_: Exception) {
                             storageError = "حساب جدید ذخیره نشد؛ اطلاعات قبلی محفوظ است."
                         } finally {
@@ -382,6 +389,7 @@ private fun JibikApp(store: LocalLedgerStore) {
                             records.add(0, record)
                             showAdd = false
                             addTargetAccountId = null
+                            scope.launch { notifications.showSnackbar("تراکنش ثبت شد.") }
                         } catch (_: Exception) {
                             storageError = "تراکنش ذخیره نشد؛ اطلاعات قبلی شما محفوظ است."
                         } finally {
@@ -405,9 +413,15 @@ private fun JibikApp(store: LocalLedgerStore) {
             current = budget,
             onDismiss = { showEditBudget = false },
             onSave = { newValue ->
-                store.updateBudgetToman(newValue)
-                budget = newValue
-                showEditBudget = false
+                runCatching { store.updateBudgetToman(newValue) }
+                    .onSuccess {
+                        budget = newValue
+                        showEditBudget = false
+                        scope.launch { notifications.showSnackbar("بودجه ماهانه ذخیره شد.") }
+                    }
+                    .onFailure {
+                        storageError = "بودجه ذخیره نشد؛ مقدار قبلی محفوظ است."
+                    }
             },
         )
     }
@@ -856,28 +870,11 @@ private fun TransactionCard(record: LedgerRecord) {
 
 @Composable
 private fun EmptyTransactions() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Paper),
-    ) {
-        Column(
-            Modifier.fillMaxWidth().padding(vertical = 28.dp, horizontal = 18.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Surface(color = Color(0xFFFFF0E0), shape = RoundedCornerShape(26.dp)) {
-                JiboMascot(Modifier.padding(12.dp).size(78.dp))
-            }
-            Text("هنوز تراکنشی ثبت نکردی", color = Deep, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-            Text(
-                "اولین درآمد یا هزینه‌ت رو ثبت کن تا گزارش مالی‌ت شکل بگیره.",
-                color = Quiet, textAlign = TextAlign.Center, fontSize = 13.sp, lineHeight = 22.sp,
-            )
-        }
-    }
+    JibikStatePanel(
+        title = "هنوز تراکنشی ثبت نکردی",
+        description = "اولین درآمد یا هزینه‌ت رو ثبت کن تا گزارش مالی‌ت شکل بگیره.",
+    )
 }
-
 
 @Composable
 private fun Budget(
