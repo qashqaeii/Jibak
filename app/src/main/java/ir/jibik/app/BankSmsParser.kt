@@ -95,9 +95,22 @@ internal object BankSmsParser {
                 val outgoing = Regex("برداشت|خرید|پرداخت|بدهکار|از حساب شما پرید|کسر شد").containsMatchIn(normalized)
                 if (incoming == outgoing) return null
                 income = incoming
-                val amount = moneyWithUnit.find(normalized)
-                    ?: labeledAmount.find(normalized)
-                    ?: return null
+                // A balance may appear before the transaction amount.
+                // Prefer a transaction-labeled sum and reject balance lines.
+                val labelled = labeledAmount.findAll(normalized).firstOrNull { hit ->
+                    val line = normalized.substring(
+                        normalized.lastIndexOf('\n', hit.range.first).let { it + 1 },
+                        hit.range.first,
+                    )
+                    !Regex("مانده|موجودی").containsMatchIn(line)
+                }
+                val amount = labelled ?: moneyWithUnit.findAll(normalized).firstOrNull { hit ->
+                    val line = normalized.substring(
+                        normalized.lastIndexOf('\n', hit.range.first).let { it + 1 },
+                        hit.range.first,
+                    )
+                    !Regex("مانده|موجودی|باقیمانده|موجودي").containsMatchIn(line)
+                } ?: return null
                 amountString = amount.groupValues[1]
                 unit = amount.groupValues.getOrNull(2).orEmpty()
                 if (unit.isBlank()) return null
