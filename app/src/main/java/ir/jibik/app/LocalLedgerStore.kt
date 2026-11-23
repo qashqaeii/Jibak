@@ -2,6 +2,8 @@ package ir.jibik.app
 
 import android.content.Context
 import androidx.room.withTransaction
+import ir.jibik.core.finance.Account
+import ir.jibik.core.finance.FinanceEngine
 import ir.jibik.core.finance.LedgerKind
 import ir.jibik.core.finance.LedgerRecord
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +21,7 @@ internal class LocalLedgerStore(context: Context) {
     )
     private val database = JibikDatabase.get(context)
     private val dao = database.ledgerDao()
+    private val accountDao = database.accountDao()
 
     fun hasFinishedWelcome(): Boolean = preferences.getBoolean("welcome_finished", false)
 
@@ -37,16 +40,47 @@ internal class LocalLedgerStore(context: Context) {
         }
     }
 
+    private suspend fun ensureDefaultWallet() {
+        accountDao.insertDefault(FinancialAccountEntity("wallet", "کیف پول جیبیک", 0L))
+    }
+
+    suspend fun loadAccounts(): List<Account> = withContext(Dispatchers.IO) {
+        ensureDefaultWallet()
+        accountDao.list().map { it.toAccount() }
+    }
+
+    suspend fun addAccount(account: Account) = withContext(Dispatchers.IO) {
+        require(account.id.isNotBlank() && account.id != "wallet")
+        require(account.title.isNotBlank() && account.title.length <= 48)
+        require(account.openingBalanceToman >= 0L)
+        database.withTransaction {
+            val current = accountDao.list()
+            check(current.none { it.id == account.id || it.title == account.title.trim() }) {
+                "Duplicate financial account"
+            }
+            // Validates the new opening balance against all existing transactions.
+            val updated = current.map { it.toAccount() } + account
+            FinanceEngine.balances(updated, dao.getAll().map { it.toRecord() })
+            accountDao.insert(account.toEntity())
+        }
+    }
+
     suspend fun load(): List<LedgerRecord> = withContext(Dispatchers.IO) {
+        ensureDefaultWallet()
         migrateLegacyIfNeeded()
         dao.getAll().map { it.toRecord() }
     }
 
     suspend fun append(record: LedgerRecord) = withContext(Dispatchers.IO) {
-        require(record.id.isNotBlank())
-        require(record.amountToman > 0L)
+        require(record.id.isNotBlank() && record.amountToman > 0L)
+        ensureDefaultWallet()
         migrateLegacyIfNeeded()
-        dao.insert(record.toEntity())
+        database.withTransaction {
+            val accounts = accountDao.list().map { it.toAccount() }
+            val allRecords = dao.getAll().map { it.toRecord() } + record
+            FinanceEngine.balances(accounts, allRecords)
+            dao.insert(record.toEntity())
+        }
     }
 
     private suspend fun migrateLegacyIfNeeded() {
@@ -120,3 +154,9 @@ private fun LedgerEntity.toRecord() = LedgerRecord(
     note = note,
     timestampMillis = timestampMillis,
 )
+
+private fun FinancialAccountEntity.toAccount() =
+    Account(id, title, openingBalanceToman)
+
+private fun Account.toEntity() =
+    FinancialAccountEntity(id, title.trim(), openingBalanceToman)
