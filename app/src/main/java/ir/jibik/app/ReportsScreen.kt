@@ -2,6 +2,7 @@ package ir.jibik.app
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +22,12 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,13 +58,30 @@ private fun moneyReport(value: Long): String = formatToman(value)
 internal fun ReportsScreen(
     records: List<LedgerRecord>,
     categorySpending: List<CategoryExpense>,
+    receiptLines: Map<String, List<PurchaseLine>> = emptyMap(),
     modifier: Modifier = Modifier,
     onExportCsv: () -> Unit = {},
     onAi: () -> Unit = {},
+    onTransactionClick: (LedgerRecord) -> Unit = {},
 ) {
     val month = currentJalaliMonth()
     val totals = periodTotals(records, month.startMillis, month.endExclusiveMillis)
     val categories = categorySpending
+    val rootCategories = categoryReportRows(categories)
+    var selectedCategoryPath by rememberSaveable { mutableStateOf("") }
+    var selectedLeafPath by rememberSaveable { mutableStateOf("") }
+    var directOnly by rememberSaveable { mutableStateOf(false) }
+    var showAllCategories by rememberSaveable { mutableStateOf(false) }
+    var visibleTransactions by rememberSaveable { mutableStateOf(15) }
+    val displayed = categoryReportRows(categories, selectedCategoryPath)
+    val contributions = if (selectedLeafPath.isNotEmpty()) {
+        categoryReportContributions(
+            classifiedExpenseLines(
+                records, receiptLines, month.startMillis, month.endExclusiveMillis,
+            ),
+            selectedLeafPath, directOnly,
+        )
+    } else emptyList()
     val cashFlow = totals.incomeToman - totals.expenseToman
     Column(
         modifier = modifier.fillMaxSize().liquidBackdrop().verticalScroll(rememberScrollState())
@@ -109,7 +132,7 @@ internal fun ReportsScreen(
             Text("پیشنهادهای کاربردی از روی خلاصه ۳۰ روز گذشته",
                 fontSize = 12.sp, color = Muted)
         }
-        if (categories.isNotEmpty()) {
+        if (rootCategories.isNotEmpty()) {
             JibikSurfaceCard {
                 Text("بیشترین هزینه در این ماه", color = Muted, fontSize = 12.sp)
                 Row(
@@ -118,12 +141,12 @@ internal fun ReportsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        categories.first().category, color = Ink, fontSize = 15.sp,
+                        rootCategories.first().title, color = Ink, fontSize = 15.sp,
                         fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        moneyReport(categories.first().amountToman), color = Emerald,
+                        moneyReport(rootCategories.first().amountToman), color = Emerald,
                         fontSize = 13.sp, fontWeight = FontWeight.ExtraBold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
@@ -134,51 +157,140 @@ internal fun ReportsScreen(
             modifier = Modifier.fillMaxWidth(),
             tone = GlassTone.CRYSTAL,
         ) {
-            Column(Modifier.padding(0.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
-                Text("سهم دسته‌ها از هزینه", fontSize = 18.sp,
-                    fontWeight = FontWeight.ExtraBold, color = Ink)
-                if (categories.isEmpty()) {
-                    Row(verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        JiboMascot(Modifier.size(66.dp))
-                        Text("برای این ماه هنوز هزینه‌ای ثبت نکردی.",
-                            color = Muted, fontSize = 13.sp)
+            JibikSectionTitle(
+                title = if (selectedLeafPath.isNotEmpty()) "جزئیات تراکنش‌های این دسته"
+                else if (selectedCategoryPath.isEmpty()) "هزینه‌ها بر اساس دسته اصلی"
+                else "زیر‌دسته‌ها و جزئیات",
+                subtitle = if (selectedLeafPath.isNotEmpty()) selectedLeafPath
+                else selectedCategoryPath.ifEmpty { "برای دیدن جزئیات روی هر دسته بزن" },
+                trailing = {
+                    if (selectedLeafPath.isNotEmpty() || selectedCategoryPath.isNotEmpty()) {
+                        TextButton(onClick = {
+                            if (selectedLeafPath.isNotEmpty()) {
+                                selectedLeafPath = ""
+                            } else {
+                                selectedCategoryPath = selectedCategoryPath
+                                    .substringBeforeLast(" / ", "")
+                            }
+                            showAllCategories = false
+                            visibleTransactions = 15
+                        }) {
+                            Text("‹ بازگشت", color = Emerald, fontSize = 12.sp)
+                        }
                     }
-                } else {
-                    CategoryRing(categories, totals.expenseToman)
-                    categories.take(10).forEachIndexed { index, entry ->
-                        val colour = listOf(Emerald, Amber, Mint, Coral)[index % 4]
-                        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                            Row(Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween) {
+                },
+            )
+            if (selectedLeafPath.isNotEmpty()) {
+                val selectedTotal = contributions.fold(0L) { sum, row ->
+                    Math.addExact(sum, row.amountToman)
+                }
+                Text("جمع این بخش: " + moneyReport(selectedTotal),
+                    color = Emerald, fontWeight = FontWeight.ExtraBold,
+                    fontSize = 15.sp)
+                if (contributions.isEmpty()) {
+                    JibikFormHint("تراکنشی برای این دسته در این ماه پیدا نشد.")
+                }
+                contributions.take(visibleTransactions).forEach { part ->
+                    LiquidGlassCard(
+                        onClick = { onTransactionClick(part.record) },
+                        tone = GlassTone.CRYSTAL,
+                        padding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+                    ) {
+                        Row(Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column(Modifier.weight(1f)) {
                                 Text(
-                                    entry.category, fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium, color = Ink,
-                                    modifier = Modifier.weight(1f),
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    part.category.substringAfterLast(" / "),
+                                    color = Ink, fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 2,
                                 )
-                                Text(
-                                    moneyReport(entry.amountToman),
-                                    fontSize = 12.sp, color = Muted,
-                                    modifier = Modifier.weight(0.9f),
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                )
+                                Text("مشاهده رسید تراکنش",
+                                    color = Muted, fontSize = 11.sp)
+                            }
+                            Text(moneyReport(part.amountToman),
+                                color = Emerald, fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1)
+                        }
+                    }
+                }
+                if (contributions.size > visibleTransactions) {
+                    LiquidGlassButton(
+                        text = "نمایش موارد بیشتر",
+                        tone = GlassTone.HONEY,
+                        onClick = { visibleTransactions += 15 },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            } else if (displayed.isEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    JiboMascot(Modifier.size(64.dp))
+                    Text("در این ماه هنوز هزینه‌ای برای نمایش وجود ندارد.",
+                        color = Muted, fontSize = 13.sp)
+                }
+            } else {
+                val levelTotal = displayed.fold(0L) { sum, row ->
+                    Math.addExact(sum, row.amountToman)
+                }
+                CategoryRing(
+                    displayed.map { CategoryExpense(it.title, it.amountToman) },
+                    levelTotal,
+                )
+                (if (showAllCategories) displayed else displayed.take(10))
+                    .forEachIndexed { index, row ->
+                        val tint = listOf(Emerald, Amber, Mint, Coral)[index % 4]
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(
+                                Modifier.fillMaxWidth().clickable {
+                                    if (row.drillable) {
+                                        selectedCategoryPath = row.path
+                                    } else {
+                                        selectedLeafPath = row.path
+                                        directOnly = row.direct
+                                    }
+                                    visibleTransactions = 15
+                                    showAllCategories = false
+                                },
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(row.title, color = Ink,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 2)
+                                    Text(if (row.drillable) "مشاهده زیر‌دسته‌ها"
+                                        else "مشاهده تراکنش‌ها",
+                                        color = Muted, fontSize = 11.sp)
+                                }
+                                Text(moneyReport(row.amountToman),
+                                    color = Emerald, fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text("‹", color = Emerald, fontSize = 18.sp)
                             }
                             LinearProgressIndicator(
                                 progress = {
-                                    (entry.amountToman.toDouble() /
-                                        totals.expenseToman.coerceAtLeast(1L))
+                                    (row.amountToman.toDouble() /
+                                        levelTotal.coerceAtLeast(1L).toDouble())
                                         .toFloat().coerceIn(0f, 1f)
                                 },
                                 modifier = Modifier.fillMaxWidth().height(7.dp),
-                                color = colour, trackColor = Ivory,
+                                color = tint, trackColor = Ivory,
                             )
                         }
                     }
-                    if (categories.size > 10) {
-                        Text("دسته‌های دیگر: ${categories.size - 10}",
-                            color = Muted, fontSize = 12.sp)
-                    }
+                if (!showAllCategories && displayed.size > 10) {
+                    LiquidGlassButton(
+                        text = "نمایش همه دسته‌ها (" + displayed.size.toString() + ")",
+                        onClick = { showAllCategories = true },
+                        tone = GlassTone.CRYSTAL,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
         }
