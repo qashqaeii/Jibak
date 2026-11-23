@@ -57,4 +57,4 @@ jobs:
       - name: Run database migrations
         run: python manage.py migrate --noinput
       - name: Security and finance API tests
-        run: python -m pytest finance/tests.py -q
+        run: python -m pytest finance/tests.py finance/test_ai_mobile.py -q
