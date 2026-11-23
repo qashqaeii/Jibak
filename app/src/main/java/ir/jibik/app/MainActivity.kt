@@ -643,8 +643,18 @@ private fun SpendingByCategory(
                     val progress = (entry.amountToman.toDouble() / total.coerceAtLeast(1L)).toFloat().coerceIn(0f, 1f)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(entry.category, fontSize = 13.sp, color = Deep, fontWeight = FontWeight.Medium)
-                            Text(money(entry.amountToman), fontSize = 12.sp, color = Quiet)
+                            Text(
+                                entry.category, fontSize = 13.sp, color = Deep,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                money(entry.amountToman), fontSize = 12.sp, color = Quiet,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(0.9f),
+                                textAlign = TextAlign.End,
+                            )
                         }
                         LinearProgressIndicator(
                             progress = { progress },
