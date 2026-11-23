@@ -29,17 +29,25 @@ class StrictSummarySerializer(serializers.Serializer):
         return super().to_internal_value(data)
 
 
+class ExactIntegerField(serializers.IntegerField):
+    """Prevent float/decimal/bool coercion in financial payloads."""
+    def to_internal_value(self, data):
+        if type(data) is not int:
+            raise serializers.ValidationError("Financial amounts must be integer JSON numbers")
+        return super().to_internal_value(data)
+
+
 class CategoryRow(StrictSummarySerializer):
     code = serializers.ChoiceField(choices=tuple(CATEGORY_LABELS))
-    amount_toman = serializers.IntegerField(min_value=0, max_value=MAX_TOMAN)
+    amount_toman = ExactIntegerField(min_value=0, max_value=MAX_TOMAN)
 
 
 class SummarySerializer(StrictSummarySerializer):
     period = serializers.ChoiceField(choices=("rolling_30_days",))
-    income_toman = serializers.IntegerField(min_value=0, max_value=MAX_TOMAN)
-    expense_toman = serializers.IntegerField(min_value=0, max_value=MAX_TOMAN)
-    income_count = serializers.IntegerField(min_value=0, max_value=100000)
-    expense_count = serializers.IntegerField(min_value=0, max_value=100000)
+    income_toman = ExactIntegerField(min_value=0, max_value=MAX_TOMAN)
+    expense_toman = ExactIntegerField(min_value=0, max_value=MAX_TOMAN)
+    income_count = ExactIntegerField(min_value=0, max_value=100000)
+    expense_count = ExactIntegerField(min_value=0, max_value=100000)
     categories = CategoryRow(many=True, allow_empty=True, max_length=9)
 
     def validate(self, attrs):
