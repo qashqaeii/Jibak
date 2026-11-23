@@ -50,6 +50,7 @@ internal fun GoalsScreen(
     balances: Map<String, Long>,
     onBack: () -> Unit,
     onAdd: () -> Unit,
+    onAi: () -> Unit,
     onTransferTo: (String) -> Unit,
 ) {
     val eligible = accounts.any { a ->
@@ -83,6 +84,12 @@ internal fun GoalsScreen(
                 )
             }
             JiboMascot(Modifier.size(62.dp))
+        }
+        LiquidGlassCard(onClick = onAi, tone = GlassTone.CRYSTAL) {
+            Text("✦ جیبو و ایده‌های پس‌انداز", color = JibikStyle.forest,
+                fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text("راهنمایی مالی، بدون جابه‌جایی پول",
+                color = JibikStyle.muted, fontSize = 12.sp)
         }
         JibikHero(Modifier.fillMaxWidth()) {
             Text(
