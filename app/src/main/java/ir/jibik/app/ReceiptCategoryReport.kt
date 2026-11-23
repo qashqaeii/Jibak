@@ -30,22 +30,25 @@ internal fun detailedCategoryExpenses(
         ) return@forEach
         require(record.amountToman > 0L)
         val lines = receiptLines[record.id].orEmpty()
-        val lineAmounts = runCatching {
+        val classified = runCatching {
             require(lines.isNotEmpty())
-            lines.map { line ->
+            val itemAmounts = lines.map { line ->
                 require(line.title.isNotBlank() && line.category.isNotBlank())
                 require(line.quantity > 0 && line.unitPriceToman >= 0)
-                val amount = Math.multiplyExact(line.quantity.toLong(), line.unitPriceToman)
-                line.category to amount
+                line.category to Math.multiplyExact(
+                    line.quantity.toLong(), line.unitPriceToman
+                )
             }
+            val sum = itemAmounts.fold(0L) { acc, row ->
+                Math.addExact(acc, row.second)
+            }
+            check(sum == record.amountToman)
+            itemAmounts
         }.getOrNull()
-        val classifiedTotal = lineAmounts?.fold(0L) { sum, row ->
-            Math.addExact(sum, row.second)
-        }
-        if (classifiedTotal == record.amountToman && lineAmounts != null) {
-            lineAmounts.forEach { (category, amount) -> add(category, amount) }
-        } else {
+        if (classified == null) {
             add(record.category, record.amountToman)
+        } else {
+            classified.forEach { (category, amount) -> add(category, amount) }
         }
     }
     return totals.map { (category, amount) -> CategoryExpense(category, amount) }
