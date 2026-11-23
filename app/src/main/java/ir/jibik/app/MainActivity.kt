@@ -120,6 +120,7 @@ private val colors = lightColorScheme(
 
 class MainActivity : ComponentActivity() {
     private val dueReminderOpenSignal = mutableIntStateOf(0)
+    private val bankSmsOpenSignal = mutableIntStateOf(0)
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -127,12 +128,18 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra(LocalDueReminders.OPEN_OBLIGATIONS, false)) {
             dueReminderOpenSignal.intValue++
         }
+        if (intent.getBooleanExtra(BankSmsSettings.EXTRA_OPEN_BANK_SMS, false)) {
+            bankSmsOpenSignal.intValue++
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (intent?.getBooleanExtra(LocalDueReminders.OPEN_OBLIGATIONS, false) == true) {
             dueReminderOpenSignal.intValue++
+        }
+        if (intent?.getBooleanExtra(BankSmsSettings.EXTRA_OPEN_BANK_SMS, false) == true) {
+            bankSmsOpenSignal.intValue++
         }
         // Keep system bars visually continuous with the light liquid-glass canvas.
         // Android 15 may manage the bar surfaces itself; icon contrast still applies.
@@ -148,7 +155,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = colors) {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    JibikApp(store, dueReminderOpenSignal.intValue)
+                    JibikApp(
+                        store, dueReminderOpenSignal.intValue,
+                        bankSmsOpenSignal.intValue,
+                    )
                 }
             }
         }
@@ -164,7 +174,11 @@ private enum class Section(val title: String) {
 }
 
 @Composable
-private fun JibikApp(store: LocalLedgerStore, dueReminderOpenSignal: Int) {
+private fun JibikApp(
+    store: LocalLedgerStore,
+    dueReminderOpenSignal: Int,
+    bankSmsOpenSignal: Int,
+) {
     var welcomed by remember { mutableStateOf(store.hasFinishedWelcome()) }
     val records = remember { mutableStateListOf<LedgerRecord>() }
     val savedReceiptLines = remember { mutableStateMapOf<String, List<PurchaseLine>>() }
@@ -274,6 +288,13 @@ private fun JibikApp(store: LocalLedgerStore, dueReminderOpenSignal: Int) {
         currentMonth.startMillis, currentMonth.endExclusiveMillis,
     )
     var section by rememberSaveable { mutableStateOf(Section.HOME) }
+    var showBankSms by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(bankSmsOpenSignal) {
+        if (bankSmsOpenSignal > 0) {
+            section = Section.TRANSACTIONS
+            showBankSms = true
+        }
+    }
     var selectedTransactionId by rememberSaveable { mutableStateOf<String?>(null) }
     var receiptRows by remember { mutableStateOf<List<PurchaseLine>?>(null) }
     var receiptLoadError by remember { mutableStateOf(false) }
@@ -387,13 +408,28 @@ private fun JibikApp(store: LocalLedgerStore, dueReminderOpenSignal: Int) {
                 onTransactionClick = { selectedTransactionId = it.id },
                 onAi = { jiboAiFeature = JiboAiFeature.SPENDING },
             )
-            Section.TRANSACTIONS -> Transactions(
+            Section.TRANSACTIONS -> if (showBankSms) {
+                BankSmsScreen(
+                    store = store,
+                    accounts = accounts,
+                    customCategories = customCategories,
+                    onBack = { showBankSms = false },
+                    onRegistered = { record ->
+                        records.add(0, record)
+                        scope.launch {
+                            notifications.showSnackbar("تراکنش بانکی ثبت شد.")
+                        }
+                    },
+                    modifier = Modifier.padding(insets),
+                )
+            } else Transactions(
                 records = records,
                 receiptLines = savedReceiptLines.toMap(),
                 customCategories = customCategories,
                 modifier = Modifier.padding(insets),
                 onTransactionClick = { selectedTransactionId = it.id },
                 onCreateTransaction = { addKind = LedgerKind.EXPENSE; showAdd = true },
+                onBankSms = { showBankSms = true },
             )
             Section.BUDGET -> Budget(
                 spent = monthTotals.expenseToman,
@@ -1141,6 +1177,7 @@ private fun Transactions(
     modifier: Modifier,
     onTransactionClick: (LedgerRecord) -> Unit,
     onCreateTransaction: () -> Unit,
+    onBankSms: () -> Unit,
 ) {
     var search by rememberSaveable { mutableStateOf("") }
     var kindFilter by rememberSaveable { mutableStateOf("همه") }
@@ -1167,6 +1204,30 @@ private fun Transactions(
                     )
                 },
             )
+        }
+        item {
+            LiquidGlassCard(
+                onClick = onBankSms,
+                tone = GlassTone.CRYSTAL,
+                padding = PaddingValues(horizontal = 14.dp, vertical = 13.dp),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    JibikArt("transactions", Modifier.size(52.dp))
+                    Column(Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("پیامک‌های بانکی",
+                            color = Forest, fontSize = 14.sp,
+                            fontWeight = FontWeight.ExtraBold)
+                        Text("تشخیص واریز و برداشت؛ ثبت فقط با تأیید",
+                            color = Quiet, fontSize = 11.sp)
+                    }
+                    Text("‹", color = Forest, fontSize = 19.sp)
+                }
+            }
         }
         item {
             OutlinedTextField(
