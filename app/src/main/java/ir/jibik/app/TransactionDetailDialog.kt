@@ -70,6 +70,8 @@ internal fun TransactionDetailDialog(
     loadFailed: Boolean,
     onRetry: () -> Unit,
     onDismiss: () -> Unit,
+    obligationTitle: String? = null,
+    onRepeat: (() -> Unit)? = null,
 ) {
     val isTransfer = record.kind == LedgerKind.TRANSFER
     val title = when (record.kind) {
@@ -140,6 +142,14 @@ internal fun TransactionDetailDialog(
                     JibikFormHint("این جابه‌جایی درآمد یا هزینه حساب نمی‌شه.")
                 }
                 if (record.category.isNotBlank()) DetailRow("دسته", record.category)
+                if (obligationTitle != null) {
+                    DetailRow("مرتبط با تعهد", obligationTitle)
+                    JibikFormHint(
+                        "این مبلغ فقط یک بار در گردش حساب ثبت شده است. " +
+                            "سوابق تسویه در بخش تعهدات هم قابل مشاهده‌اند."
+                    )
+                }
+                DetailRow("شناسه ثبت", record.id.take(12))
                 if (record.note.isNotBlank()) DetailRow("توضیحات", record.note)
                 if (record.kind == LedgerKind.EXPENSE) {
                     HorizontalDivider(color = JibikStyle.line)
@@ -226,10 +236,19 @@ internal fun TransactionDetailDialog(
             }
         },
         confirmButton = {
-            Button(
-                onClick = onDismiss,
-                shape = RoundedCornerShape(15.dp),
-            ) { Text("بستن") }
+            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                if (onRepeat != null) {
+                    LiquidGlassButton(
+                        text = "ثبت مشابه",
+                        onClick = onRepeat,
+                        tone = GlassTone.HONEY,
+                    )
+                }
+                Button(
+                    onClick = onDismiss,
+                    shape = RoundedCornerShape(15.dp),
+                ) { Text("بستن") }
+            }
         },
     )
 }
