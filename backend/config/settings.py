@@ -74,3 +74,15 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_THROTTLE_RATES": {"anon": "30/hour", "user": "1000/hour"},
 }
+
+# ArvanCloud AIaaS. Server-only credentials; disabled until explicitly configured.
+ARVAN_AI_ENABLED = os.getenv("ARVAN_AI_ENABLED", "false").lower() == "true"
+ARVAN_AI_BASE_URL = os.getenv("ARVAN_AI_BASE_URL", "")
+ARVAN_AI_API_KEY = os.getenv("ARVAN_AI_API_KEY", "")
+ARVAN_AI_MODEL = os.getenv("ARVAN_AI_MODEL", "")
+ARVAN_AI_TIMEOUT_SECONDS = int(os.getenv("ARVAN_AI_TIMEOUT_SECONDS", "10"))
+ARVAN_AI_MAX_RETRIES = int(os.getenv("ARVAN_AI_MAX_RETRIES", "1"))
+ARVAN_AI_MAX_TOKENS = int(os.getenv("ARVAN_AI_MAX_TOKENS", "700"))
+ARVAN_AI_TEMPERATURE = float(os.getenv("ARVAN_AI_TEMPERATURE", "0.2"))
+ARVAN_AI_USER_DAILY_LIMIT = int(os.getenv("ARVAN_AI_USER_DAILY_LIMIT", "10"))
+ARVAN_AI_GLOBAL_DAILY_LIMIT = int(os.getenv("ARVAN_AI_GLOBAL_DAILY_LIMIT", "200"))
