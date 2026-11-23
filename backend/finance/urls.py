@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import HealthView, HouseholdView, AccountView, TransactionView
 from .sync import SyncPullView
-from .ai_views import AiStatusView, AiAnalysisView
+from .ai_views import AiStatusView, AiAnalysisView, AiMobileSummaryView
 
 urlpatterns = [
     path("health/", HealthView.as_view()),
@@ -11,4 +11,5 @@ urlpatterns = [
     path("sync/pull/", SyncPullView.as_view()),
     path("ai/status/", AiStatusView.as_view()),
     path("ai/analyze/", AiAnalysisView.as_view()),
+    path("ai/mobile-summary/", AiMobileSummaryView.as_view()),
 ]
