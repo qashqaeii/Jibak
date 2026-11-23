@@ -93,7 +93,7 @@ internal fun BankSmsScreen(
                 TextButton(onClick = onBack) { Text("بازگشت", color = JibikStyle.forest) }
             },
         )
-        JibikHero(Modifier.fillMaxWidth()) {
+        JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.TRANSACTIONS) {
             Text("جیبو و پیام‌های بانک", color = Color(0xFFDAF2E8), fontSize = 13.sp)
             Text("پولِ تو، تصمیمِ تو", color = Color.White,
                 fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
