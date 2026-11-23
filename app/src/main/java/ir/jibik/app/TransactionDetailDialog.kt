@@ -198,7 +198,7 @@ internal fun TransactionDetailDialog(
                                             )
                                         }
                                         Text(
-                                            "${line.quantity} × ${receiptMoney(line.unitPriceToman)}",
+                                            "${line.quantity} ${line.unit} × ${receiptMoney(line.unitPriceToman)}",
                                             color = JibikStyle.muted,
                                             fontSize = 11.sp,
                                         )
