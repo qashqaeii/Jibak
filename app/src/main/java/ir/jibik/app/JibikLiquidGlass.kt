@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.sp
  * blur of sensitive financial content and expensive shader loops.
  */
 internal enum class GlassTone {
-    CRYSTAL, EMERALD, HONEY, LILAC, ROSE,
+    CRYSTAL, FROSTED, EMERALD, HONEY, LILAC, ROSE,
 }
 
 internal object GlassPalette {
@@ -57,7 +57,12 @@ internal object GlassPalette {
 
 private fun toneStops(tone: GlassTone): List<Color> = when (tone) {
     GlassTone.CRYSTAL -> listOf(
-        Color(0xFFFDFEFF), Color(0xE8F6FCFA), Color(0xD5E8F1EC),
+        Color(0xFFFDFEFF), Color(0xF8F6FCFA), Color(0xF2E8F1EC),
+    )
+    // Full opacity is intentional for dialogs: finance data behind the modal
+    // must never bleed into labels, input borders or validation messages.
+    GlassTone.FROSTED -> listOf(
+        Color(0xFFFFFFFF), Color(0xFFFBFDFC), Color(0xFFF0F6F2),
     )
     GlassTone.EMERALD -> listOf(
         Color(0xF42D9F83), Color(0xF4087467), Color(0xFF024D46),
@@ -79,6 +84,7 @@ private fun glassShadow(tone: GlassTone): Color = when (tone) {
     GlassTone.LILAC -> Color(0x6C8A70B5)
     GlassTone.ROSE -> Color(0x678F665B)
     GlassTone.CRYSTAL -> Color(0x69617D74)
+    GlassTone.FROSTED -> Color(0x885D7971)
 }
 
 /** A light mesh wash that brings out glass depth without a giant bitmap. */
