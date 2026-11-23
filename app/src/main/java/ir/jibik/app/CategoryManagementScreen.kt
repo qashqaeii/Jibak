@@ -64,7 +64,7 @@ internal fun CategoryManagementScreen(
                 }
             },
         )
-        JibikHero(Modifier.fillMaxWidth()) {
+        JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.CATEGORIES) {
             Text("طبقه‌بندی شخصی خودت", color = Color(0xFFD5F2E8),
                 fontSize = 13.sp)
             Text(
