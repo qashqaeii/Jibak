@@ -83,6 +83,26 @@ class BankSmsParserTest {
         assertNull(parse("بانک ملت\nواریز و برداشت\n100,000 ریال"))
     }
 
+    @Test fun balanceShownBeforeTransactionIsNeverChosenAsAmount() {
+        val result = parse("""
+            بانک ملت
+            مانده: 2,800,000 ریال
+            برداشت
+            مبلغ: 150,000 ریال
+            شماره پیگیری: 55
+        """)!!
+        assertFalse(result.income)
+        assertEquals(15_000L, result.amountToman)
+    }
+
+    @Test fun balanceOnlyCannotBecomeAnExpenseWhenTitleMentionsPurchase() {
+        assertNull(parse("""
+            بانک سامان
+            گزارش خریدهای ماه گذشته
+            موجودی: 9,000,000 ریال
+        """))
+    }
+
     @Test fun duplicateFingerprintStableButTimestampChangesIdentity() {
         val sample = "بانك ملي ايران\nانتقال:45,000,000+\nحساب:04004"
         val a = parse(sample)!!
