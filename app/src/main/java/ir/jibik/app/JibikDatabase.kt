@@ -212,6 +212,44 @@ internal interface ObligationPaymentDao {
     suspend fun insert(row: ObligationPaymentEntity)
 }
 
+/** Opt-in bank SMS inbox: only verified transaction metadata, never raw SMS bodies. */
+@Entity(
+    tableName = "bank_sms_candidates",
+    indices = [Index(value = ["state", "receivedAtMillis"])],
+)
+internal data class BankSmsCandidateEntity(
+    @PrimaryKey val id: String,
+    val bankId: String,
+    val bankTitle: String,
+    val income: Boolean,
+    val amountRial: Long,
+    val accountLast4: String,
+    val receivedAtMillis: Long,
+    val state: String = "PENDING",
+    val linkedTransactionId: String? = null,
+)
+
+@Dao
+internal interface BankSmsCandidateDao {
+    @Query("SELECT * FROM bank_sms_candidates ORDER BY receivedAtMillis DESC, id DESC LIMIT 400")
+    suspend fun recent(): List<BankSmsCandidateEntity>
+
+    @Query("SELECT * FROM bank_sms_candidates WHERE id = :id LIMIT 1")
+    suspend fun find(id: String): BankSmsCandidateEntity?
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIgnore(entity: BankSmsCandidateEntity): Long
+
+    @Query("UPDATE bank_sms_candidates SET state = 'IGNORED' WHERE id = :id AND state = 'PENDING'")
+    suspend fun ignore(id: String): Int
+
+    @Query("UPDATE bank_sms_candidates SET state = 'REGISTERED', linkedTransactionId = :transactionId WHERE id = :id AND state = 'PENDING'")
+    suspend fun markRegistered(id: String, transactionId: String): Int
+
+    @Query("DELETE FROM bank_sms_candidates WHERE state != 'PENDING' AND receivedAtMillis < :olderThan")
+    suspend fun purgeOlderHandled(olderThan: Long): Int
+}
+
 /** A goal points to one real savings account; it cannot mint imaginary savings. */
 @Entity(
     tableName = "savings_goals",
@@ -246,8 +284,9 @@ internal interface SavingsGoalDao {
         PurchaseLineEntity::class, SavingsGoalEntity::class,
         CustomCategoryEntity::class, CategoryBudgetEntity::class,
         FinancialObligationEntity::class, ObligationPaymentEntity::class,
+        BankSmsCandidateEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 internal abstract class JibikDatabase : RoomDatabase() {
@@ -259,6 +298,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
     abstract fun categoryBudgetDao(): CategoryBudgetDao
     abstract fun obligationDao(): FinancialObligationDao
     abstract fun obligationPaymentDao(): ObligationPaymentDao
+    abstract fun bankSmsCandidateDao(): BankSmsCandidateDao
 
     companion object {
         @Volatile private var instance: JibikDatabase? = null
@@ -375,6 +415,24 @@ internal abstract class JibikDatabase : RoomDatabase() {
             }
         }
 
+        /** Adds only bank transaction suggestions; all prior ledger rows survive. */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS bank_sms_candidates (" +
+                        "id TEXT NOT NULL, bankId TEXT NOT NULL, " +
+                        "bankTitle TEXT NOT NULL, income INTEGER NOT NULL, " +
+                        "amountRial INTEGER NOT NULL, accountLast4 TEXT NOT NULL, " +
+                        "receivedAtMillis INTEGER NOT NULL, state TEXT NOT NULL, " +
+                        "linkedTransactionId TEXT, PRIMARY KEY(id))"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_bank_sms_candidates_state_receivedAtMillis " +
+                        "ON bank_sms_candidates(state, receivedAtMillis)"
+                )
+            }
+        }
+
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -383,7 +441,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
                     "jibik_ledger_v1.db",
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
+                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
                 ).build().also { instance = it }
             }
     }
