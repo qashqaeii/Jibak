@@ -422,6 +422,31 @@ private fun JibikApp(store: LocalLedgerStore) {
             )
         }
     }
+    if (showNewCategory) {
+        NewCustomCategoryDialog(
+            existing = customCategories,
+            isSaving = isSaving,
+            onDismiss = { if (!isSaving) showNewCategory = false },
+            onSave = { category ->
+                if (!isSaving) {
+                    isSaving = true
+                    scope.launch {
+                        try {
+                            store.addCustomCategory(category)
+                            customCategories.clear()
+                            customCategories.addAll(store.loadCustomCategories())
+                            showNewCategory = false
+                            notifications.showSnackbar("دسته اختصاصی جدید ذخیره شد.")
+                        } catch (_: Exception) {
+                            storageError = "ذخیره دسته ناموفق بود؛ داده‌های قبلی محفوظ هستند."
+                        } finally {
+                            isSaving = false
+                        }
+                    }
+                }
+            },
+        )
+    }
     if (showNewGoal) {
         NewGoalDialog(
             accounts = accounts,
@@ -451,6 +476,7 @@ private fun JibikApp(store: LocalLedgerStore) {
     if (showItemizedPurchase) {
         ItemizedPurchaseDialog(
             accounts = accounts,
+            customCategories = customCategories,
             onDismiss = { if (!isSaving) showItemizedPurchase = false },
             isSaving = isSaving,
             onSave = { purchase, lines ->
@@ -503,6 +529,7 @@ private fun JibikApp(store: LocalLedgerStore) {
     if (showAdd) {
         AddTransactionDialog(
             accounts = accounts,
+            customCategories = customCategories,
             initialKind = addKind,
             initialTargetAccountId = addTargetAccountId,
             isSaving = isSaving,
@@ -1131,6 +1158,7 @@ private fun Budget(
 @Composable
 private fun AddTransactionDialog(
     accounts: List<Account>,
+    customCategories: List<CustomCategoryEntity>,
     initialKind: LedgerKind,
     initialTargetAccountId: String? = null,
     isSaving: Boolean = false,
@@ -1157,9 +1185,8 @@ private fun AddTransactionDialog(
     val sourceValid = accounts.any { it.id == sourceId }
     val targetValid = accounts.any { it.id == targetId }
     val categoryValid = when (kind) {
-        LedgerKind.EXPENSE -> ExpenseCategoryCatalog.byDisplayName(category) != null
-        LedgerKind.INCOME -> ir.jibik.core.finance.IncomeCategoryCatalog.all()
-            .any { it.displayName == category }
+        LedgerKind.EXPENSE -> isSelectableCategory(category, false, customCategories)
+        LedgerKind.INCOME -> isSelectableCategory(category, true, customCategories)
         LedgerKind.TRANSFER -> true
     }
     val canSave = !isSaving && numericAmount != null && numericAmount > 0L &&
@@ -1337,6 +1364,7 @@ private fun AddTransactionDialog(
         CategoryPickerDialog(
             income = kind == LedgerKind.INCOME,
             selected = category,
+            custom = customCategories,
             onSelected = {
                 category = it
                 showCategoryPicker = false
