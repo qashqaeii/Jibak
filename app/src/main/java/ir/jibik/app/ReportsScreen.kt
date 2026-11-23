@@ -101,7 +101,7 @@ internal fun ReportsScreen(
             }
             JibikBrandLogo(Modifier.size(44.dp))
         }
-        JibikHero(Modifier.fillMaxWidth()) {
+        JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.REPORTS) {
             Text("خالص جریان پول این ماه", fontSize = 13.sp, color = Color(0xFFDAF1E9))
             Text(
                 moneyReport(cashFlow),
