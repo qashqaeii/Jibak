@@ -21,12 +21,20 @@ CATEGORY_LABELS = {
 MAX_TOMAN = 900_000_000_000_000_000  # <= signed 64-bit rials after *10
 
 
-class CategoryRow(serializers.Serializer):
+class StrictSummarySerializer(serializers.Serializer):
+    """Never silently accept note/record fields on the mobile AI boundary."""
+    def to_internal_value(self, data):
+        if isinstance(data, dict) and set(data) - set(self.fields):
+            raise serializers.ValidationError("Only aggregate summary fields are permitted")
+        return super().to_internal_value(data)
+
+
+class CategoryRow(StrictSummarySerializer):
     code = serializers.ChoiceField(choices=tuple(CATEGORY_LABELS))
     amount_toman = serializers.IntegerField(min_value=0, max_value=MAX_TOMAN)
 
 
-class SummarySerializer(serializers.Serializer):
+class SummarySerializer(StrictSummarySerializer):
     period = serializers.ChoiceField(choices=("rolling_30_days",))
     income_toman = serializers.IntegerField(min_value=0, max_value=MAX_TOMAN)
     expense_toman = serializers.IntegerField(min_value=0, max_value=MAX_TOMAN)
