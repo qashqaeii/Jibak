@@ -116,6 +116,7 @@ private enum class Section(val title: String) {
     HOME("خانه"),
     TRANSACTIONS("تراکنش‌ها"),
     BUDGET("بودجه"),
+    REPORTS("گزارش‌ها"),
     ACCOUNTS("حساب‌ها"),
 }
 
@@ -244,6 +245,10 @@ private fun JibikApp(store: LocalLedgerStore) {
                 monthTitle = currentMonth.title,
                 modifier = Modifier.padding(insets),
                 onEdit = { showEditBudget = true },
+            )
+            Section.REPORTS -> ReportsScreen(
+                records = records,
+                modifier = Modifier.padding(insets),
             )
             Section.ACCOUNTS -> AccountsScreen(
                 accounts = accounts,
@@ -568,13 +573,73 @@ private fun MetricCard(title: String, amount: Long, accent: Color, modifier: Mod
 
 @Composable
 private fun Transactions(records: List<LedgerRecord>, modifier: Modifier) {
+    var search by rememberSaveable { mutableStateOf("") }
+    var kindFilter by rememberSaveable { mutableStateOf("همه") }
+    val filtered = records.filter { record ->
+        val filterMatches = when (kindFilter) {
+            "درآمد" -> record.kind == LedgerKind.INCOME
+            "هزینه" -> record.kind == LedgerKind.EXPENSE
+            "انتقال" -> record.kind == LedgerKind.TRANSFER
+            else -> true
+        }
+        val searchMatches = search.isBlank() ||
+            record.note.contains(search.trim(), ignoreCase = true) ||
+            record.category.contains(search.trim(), ignoreCase = true) ||
+            record.amountToman.toString().contains(search.trim())
+        filterMatches && searchMatches
+    }
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
         Text("تراکنش‌ها", fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = Deep)
-        Text("همه درآمدها و هزینه‌هایی که تا امروز ثبت کردی", color = Quiet, fontSize = 14.sp)
-        if (records.isEmpty()) EmptyTransactions() else records.forEach { TransactionCard(it) }
+        Text("جستجو و مرور همه درآمدها، هزینه‌ها و انتقال‌ها", color = Quiet, fontSize = 13.sp)
+        OutlinedTextField(
+            value = search,
+            onValueChange = { search = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("جستجو در تراکنش‌ها") },
+            placeholder = { Text("نام، توضیح، دسته‌بندی یا مبلغ") },
+            singleLine = true,
+            shape = RoundedCornerShape(15.dp),
+        )
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf("همه", "هزینه", "درآمد", "انتقال").forEach { option ->
+                FilterChip(
+                    selected = kindFilter == option,
+                    onClick = { kindFilter = option },
+                    label = { Text(option, fontSize = 12.sp) },
+                    shape = RoundedCornerShape(12.dp),
+                )
+            }
+        }
+        Text(
+            "${filtered.size} تراکنش",
+            color = Forest, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+        )
+        if (filtered.isEmpty()) {
+            if (records.isEmpty()) EmptyTransactions()
+            else Card(
+                colors = CardDefaults.cardColors(containerColor = Paper),
+                shape = RoundedCornerShape(22.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(Modifier.padding(22.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally) {
+                    JiboMascot(Modifier.size(70.dp))
+                    Text("تراکنشی با این جستجو پیدا نشد.", color = Deep)
+                    TextButton(onClick = { search = ""; kindFilter = "همه" }) {
+                        Text("پاک‌کردن فیلترها")
+                    }
+                }
+            }
+        } else {
+            filtered.forEach { TransactionCard(it) }
+        }
         Spacer(Modifier.height(90.dp))
     }
 }
