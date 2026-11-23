@@ -73,6 +73,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -1138,7 +1139,10 @@ private fun BalanceCard(summary: MoneySummary) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
                 Text("مجموع موجودی حساب‌ها", color = Color(0xFFDCF3EA), fontSize = 13.sp)
                 Text("دارایی ثبت‌شده تا امروز", color = Color(0xFFB9DDD1), fontSize = 11.sp)
             }
@@ -1153,9 +1157,13 @@ private fun BalanceCard(summary: MoneySummary) {
             amount = if (balanceVisible) money(summary.balanceToman) else "••••••",
         )
         HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("همه حساب‌های شخصی", color = Color(0xFFE4F4ED), fontSize = 11.sp)
-            Text("به‌روزرسانی با هر تراکنش", color = Color(0xFFE4F4ED), fontSize = 11.sp)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Text("همه حساب‌های شخصی", modifier = Modifier.weight(1f), color = Color(0xFFE4F4ED), fontSize = 11.sp)
+            Text("به‌روزرسانی با هر تراکنش", modifier = Modifier.weight(1f), textAlign = TextAlign.End, color = Color(0xFFE4F4ED), fontSize = 11.sp)
         }
     }
 }
@@ -1379,7 +1387,7 @@ private fun TransactionCard(record: LedgerRecord, onClick: () -> Unit) {
         padding = PaddingValues(horizontal = 13.dp, vertical = 13.dp),
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val compact = maxWidth < 340.dp
+            val compact = maxWidth < 340.dp || LocalDensity.current.fontScale >= 1.2f
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(11.dp),
