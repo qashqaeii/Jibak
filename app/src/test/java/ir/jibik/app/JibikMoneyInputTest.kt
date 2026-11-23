@@ -22,9 +22,9 @@ class JibikMoneyInputTest {
     }
 
     @Test fun thousandsGroupingIsPresentationOnly() {
-        assertEquals("۱٬۲۳۴٬۵۶۷", groupDigits("۱۲۳۴۵۶۷"))
+        assertEquals("۱,۲۳۴,۵۶۷", groupDigits("۱۲۳۴۵۶۷"))
         assertEquals("12", groupDigits("12"))
-        assertEquals("1٬000", groupDigits("1000"))
+        assertEquals("1,000", groupDigits("1000"))
     }
 
     @Test fun rejectsNegativeFractionalOrAlphabeticUserInput() {
@@ -32,6 +32,13 @@ class JibikMoneyInputTest {
         assertFalse(isAllowedTomanDraft("1.5"))
         assertFalse(isAllowedTomanDraft("تومان"))
         assertTrue(isAllowedTomanDraft("۱٬۲۳۴,٥٦٧"))
+    }
+
+    @Test fun moneyDisplayHasReadableZeroAndUnambiguousCommas() {
+        assertEquals("صفر تومان", formatToman(0L))
+        assertEquals("۵,۰۰۰,۰۰۰ تومان", formatToman(5_000_000L))
+        assertEquals("۱ تومان", formatToman(1L))
+        assertEquals("-۱۲,۳۴۵ تومان", formatToman(-12_345L))
     }
 
     @Test fun asciiDraftHasNineteenDigitMaximum() {
