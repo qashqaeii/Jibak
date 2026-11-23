@@ -17,6 +17,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -881,45 +882,67 @@ private fun Home(
         LiquidGlassCard(onClick = onAi, tone = GlassTone.CRYSTAL) {
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(Modifier.weight(1f)) {
-                    Text("✦ جیبو، همراه مالی هوشمند", color = Forest,
+                JiboMascot(Modifier.size(48.dp))
+                Column(Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("جیبو، همراه مالی هوشمند", color = Forest,
                         fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-                    Text("بررسی خرج‌ها، بدون دست‌کاری اطلاعات", color = Quiet,
-                        fontSize = 12.sp)
+                    Text("بررسی خرج‌ها بدون تغییر اطلاعات مالی",
+                        color = Quiet, fontSize = 12.sp, lineHeight = 18.sp)
                 }
-                Text("مشاهده", color = Forest, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text("‹", color = Forest, fontWeight = FontWeight.Bold, fontSize = 20.sp)
             }
         }
         JibikSectionTitle("ثبت سریع", "کارهای روزمره، بدون فرم‌های طولانی")
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            JibikQuickAction(
-                title = "ثبت هزینه", subtitle = "مخارج روزانه",
-                symbol = "−", accent = Coral,
-                background = Color(0xFFFFEDE9), onClick = onNewExpense,
-                modifier = Modifier.weight(1f),
-            )
-            JibikQuickAction(
-                title = "ثبت درآمد", subtitle = "دریافتی‌ها",
-                symbol = "+", accent = Forest,
-                background = Color(0xFFE9F6EF), onClick = onNewIncome,
-                modifier = Modifier.weight(1f),
-            )
-            JibikQuickAction(
-                title = "خرید منزل", subtitle = "چند قلم کالا",
-                symbol = "≡", accent = Color(0xFFBC620A),
-                background = Color(0xFFFFF0DD), onClick = onItemizedPurchase,
-                modifier = Modifier.weight(1f),
-            )
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val compact = maxWidth < 390.dp
+            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(9.dp),
+                ) {
+                    JibikQuickAction(
+                        title = "ثبت هزینه", subtitle = "مخارج روزانه",
+                        symbol = "−", accent = Coral,
+                        background = Color(0xFFFFEDE9), onClick = onNewExpense,
+                        modifier = Modifier.weight(1f),
+                    )
+                    JibikQuickAction(
+                        title = "ثبت درآمد", subtitle = "دریافتی‌ها",
+                        symbol = "+", accent = Forest,
+                        background = Color(0xFFE9F6EF), onClick = onNewIncome,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (!compact) {
+                        JibikQuickAction(
+                            title = "خرید منزل", subtitle = "چند قلم کالا",
+                            symbol = "≡", accent = Color(0xFFBC620A),
+                            background = Color(0xFFFFF0DD),
+                            onClick = onItemizedPurchase,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+                if (compact) {
+                    JibikWideQuickAction(
+                        title = "ثبت خرید چندقلمی",
+                        subtitle = "برای هر کالا، مبلغ و دسته جداگانه",
+                        symbol = "≡", onClick = onItemizedPurchase,
+                    )
+                }
+            }
         }
         LiquidGlassCard(
             onClick = onBudget,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Column(Modifier.fillMaxWidth().padding(17.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
