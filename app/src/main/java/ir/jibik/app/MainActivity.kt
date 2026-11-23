@@ -392,6 +392,15 @@ private fun JibikApp(store: LocalLedgerStore) {
                 onAi = { jiboAiFeature = JiboAiFeature.SPENDING },
             )
             Section.ACCOUNTS -> when {
+                showObligations -> ObligationsScreen(
+                    obligations = obligations,
+                    payments = obligationPayments,
+                    modifier = Modifier.padding(insets),
+                    onBack = { showObligations = false },
+                    onAdd = { showNewObligation = true },
+                    onPay = { settlingObligationId = it },
+                    isSaving = isSaving,
+                )
                 showCategoryManager -> CategoryManagementScreen(
                     categories = customCategories,
                     modifier = Modifier.padding(insets),
@@ -441,6 +450,7 @@ private fun JibikApp(store: LocalLedgerStore) {
                     onTransfer = { addKind = LedgerKind.TRANSFER; showAdd = true },
                     onGoals = { showGoals = true },
                     onCategories = { showCategoryManager = true },
+                    onObligations = { showObligations = true },
                 )
             }
         }
@@ -460,6 +470,63 @@ private fun JibikApp(store: LocalLedgerStore) {
                 loadFailed = receiptLoadError,
                 onRetry = { receiptRetry++ },
                 onDismiss = { selectedTransactionId = null; receiptRows = null },
+            )
+        }
+    }
+    if (showNewObligation) {
+        NewObligationDialog(
+            isSaving = isSaving,
+            onDismiss = { if (!isSaving) showNewObligation = false },
+            onSave = { obligation ->
+                if (!isSaving) {
+                    isSaving = true
+                    scope.launch {
+                        try {
+                            store.addObligation(obligation)
+                            obligations.clear()
+                            obligations.addAll(store.loadObligations())
+                            showNewObligation = false
+                            notifications.showSnackbar("تعهد مالی ذخیره شد.")
+                        } catch (_: Exception) {
+                            storageError = "ثبت تعهد ممکن نشد؛ اطلاعات قبلی محفوظ ماند."
+                        } finally { isSaving = false }
+                    }
+                }
+            },
+        )
+    }
+
+    settlingObligationId?.let { id ->
+        obligations.firstOrNull { it.id == id }?.let { obligation ->
+            SettleObligationDialog(
+                obligation = obligation,
+                payments = obligationPayments,
+                accounts = accounts,
+                isSaving = isSaving,
+                onDismiss = { if (!isSaving) settlingObligationId = null },
+                onSave = { accountId, value ->
+                    if (!isSaving) {
+                        isSaving = true
+                        scope.launch {
+                            try {
+                                val posted = store.settleObligation(
+                                    obligationId = id,
+                                    accountId = accountId,
+                                    amountToman = value,
+                                    transactionId = UUID.randomUUID().toString(),
+                                )
+                                records.add(0, posted)
+                                obligationPayments.clear()
+                                obligationPayments.addAll(store.loadObligationPayments())
+                                settlingObligationId = null
+                                selectedTransactionId = posted.id
+                                notifications.showSnackbar("پرداخت واقعی ثبت شد.")
+                            } catch (_: Exception) {
+                                storageError = "پرداخت ثبت نشد؛ مانده حساب و تعهد تغییری نکرد."
+                            } finally { isSaving = false }
+                        }
+                    }
+                },
             )
         }
     }
