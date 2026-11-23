@@ -317,9 +317,10 @@ internal fun CreateAccountDialog(
             }
         },
         confirmButton = {
-            Button(
+            LiquidGlassButton(
+                text = if (isSaving) "در حال ایجاد..." else "ایجاد حساب",
                 enabled = valid,
-                shape = RoundedCornerShape(15.dp),
+                tone = GlassTone.EMERALD,
                 onClick = {
                     onSave(
                         Account(
@@ -329,9 +330,7 @@ internal fun CreateAccountDialog(
                         )
                     )
                 },
-            ) {
-                Text(if (isSaving) "در حال ایجاد..." else "ایجاد حساب")
-            }
+            )
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !isSaving) {
