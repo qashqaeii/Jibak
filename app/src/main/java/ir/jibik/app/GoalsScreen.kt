@@ -174,7 +174,8 @@ internal fun GoalsScreen(
                         Text(
                             goal.title, color = JibikStyle.ink,
                             fontSize = 17.sp, fontWeight = FontWeight.ExtraBold,
-                            modifier = Modifier.weight(1f), maxLines = 1,
+                            modifier = Modifier.weight(1f), maxLines = 2,
+                            lineHeight = 23.sp,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
@@ -185,13 +186,13 @@ internal fun GoalsScreen(
                     Text(
                         "حساب: $accountName",
                         color = JibikStyle.muted, fontSize = 12.sp,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis,
                     )
-                    Text(
-                        goalMoney(balance),
-                        color = JibikStyle.forest,
-                        fontSize = 22.sp, fontWeight = FontWeight.ExtraBold,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    JibikFinancialDetail(
+                        label = "پس‌انداز فعلی",
+                        value = goalMoney(balance),
+                        emphasis = true,
+                        valueColor = JibikStyle.forest,
                     )
                     LinearProgressIndicator(
                         progress = { fraction },
@@ -199,21 +200,15 @@ internal fun GoalsScreen(
                         color = if (fraction >= 1f) JibikStyle.forest else JibikStyle.orange,
                         trackColor = JibikStyle.cream,
                     )
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            "هدف: " + goalMoney(goal.targetToman),
-                            fontSize = 12.sp, color = JibikStyle.muted,
-                            modifier = Modifier.weight(1f), maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            "${(fraction * 100).toInt()}٪",
-                            fontSize = 12.sp, color = JibikStyle.forest,
-                        )
-                    }
+                    JibikFinancialDetail(
+                        label = "مبلغ هدف",
+                        value = goalMoney(goal.targetToman),
+                    )
+                    Text(
+                        "پیشرفت تا امروز: " + (fraction * 100).toInt() + "٪",
+                        fontSize = 12.sp, color = JibikStyle.forest,
+                        fontWeight = FontWeight.Bold,
+                    )
                     LiquidGlassButton(
                         text = if (fraction >= 1f) "انتقال پول به این حساب"
                             else "افزودن پول به هدف",
