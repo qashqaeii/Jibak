@@ -54,7 +54,9 @@ internal fun ObligationsScreen(
     val due = active.count { item ->
         val installment = nextUnpaidInstallment(item, payments)
         installment != null &&
-            jalaliInstallmentDueDate(item.dueAtMillis, installment.index) < now
+            jalaliDueDayEndExclusive(
+                jalaliInstallmentDueDate(item.dueAtMillis, installment.index)
+            ) <= now
     }
     Column(
         modifier.fillMaxSize().liquidBackdrop()
@@ -98,7 +100,8 @@ internal fun ObligationsScreen(
             val nextDate = upcoming?.let {
                 jalaliInstallmentDueDate(item.dueAtMillis, it.index)
             }
-            val overdue = nextDate != null && nextDate < now
+            val overdue = nextDate != null &&
+                jalaliDueDayEndExclusive(nextDate) <= now
             val remaining = progress.remainingToman
             LiquidGlassCard(tone = GlassTone.CRYSTAL) {
                 Row(Modifier.fillMaxWidth(),
