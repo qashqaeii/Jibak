@@ -76,11 +76,11 @@ internal fun JibikHero(
             )
         }
         illustration?.let { art ->
-            // Low-contrast transparent WebP below all text; never obstructs totals.
+            // Actual 3D transparent WebP art: visible enough to recognize, still secondary to totals.
             JiboArt(
                 illustration = art,
                 modifier = Modifier.align(Alignment.BottomEnd)
-                    .size(122.dp).alpha(0.18f),
+                    .size(118.dp).alpha(0.32f),
             )
         }
         Column(
