@@ -1,6 +1,7 @@
 package ir.jibik.app
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,77 +73,143 @@ internal fun AccountsScreen(
     onTransfer: () -> Unit,
     onGoals: () -> Unit,
 ) {
+    val totalBalance = balances.values.fold(0L) { total, value ->
+        Math.addExact(total, value)
+    }
     Column(
-        modifier.fillMaxSize().background(WarmBackground).verticalScroll(rememberScrollState())
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier.fillMaxSize().background(WarmBackground)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("حساب‌های من", fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
-                Text("موجودی هر کارت و کیف پول، جدا و شفاف", fontSize = 13.sp, color = Subtle)
+                Text("حساب‌های من", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+                Text("هر حساب، یک تصویر شفاف از پولت", fontSize = 12.sp, color = Subtle)
             }
-            JibikBrandLogo(Modifier.size(46.dp))
+            JibikBrandLogo(Modifier.size(44.dp))
         }
-
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = onAdd, modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(16.dp)) {
-                Text("＋ حساب جدید")
-            }
-            OutlinedButton(
-                onClick = onTransfer,
-                enabled = accounts.size > 1,
-                modifier = Modifier.weight(1f),
+        JibikHero(Modifier.fillMaxWidth()) {
+            Text("موجودی کل حساب‌ها", fontSize = 13.sp, color = Color(0xFFDAF1E7))
+            Text(
+                accountMoney(totalBalance),
+                fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, color = White,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                "${accounts.size} حساب ثبت‌شده · بدون دوباره‌شماری انتقال‌ها",
+                fontSize = 12.sp, color = Color(0xFFD4EEE6),
+            )
+        }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Button(
+                onClick = onAdd, modifier = Modifier.weight(1f).height(50.dp),
                 shape = RoundedCornerShape(16.dp),
             ) {
-                Text("انتقال بین حساب‌ها")
+                Text("＋ حساب جدید", fontSize = 12.sp, maxLines = 1)
+            }
+            OutlinedButton(
+                onClick = onTransfer, enabled = accounts.size > 1,
+                modifier = Modifier.weight(1f).height(50.dp),
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Text("انتقال پول", fontSize = 12.sp, maxLines = 1)
             }
         }
-        OutlinedButton(
-            onClick = onGoals,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(15.dp),
-        ) { Text("اهداف پس‌انداز و برنامه‌های مالی") }
-        if (accounts.size < 2) {
-            Text("برای انتقال پول، اول یک حساب دیگر اضافه کن.",
-                fontSize = 12.sp, color = Subtle)
+        JibikSurfaceCard(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onGoals),
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "هدف‌های پس‌انداز", fontSize = 15.sp,
+                        color = Green, fontWeight = FontWeight.ExtraBold,
+                    )
+                    Text("پس‌انداز واقعی، بر پایه حساب‌های تو", color = Subtle, fontSize = 12.sp)
+                }
+                Text("←", fontSize = 23.sp, color = Green)
+            }
         }
+        JibikSectionTitle(
+            title = "حساب‌های ثبت‌شده",
+            subtitle = "جزئیات موجودی هر حساب",
+        )
         accounts.forEachIndexed { index, account ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = White),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (index == 0) Color(0xFFEAF5EF) else White,
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = if (index == 0) 0.dp else 1.dp),
             ) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Row(verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(
+                    Modifier.fillMaxWidth().padding(17.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f),
+                        ) {
                             Box(
-                                Modifier.size(38.dp).background(
-                                    if (index % 2 == 0) Color(0xFFE0F3ED) else Color(0xFFFFEBD9),
-                                    RoundedCornerShape(12.dp),
+                                Modifier.size(42.dp).background(
+                                    if (index % 2 == 0) Color(0xFFD0EBDD) else Color(0xFFFFEBD7),
+                                    RoundedCornerShape(14.dp),
                                 ),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Text(if (account.id == "wallet") "◉" else "▤",
-                                    fontSize = 20.sp, color = Green)
+                                Text(
+                                    if (account.id == "wallet") "◉" else "▤",
+                                    fontSize = 20.sp, color = Green,
+                                )
                             }
-                            Column {
-                                Text(account.title, fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp, color = Ink)
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(3.dp),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(
+                                    account.title, fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp, color = Ink,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
                                 Text("حساب شخصی", fontSize = 11.sp, color = Subtle)
                             }
                         }
-                        Text(if (account.id == "wallet") "اصلی" else "فعال",
-                            fontSize = 11.sp, color = Green)
+                        Text(
+                            if (account.id == "wallet") "اصلی" else "فعال",
+                            fontSize = 11.sp, color = Green,
+                        )
                     }
-                    HorizontalDivider(color = Color(0xFFF1EEE8))
-                    Text("موجودی ثبت‌شده", color = Subtle, fontSize = 12.sp)
-                    Text(accountMoney(balances[account.id] ?: account.openingBalanceToman),
-                        fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, color = Green)
+                    HorizontalDivider(color = Color(0xFFE6EAE4))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("موجودی", color = Subtle, fontSize = 12.sp)
+                        Text(
+                            accountMoney(balances[account.id] ?: account.openingBalanceToman),
+                            color = Green, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }
