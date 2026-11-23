@@ -51,4 +51,45 @@ class LedgerTest {
             FinanceEngine.balances(accounts, listOf(record, record))
         }
     }
+    @Test fun independentAccountsKeepBalancesAndPreserveTotalOnTransfer() {
+        val accounts = listOf(
+            Account("wallet", "نقد", 300_000),
+            Account("card", "کارت بانکی", 2_000_000),
+            Account("savings", "پس‌انداز", 5_000_000),
+        )
+        val entries = listOf(
+            LedgerRecord("a", LedgerKind.TRANSFER, 450_000, "card", "savings"),
+            LedgerRecord("b", LedgerKind.EXPENSE, 150_000, fromAccountId = "wallet"),
+            LedgerRecord("c", LedgerKind.INCOME, 800_000, toAccountId = "card"),
+        )
+        assertEquals(
+            mapOf("wallet" to 150_000L, "card" to 2_350_000L, "savings" to 5_450_000L),
+            FinanceEngine.balances(accounts, entries),
+        )
+        assertEquals(
+            MoneySummary(7_950_000, 800_000, 150_000),
+            FinanceEngine.summary(accounts, entries),
+        )
+    }
+
+    @Test fun transferCannotPointAtMissingOrSameAccount() {
+        val onlyWallet = listOf(Account("wallet", "کیف پول"))
+        val transfer = LedgerRecord("bad", LedgerKind.TRANSFER, 25_000, "wallet", "card")
+        assertThrows(IllegalArgumentException::class.java) {
+            FinanceEngine.balances(onlyWallet, listOf(transfer))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            FinanceEngine.balances(onlyWallet, listOf(transfer.copy(toAccountId = "wallet")))
+        }
+    }
+
+    @Test fun openingBalanceIsNotIncomeAndOverflowIsRejected() {
+        val balances = listOf(Account("wallet", "نقد", 15_000), Account("bank", "بانک", 100_000))
+        assertEquals(MoneySummary(115_000, 0, 0), FinanceEngine.summary(balances, emptyList()))
+        val overflow = listOf(Account("a", "A", Long.MAX_VALUE), Account("b", "B", 1))
+        assertThrows(ArithmeticException::class.java) {
+            FinanceEngine.summary(overflow, emptyList())
+        }
+    }
+
 }
