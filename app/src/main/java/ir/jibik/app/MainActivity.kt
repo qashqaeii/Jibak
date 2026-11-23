@@ -1120,7 +1120,8 @@ private fun AddTransactionDialog(
                         LedgerKind.INCOME to "درآمد",
                         LedgerKind.TRANSFER to "انتقال",
                     ).forEach { (option, label) ->
-                        Button(
+                        LiquidGlassButton(
+                            text = label,
                             onClick = {
                                 kind = option
                                 category = if (option == LedgerKind.INCOME) "حقوق" else "خوراک"
@@ -1133,16 +1134,8 @@ private fun AddTransactionDialog(
                             modifier = Modifier.weight(1f),
                             enabled = !isSaving &&
                                 (option != LedgerKind.TRANSFER || accounts.size > 1),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (kind == option) Forest else
-                                    Color(0xFFE8F2EC),
-                                contentColor = if (kind == option) Paper else Forest,
-                            ),
-                            shape = RoundedCornerShape(13.dp),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                                horizontal = 2.dp, vertical = 8.dp
-                            ),
-                        ) { Text(label, fontSize = 12.sp, maxLines = 1) }
+                            tone = if (kind == option) GlassTone.EMERALD else GlassTone.CRYSTAL,
+                        )
                     }
                 }
                 JibikTomanField(
