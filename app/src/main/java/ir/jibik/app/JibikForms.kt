@@ -16,6 +16,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
@@ -64,7 +68,7 @@ internal fun parseTomanDraft(raw: String): Long? {
 
 internal fun groupDigits(raw: String): String {
     if (raw.length <= 3) return raw
-    return raw.reversed().chunked(3).joinToString("٬").reversed()
+    return raw.reversed().chunked(3).joinToString(",").reversed()
 }
 
 /**
@@ -78,7 +82,7 @@ internal class TomanGroupingTransformation : VisualTransformation {
         val sourceToDisplay = IntArray(digits.length + 1)
         for (index in digits.indices) {
             if (index > 0 && (digits.length - index) % 3 == 0) {
-                output.append('٬')
+                output.append(',')
             }
             sourceToDisplay[index] = output.length
             output.append(digits[index])
@@ -107,7 +111,7 @@ internal fun JibikTomanField(
 ) {
     val number = parseTomanDraft(value)
     val formattedPreview = remember(number) {
-        number?.let { NumberFormat.getIntegerInstance(Locale("fa", "IR")).format(it) }
+        number?.let(::formatToman)
     }
     Column(verticalArrangement = Arrangement.spacedBy(5.dp), modifier = modifier) {
         OutlinedTextField(
@@ -118,15 +122,23 @@ internal fun JibikTomanField(
             label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            textStyle = TextStyle(
+                fontSize = 19.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.End,
+                textDirection = TextDirection.Ltr,
+            ),
             visualTransformation = remember { TomanGroupingTransformation() },
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth(),
         )
         if (formattedPreview != null && (number!! > 0L || allowZero)) {
             Text(
-                "$formattedPreview تومان", fontSize = 11.sp,
+                formattedPreview, fontSize = 12.sp,
                 color = JibikStyle.muted, maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.End,
             )
         }
     }
