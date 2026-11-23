@@ -31,58 +31,19 @@ import androidx.compose.ui.unit.sp
 import ir.jibik.core.finance.ExpenseCategoryCatalog
 import ir.jibik.core.finance.IncomeCategoryCatalog
 
-private data class CategoryChoice(
-    val ids: List<String>,
-    val title: String,
-    val displayName: String,
-    val hasChildren: Boolean,
-)
-
 @Composable
 internal fun CategoryPickerDialog(
     income: Boolean,
     selected: String,
+    custom: List<CustomCategoryEntity> = emptyList(),
+    parentOnly: Boolean = false,
     onSelected: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var path by rememberSaveable(income) { mutableStateOf(emptyList<String>()) }
-    var search by rememberSaveable(income) { mutableStateOf("") }
-
-    fun fullName(ids: List<String>): String = if (income) {
-        IncomeCategoryCatalog.find(ids.last())?.displayName.orEmpty()
-    } else {
-        ExpenseCategoryCatalog.find(ids.last())?.displayName.orEmpty()
-    }
-
-    val items = if (search.isBlank()) {
-        val nodes = if (income) IncomeCategoryCatalog.children(path)
-            else ExpenseCategoryCatalog.children(path)
-        nodes.map { child ->
-            val ids = path + child.id
-            CategoryChoice(
-                ids = ids, title = child.title,
-                displayName = fullName(ids),
-                hasChildren = child.children.isNotEmpty(),
-            )
-        }
-    } else if (income) {
-        IncomeCategoryCatalog.search(search).map {
-            CategoryChoice(it.ids, it.title, it.displayName,
-                IncomeCategoryCatalog.children(it.ids).isNotEmpty())
-        }
-    } else {
-        ExpenseCategoryCatalog.search(search).map {
-            CategoryChoice(it.ids, it.title, it.displayName,
-                ExpenseCategoryCatalog.children(it.ids).isNotEmpty())
-        }
-    }
-
-    val selectedLevel = path.takeIf { it.isNotEmpty() }?.let(::fullName).orEmpty()
-    val breadCrumbs = (if (income) IncomeCategoryCatalog.all().firstOrNull {
-        it.ids == path
-    }?.labels else ExpenseCategoryCatalog.all().firstOrNull {
-        it.ids == path
-    }?.labels).orEmpty()
+    var path by rememberSaveable(income, parentOnly) { mutableStateOf("") }
+    var search by rememberSaveable(income, parentOnly) { mutableStateOf("") }
+    val choices = categoryOptions(income, custom, parentPath = path, search = search)
+        .filter { !parentOnly || it.depth < 3 }
 
     AlertDialog(
         modifier = Modifier.liquidGlass(
@@ -93,7 +54,8 @@ internal fun CategoryPickerDialog(
         title = {
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(
-                    if (income) "دسته‌بندی درآمد" else "دسته‌بندی هزینه",
+                    if (parentOnly) "انتخاب دسته والد"
+                    else if (income) "دسته‌بندی درآمد" else "دسته‌بندی هزینه",
                     color = JibikStyle.ink, fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
                 )
@@ -121,24 +83,26 @@ internal fun CategoryPickerDialog(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (path.isNotEmpty()) {
-                            TextButton(onClick = { path = path.dropLast(1) }) {
+                            TextButton(onClick = {
+                                path = path.substringBeforeLast(" / ", "")
+                            }) {
                                 Text("‹ بازگشت", color = JibikStyle.forest)
                             }
                         }
                         Text(
                             if (path.isEmpty()) "همه دسته‌های اصلی"
-                            else breadCrumbs.joinToString(" / "),
+                            else path,
                             color = JibikStyle.muted, fontSize = 12.sp,
                             maxLines = 2, modifier = Modifier.weight(1f),
                         )
                     }
                 } else {
                     Text(
-                        "${items.size} نتیجه مرتبط",
+                        "${choices.size} نتیجه مرتبط",
                         color = JibikStyle.muted, fontSize = 12.sp,
                     )
                 }
-                if (items.isEmpty()) {
+                if (choices.isEmpty()) {
                     JibikFormHint(
                         "دسته‌ای پیدا نشد. عبارت کوتاه‌تری جستجو کن."
                     )
@@ -147,8 +111,8 @@ internal fun CategoryPickerDialog(
                         modifier = Modifier.fillMaxWidth().heightIn(max = 335.dp),
                         verticalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
-                        items(items, key = { it.ids.joinToString(":") }) { item ->
-                            val selectedNow = item.displayName == selected
+                        items(choices, key = { it.path }) { item ->
+                            val selectedNow = item.path == selected
                             val colour = if (selectedNow) Color(0xFFE1F4EA)
                                 else Color(0xF6FFFFFF)
                             Row(
@@ -156,9 +120,9 @@ internal fun CategoryPickerDialog(
                                     .background(colour, RoundedCornerShape(15.dp))
                                     .clickable {
                                         if (item.hasChildren && search.isBlank()) {
-                                            path = item.ids
+                                            path = item.path
                                         } else {
-                                            onSelected(item.displayName)
+                                            onSelected(item.path)
                                         }
                                     }
                                     .padding(horizontal = 13.dp, vertical = 13.dp),
@@ -177,7 +141,7 @@ internal fun CategoryPickerDialog(
                                     )
                                     if (search.isNotBlank()) {
                                         Text(
-                                            item.displayName,
+                                            item.path,
                                             color = JibikStyle.muted,
                                             fontSize = 11.sp, maxLines = 2,
                                         )
@@ -197,13 +161,18 @@ internal fun CategoryPickerDialog(
                         }
                     }
                 }
-                if (search.isBlank() && selectedLevel.isNotBlank()) {
+                if (search.isBlank() && path.isNotBlank()) {
                     LiquidGlassButton(
-                        text = "انتخاب همین سطح: " + breadCrumbs.last(),
-                        onClick = { onSelected(selectedLevel) },
+                        text = "انتخاب همین سطح: " + path.substringAfterLast(" / "),
+                        onClick = { onSelected(path) },
                         modifier = Modifier.fillMaxWidth(),
                         tone = GlassTone.HONEY,
                     )
+                }
+                if (parentOnly && search.isBlank() && path.isEmpty()) {
+                    TextButton(onClick = { onSelected("") }) {
+                        Text("بدون والد؛ ساخت دسته اصلی", color = JibikStyle.forest)
+                    }
                 }
                 if (selected.isNotBlank()) {
                     HorizontalDivider(color = JibikStyle.line)
