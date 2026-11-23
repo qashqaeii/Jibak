@@ -148,10 +148,10 @@ internal fun AccountsScreen(
         accounts.forEachIndexed { index, account ->
             LiquidGlassCard(
                 modifier = Modifier.fillMaxWidth(),
-                tone = if (index == 0) GlassTone.CRYSTAL else GlassTone.CRYSTAL,
+                tone = GlassTone.CRYSTAL,
             ) {
                 Column(
-                    Modifier.fillMaxWidth().padding(17.dp),
+                    Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Row(
@@ -209,7 +209,7 @@ internal fun AccountsScreen(
                 }
             }
         }
-        Spacer(Modifier.height(90.dp))
+        Spacer(Modifier.height(12.dp))
     }
 }
 
