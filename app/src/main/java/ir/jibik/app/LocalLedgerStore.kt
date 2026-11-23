@@ -23,6 +23,9 @@ internal class LocalLedgerStore(context: Context) {
     private val dao = database.ledgerDao()
     private val accountDao = database.accountDao()
     private val customCategoryDao = database.customCategoryDao()
+    private val categoryBudgetDao = database.categoryBudgetDao()
+    private val obligationDao = database.obligationDao()
+    private val obligationPaymentDao = database.obligationPaymentDao()
 
     fun hasFinishedWelcome(): Boolean = preferences.getBoolean("welcome_finished", false)
 
@@ -160,6 +163,73 @@ internal class LocalLedgerStore(context: Context) {
                 customCategoryDao.setArchived(id, archived)
             }
         }
+
+    suspend fun loadCategoryBudgets(): List<CategoryBudgetEntity> =
+        withContext(Dispatchers.IO) { categoryBudgetDao.list() }
+
+    suspend fun saveCategoryBudget(
+        cap: CategoryBudgetEntity,
+    ) = withContext(Dispatchers.IO) {
+        require(cap.limitToman > 0L && cap.warningPercent in 1..100)
+        val categories = customCategoryDao.list()
+        require(isSelectableCategory(cap.categoryPath, false, categories)) {
+            "Choose an active expense category"
+        }
+        categoryBudgetDao.upsert(cap)
+    }
+
+    suspend fun removeCategoryBudget(path: String) = withContext(Dispatchers.IO) {
+        categoryBudgetDao.remove(path)
+    }
+
+    suspend fun loadObligations(): List<FinancialObligationEntity> =
+        withContext(Dispatchers.IO) { obligationDao.list() }
+
+    suspend fun loadObligationPayments(): List<ObligationPaymentEntity> =
+        withContext(Dispatchers.IO) { obligationPaymentDao.list() }
+
+    suspend fun addObligation(item: FinancialObligationEntity) =
+        withContext(Dispatchers.IO) {
+            validateObligation(item)
+            // No synthetic income/expense: creating a debt is only a promise/receivable.
+            obligationDao.insert(item.copy(title = item.title.trim(), note = item.note.trim()))
+        }
+
+    /**
+     * Money moves exactly once when user explicitly confirms an obligation settlement.
+     * Ledger row and its attachment are inserted inside one SQLite transaction.
+     * A failed/duplicate payment cannot leave either an orphan or partial charge.
+     */
+    suspend fun settleObligation(
+        obligationId: String,
+        accountId: String,
+        amountToman: Long,
+        transactionId: String,
+        atMillis: Long = System.currentTimeMillis(),
+    ): LedgerRecord = withContext(Dispatchers.IO) {
+        require(amountToman > 0L && atMillis > 0L)
+        ensureDefaultWallet()
+        migrateLegacyIfNeeded()
+        database.withTransaction {
+            val item = obligationDao.list().firstOrNull { it.id == obligationId }
+                ?: error("Obligation not found")
+            val paid = obligationPaymentDao.forObligation(obligationId)
+            val progress = obligationProgress(item, paid)
+            require(amountToman <= progress.remainingToman) { "Payment exceeds remaining balance" }
+            val accounts = accountDao.list().map { it.toAccount() }
+            require(accounts.any { it.id == accountId }) { "Account not found" }
+            val record = settlementRecord(item, accountId, amountToman, transactionId, atMillis)
+            FinanceEngine.balances(accounts, dao.getAll().map { it.toRecord() } + record)
+            dao.insert(record.toEntity())
+            obligationPaymentDao.insert(
+                ObligationPaymentEntity(
+                    transactionId = transactionId, obligationId = obligationId,
+                    amountToman = amountToman, paidAtMillis = atMillis,
+                )
+            )
+            record
+        }
+    }
 
     suspend fun loadSavingsGoals(): List<SavingsGoalEntity> =
         withContext(Dispatchers.IO) { database.savingsGoalDao().list() }
