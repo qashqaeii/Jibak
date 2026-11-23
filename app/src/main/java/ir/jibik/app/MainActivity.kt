@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -60,6 +61,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -218,14 +220,17 @@ private fun JibikApp(store: LocalLedgerStore) {
             }
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { addKind = LedgerKind.EXPENSE; showAdd = true },
-                modifier = Modifier.height(56.dp),
-                containerColor = Orange,
-                contentColor = Deep,
-                shape = RoundedCornerShape(18.dp),
-            ) {
-                Text("＋  ثبت تراکنش", modifier = Modifier.padding(horizontal = 16.dp), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            if (section != Section.HOME) {
+                FloatingActionButton(
+                    onClick = { addKind = LedgerKind.EXPENSE; showAdd = true },
+                    modifier = Modifier.height(54.dp),
+                    containerColor = Orange,
+                    contentColor = Deep,
+                    shape = RoundedCornerShape(18.dp),
+                ) {
+                    Text("＋  ثبت تراکنش", modifier = Modifier.padding(horizontal = 14.dp),
+                        fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
             }
         },
     ) { insets ->
@@ -241,6 +246,8 @@ private fun JibikApp(store: LocalLedgerStore) {
                 onAllTransactions = { section = Section.TRANSACTIONS },
                 onBudget = { section = Section.BUDGET },
                 onItemizedPurchase = { showItemizedPurchase = true },
+                onNewExpense = { addKind = LedgerKind.EXPENSE; showAdd = true },
+                onNewIncome = { addKind = LedgerKind.INCOME; showAdd = true },
             )
             Section.TRANSACTIONS -> Transactions(
                 records = records, modifier = Modifier.padding(insets),
@@ -440,44 +447,82 @@ private fun Home(
     onAllTransactions: () -> Unit,
     onBudget: () -> Unit,
     onItemizedPurchase: () -> Unit,
+    onNewExpense: () -> Unit,
+    onNewIncome: () -> Unit,
 ) {
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(17.dp),
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         BrandHeader()
-        Text("حساب و کتابت، مرتب و روشن ✨", color = Quiet, fontSize = 14.sp)
         BalanceCard(summary)
-        Text("گزارش " + monthTitle, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Forest)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MetricCard("درآمد ماه", monthTotals.incomeToman, Mint, Modifier.weight(1f))
-            MetricCard("هزینه ماه", monthTotals.expenseToman, Coral, Modifier.weight(1f))
+        JibikSectionTitle("خلاصه " + monthTitle, "درآمد و هزینه همین ماه")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MetricCard("درآمد", monthTotals.incomeToman, Mint, Modifier.weight(1f))
+            MetricCard("هزینه", monthTotals.expenseToman, Coral, Modifier.weight(1f))
         }
-        OutlinedButton(
-            onClick = onItemizedPurchase,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-        ) {
-            Text("＋  ثبت خرید چندقلمی", color = Forest, fontWeight = FontWeight.Bold)
+        JibikSectionTitle("ثبت سریع", "کارهای روزمره، بدون فرم‌های طولانی")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            JibikQuickAction(
+                title = "ثبت هزینه", subtitle = "مخارج روزانه",
+                symbol = "−", accent = Coral,
+                background = Color(0xFFFFEDE9), onClick = onNewExpense,
+                modifier = Modifier.weight(1f),
+            )
+            JibikQuickAction(
+                title = "ثبت درآمد", subtitle = "دریافتی‌ها",
+                symbol = "+", accent = Forest,
+                background = Color(0xFFE9F6EF), onClick = onNewIncome,
+                modifier = Modifier.weight(1f),
+            )
+            JibikQuickAction(
+                title = "خرید منزل", subtitle = "چند قلم کالا",
+                symbol = "≡", accent = Color(0xFFBC620A),
+                background = Color(0xFFFFF0DD), onClick = onItemizedPurchase,
+                modifier = Modifier.weight(1f),
+            )
         }
         Card(
             onClick = onBudget,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(22.dp),
             colors = CardDefaults.cardColors(containerColor = Paper),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         ) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("بودجه " + monthTitle, fontWeight = FontWeight.Bold)
-                    Text(money(budget), color = Forest, fontSize = 13.sp)
+            Column(Modifier.fillMaxWidth().padding(17.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("بودجه " + monthTitle, fontWeight = FontWeight.ExtraBold,
+                            color = Deep, fontSize = 16.sp)
+                        Text("مدیریت سقف هزینه", color = Quiet, fontSize = 11.sp)
+                    }
+                    Text(money(budget), color = Forest, fontSize = 13.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+                val used = (monthTotals.expenseToman.toDouble() /
+                    budget.coerceAtLeast(1L)).toFloat().coerceIn(0f, 1f)
                 LinearProgressIndicator(
-                    progress = { (monthTotals.expenseToman.toFloat() / budget.coerceAtLeast(1L)).coerceIn(0f, 1f) },
+                    progress = { used },
                     modifier = Modifier.fillMaxWidth().height(9.dp),
                     color = if (monthTotals.expenseToman > budget) Coral else Mint,
-                    trackColor = Cream,
+                    trackColor = Color(0xFFEAF2EC),
                 )
-                Text("هزینه این ماه: " + money(monthTotals.expenseToman), color = Quiet, fontSize = 12.sp)
+                val remaining = budget - monthTotals.expenseToman
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(
+                        if (remaining >= 0) "باقی‌مانده" else "بیش از بودجه",
+                        color = Quiet, fontSize = 12.sp,
+                    )
+                    Text(
+                        money(if (remaining >= 0) remaining else -remaining),
+                        color = if (remaining >= 0) Forest else Coral,
+                        fontWeight = FontWeight.Bold, fontSize = 12.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
         SpendingByCategory(
@@ -486,19 +531,20 @@ private fun Home(
             monthTitle = monthTitle,
             onClick = onAllTransactions,
         )
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("تراکنش‌های اخیر", fontWeight = FontWeight.ExtraBold, fontSize = 19.sp)
-            TextButton(onClick = onAllTransactions) { Text("مشاهده همه") }
-        }
-        if (records.isEmpty()) {
-            EmptyTransactions()
-        } else {
-            records.take(4).forEach { TransactionCard(it) }
-        }
-        Spacer(Modifier.height(90.dp))
+        JibikSectionTitle(
+            title = "آخرین تراکنش‌ها",
+            subtitle = "مرور سریع فعالیت‌های مالی",
+            trailing = {
+                TextButton(onClick = onAllTransactions) {
+                    Text("همه", fontSize = 12.sp)
+                }
+            },
+        )
+        if (records.isEmpty()) EmptyTransactions()
+        else records.take(3).forEach { TransactionCard(it) }
+        Spacer(Modifier.height(12.dp))
     }
 }
-
 
 @Composable
 private fun SpendingByCategory(
@@ -570,44 +616,59 @@ private fun BrandHeader() {
 @Composable
 private fun BalanceCard(summary: MoneySummary) {
     var balanceVisible by rememberSaveable { mutableStateOf(true) }
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Forest),
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(26.dp),
-    ) {
-        Column(Modifier.padding(horizontal = 22.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("موجودی ثبت‌شده", color = Color(0xFFCCEEE5), fontSize = 14.sp)
-                TextButton(onClick = { balanceVisible = !balanceVisible }) {
-                    Text(if (balanceVisible) "مخفی‌کردن" else "نمایش", color = Color(0xFFE7F7EF), fontSize = 12.sp)
-                }
+    JibikHero(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("مجموع موجودی حساب‌ها", color = Color(0xFFDCF3EA), fontSize = 13.sp)
+                Text("دارایی ثبت‌شده تا امروز", color = Color(0xFFB9DDD1), fontSize = 11.sp)
             }
-            Text(
-                if (balanceVisible) money(summary.balanceToman) else "••••••",
-                color = Paper,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 29.sp,
-            )
-            HorizontalDivider(color = Color(0xFF438F7F))
-            Text("با ثبت هر خرج و درآمد، تصویر روشن‌تری از پولت داری.", color = Color(0xFFE9F8F3), fontSize = 12.sp, lineHeight = 20.sp)
+            TextButton(onClick = { balanceVisible = !balanceVisible }) {
+                Text(
+                    if (balanceVisible) "مخفی‌کردن" else "نمایش",
+                    color = Color.White, fontSize = 12.sp,
+                )
+            }
+        }
+        Text(
+            text = if (balanceVisible) money(summary.balanceToman) else "••••••",
+            color = Paper,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 27.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("همه حساب‌های شخصی", color = Color(0xFFE4F4ED), fontSize = 11.sp)
+            Text("به‌روزرسانی با هر تراکنش", color = Color(0xFFE4F4ED), fontSize = 11.sp)
         }
     }
 }
-
 
 @Composable
 private fun MetricCard(title: String, amount: Long, accent: Color, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(19.dp),
         colors = CardDefaults.cardColors(containerColor = Paper),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.size(9.dp).background(accent, RoundedCornerShape(5.dp)))
-                Text(title, color = Quiet, fontSize = 13.sp)
+                Text(title + " ماه", color = Quiet, fontSize = 12.sp)
             }
-            Text(money(amount), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Deep, lineHeight = 23.sp)
+            Text(
+                money(amount),
+                fontSize = 15.sp, fontWeight = FontWeight.ExtraBold,
+                color = Deep, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
