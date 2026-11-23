@@ -1216,7 +1216,7 @@ private fun Transactions(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    JibikArt("transactions", Modifier.size(52.dp))
+                    JiboArt(JiboArtwork.TRANSACTIONS, Modifier.size(52.dp))
                     Column(Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("پیامک‌های بانکی",
