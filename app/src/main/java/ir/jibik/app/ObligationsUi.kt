@@ -381,6 +381,11 @@ internal fun SettleObligationDialog(
                         (if (obligation.kind == "RECEIVABLE") "درآمد" else "هزینه") +
                         " ثبت می‌شود و مانده این تعهد کاهش پیدا می‌کند."
                 )
+                JibikFormHint(
+                    "اگر این پرداخت را قبلاً در تراکنش‌های عادی ثبت کرده‌ای، " +
+                        "دوباره از این بخش ثبتش نکن؛ مبلغ دوبار از حساب کم می‌شود.",
+                    isWarning = true,
+                )
                 if (parsed != null && parsed > outstanding) JibikFormHint(
                     "مبلغ نمی‌تواند بیشتر از مانده تعهد باشد.", isWarning = true,
                 )
