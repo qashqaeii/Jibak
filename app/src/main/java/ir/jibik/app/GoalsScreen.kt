@@ -308,11 +308,12 @@ internal fun NewGoalDialog(
             }
         },
         confirmButton = {
-            Button(
+            LiquidGlassButton(
+                text = if (isSaving) "در حال ذخیره..." else "ساخت هدف",
                 enabled = valid,
-                shape = RoundedCornerShape(15.dp),
+                tone = GlassTone.EMERALD,
                 onClick = {
-                    val amount = targetAmount ?: return@Button
+                    val amount = targetAmount ?: return@LiquidGlassButton
                     onSave(
                         SavingsGoalEntity(
                             id = UUID.randomUUID().toString(),
@@ -323,7 +324,7 @@ internal fun NewGoalDialog(
                         )
                     )
                 },
-            ) { Text(if (isSaving) "در حال ذخیره..." else "ساخت هدف") }
+            )
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !isSaving) {
