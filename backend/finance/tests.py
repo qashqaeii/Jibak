@@ -1,5 +1,7 @@
 """Security and financial invariants for the first Jibik API slice."""
 from django.contrib.auth import get_user_model
+from django.core import signing
+from django.test import override_settings
 from rest_framework.test import APITestCase
 from .models import FinancialAccount, Household, LedgerTransaction, Membership
 
@@ -168,3 +170,48 @@ class JibikFinanceApiTests(APITestCase):
             ).status_code,
             400,
         )
+
+
+    def test_sync_cursor_rejects_tampering_and_malformed_payloads(self):
+        """An authenticated client must not choose an arbitrary sync marker."""
+        self.auth(self.alice)
+        LedgerTransaction.objects.create(
+            created_by=self.alice, idempotency_key="cursor-seed",
+            kind="expense", amount_rial=100, from_account=self.personal,
+        )
+        valid = self.client.get("/api/v1/sync/pull/").data["next_cursor"]
+        self.assertTrue(valid)
+        forged = valid[:-1] + ("A" if valid[-1] != "A" else "B")
+        self.assertEqual(
+            self.client.get("/api/v1/sync/pull/", {"cursor": forged}).status_code,
+            400,
+        )
+        for payload in (
+            {"user_id": str(self.alice.pk), "at": "invalid", "id": str(self.personal.pk)},
+            {"user_id": str(self.alice.pk), "at": "2026-01-01T00:00:00", "id": str(self.personal.pk)},
+            {"user_id": str(self.alice.pk), "at": "2026-01-01T00:00:00+00:00", "id": "not-a-uuid"},
+            {"user_id": str(self.bob.pk), "at": "2026-01-01T00:00:00+00:00", "id": str(self.personal.pk)},
+        ):
+            token = signing.dumps(payload, salt="jibik-finance-sync-v1")
+            self.assertEqual(
+                self.client.get("/api/v1/sync/pull/", {"cursor": token}).status_code,
+                400,
+            )
+
+    def test_sync_cursor_rechecks_revoked_household_membership(self):
+        """An old cursor must never grant access after membership is revoked."""
+        for number in range(55):
+            LedgerTransaction.objects.create(
+                created_by=self.alice, idempotency_key=f"revoked-{number}",
+                kind="expense", amount_rial=100, from_account=self.shared,
+            )
+        self.auth(self.carol)
+        first = self.client.get("/api/v1/sync/pull/")
+        self.assertEqual(first.status_code, 200)
+        self.assertTrue(first.data["has_more"])
+        Membership.objects.filter(user=self.carol, household=self.household).delete()
+        second = self.client.get(
+            "/api/v1/sync/pull/", {"cursor": first.data["next_cursor"]}
+        )
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.data["transactions"], [])
