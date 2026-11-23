@@ -481,6 +481,7 @@ private fun JibikApp(store: LocalLedgerStore) {
     }
     if (storageError != null) {
         AlertDialog(
+            modifier = Modifier.liquidGlass(tone = GlassTone.CRYSTAL, radius = 28.dp, elevation = 15.dp),
             onDismissRequest = { storageError = null },
             title = { Text("خطا در ثبت اطلاعات") },
             text = { Text(storageError ?: "") },
@@ -1082,6 +1083,7 @@ private fun AddTransactionDialog(
         listOf("خوراک", "خرید منزل", "حمل‌ونقل", "قبوض", "درمان", "تفریح")
     }
     AlertDialog(
+        modifier = Modifier.liquidGlass(tone = GlassTone.CRYSTAL, radius = 28.dp, elevation = 15.dp),
         onDismissRequest = { if (!isSaving) onDismiss() },
         title = {
             Row(
@@ -1269,7 +1271,7 @@ private fun AddTransactionDialog(
                 Text("انصراف")
             }
         },
-        containerColor = Paper,
+        containerColor = Color.Transparent,
         tonalElevation = 0.dp,
         shape = RoundedCornerShape(26.dp),
     )
@@ -1284,8 +1286,9 @@ private fun BudgetDialog(
     var value by rememberSaveable { mutableStateOf(current.toString()) }
     val parsed = parseTomanDraft(value)
     AlertDialog(
+        modifier = Modifier.liquidGlass(tone = GlassTone.CRYSTAL, radius = 28.dp, elevation = 15.dp),
         onDismissRequest = onDismiss,
-        containerColor = Paper,
+        containerColor = Color.Transparent,
         tonalElevation = 0.dp,
         shape = RoundedCornerShape(26.dp),
         title = {
