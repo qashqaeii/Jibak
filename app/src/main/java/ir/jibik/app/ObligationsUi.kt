@@ -245,16 +245,21 @@ internal fun NewObligationDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text("نوع تعهد", color = JibikStyle.muted, fontSize = 12.sp)
-                Row(Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    listOf("DEBT", "LOAN", "BILL", "RECEIVABLE").forEach { option ->
-                        JibikGlassChip(
-                            text = obligationKindName(option),
-                            selected = kind == option,
-                            onClick = { kind = option },
-                            enabled = !isSaving,
-                            modifier = Modifier.weight(1f),
-                        )
+                listOf(
+                    listOf("DEBT", "LOAN"),
+                    listOf("BILL", "RECEIVABLE"),
+                ).forEach { options ->
+                    Row(Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                        options.forEach { option ->
+                            JibikGlassChip(
+                                text = obligationKindName(option),
+                                selected = kind == option,
+                                onClick = { kind = option },
+                                enabled = !isSaving,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
                 OutlinedTextField(
