@@ -13,10 +13,16 @@ internal data class CategoryBudgetUsage(
 ) {
     val remainingToman: Long get() = Math.subtractExact(limitToman, spentToman)
     val usageRatio: Double get() = spentToman.toDouble() / limitToman.toDouble()
-    val alert: String get() = when {
-        spentToman >= limitToman -> "over"
-        spentToman * 1.0 >= limitToman.toDouble() * warningPercent / 100.0 -> "warning"
-        else -> "normal"
+    val alert: String get() {
+        // Exact integer comparison; no floating-point threshold and no 100x overflow.
+        val base = Math.multiplyExact(limitToman / 100L, warningPercent.toLong())
+        val fractional = ((limitToman % 100L) * warningPercent + 99L) / 100L
+        val trigger = Math.addExact(base, fractional)
+        return when {
+            spentToman >= limitToman -> "over"
+            spentToman >= trigger -> "warning"
+            else -> "normal"
+        }
     }
 }
 
