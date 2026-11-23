@@ -55,11 +55,28 @@ jobs:
             ci-diagnostics/gradle-build.log
           if-no-files-found: warn
           retention-days: 7
+      - name: Verify APK output and generate SHA-256 checksum
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/debug/*.apk)
+          if (( ${#apks[@]} != 1 )); then
+            echo "::error::Expected exactly one debug APK, found ${#apks[@]}"
+            exit 1
+          fi
+          test -s "${apks[0]}"
+          sha256sum "${apks[0]}" > "${apks[0]}.sha256"
+          echo "APK size: $(stat -c %s "${apks[0]}") bytes"
+          cat "${apks[0]}.sha256"
       - name: Upload installable debug APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: Jibik-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/debug/*.apk.sha256
           if-no-files-found: error
           retention-days: 14
