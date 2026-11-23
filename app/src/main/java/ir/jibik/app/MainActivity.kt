@@ -168,6 +168,20 @@ private fun JibikApp(store: LocalLedgerStore) {
         records.toList(), currentMonth.startMillis, currentMonth.endExclusiveMillis
     )
     var section by rememberSaveable { mutableStateOf(Section.HOME) }
+    var selectedTransactionId by rememberSaveable { mutableStateOf<String?>(null) }
+    var receiptRows by remember { mutableStateOf<List<PurchaseLine>?>(null) }
+    var receiptLoadError by remember { mutableStateOf(false) }
+    var receiptRetry by remember { mutableIntStateOf(0) }
+    LaunchedEffect(selectedTransactionId, receiptRetry) {
+        val id = selectedTransactionId ?: return@LaunchedEffect
+        receiptRows = null
+        receiptLoadError = false
+        try {
+            receiptRows = store.loadPurchaseLines(id)
+        } catch (_: Exception) {
+            receiptLoadError = true
+        }
+    }
     var showAdd by remember { mutableStateOf(false) }
     var addKind by remember { mutableStateOf(LedgerKind.EXPENSE) }
     var addTargetAccountId by remember { mutableStateOf<String?>(null) }
@@ -256,9 +270,12 @@ private fun JibikApp(store: LocalLedgerStore) {
                 onItemizedPurchase = { showItemizedPurchase = true },
                 onNewExpense = { addKind = LedgerKind.EXPENSE; showAdd = true },
                 onNewIncome = { addKind = LedgerKind.INCOME; showAdd = true },
+                onTransactionClick = { selectedTransactionId = it.id },
             )
             Section.TRANSACTIONS -> Transactions(
-                records = records, modifier = Modifier.padding(insets),
+                records = records,
+                modifier = Modifier.padding(insets),
+                onTransactionClick = { selectedTransactionId = it.id },
             )
             Section.BUDGET -> Budget(
                 spent = monthTotals.expenseToman,
@@ -297,6 +314,18 @@ private fun JibikApp(store: LocalLedgerStore) {
         }
     }
 
+    selectedTransactionId?.let { id ->
+        records.firstOrNull { it.id == id }?.let { record ->
+            TransactionDetailDialog(
+                record = record,
+                accounts = accounts,
+                lines = receiptRows,
+                loadFailed = receiptLoadError,
+                onRetry = { receiptRetry++ },
+                onDismiss = { selectedTransactionId = null; receiptRows = null },
+            )
+        }
+    }
     if (showNewGoal) {
         NewGoalDialog(
             accounts = accounts,
@@ -478,6 +507,7 @@ private fun Home(
     onItemizedPurchase: () -> Unit,
     onNewExpense: () -> Unit,
     onNewIncome: () -> Unit,
+    onTransactionClick: (LedgerRecord) -> Unit,
 ) {
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -570,7 +600,9 @@ private fun Home(
             },
         )
         if (records.isEmpty()) EmptyTransactions()
-        else records.take(3).forEach { TransactionCard(it) }
+        else records.take(3).forEach { record ->
+            TransactionCard(record, onClick = { onTransactionClick(record) })
+        }
         Spacer(Modifier.height(12.dp))
     }
 }
@@ -703,7 +735,11 @@ private fun MetricCard(title: String, amount: Long, accent: Color, modifier: Mod
 }
 
 @Composable
-private fun Transactions(records: List<LedgerRecord>, modifier: Modifier) {
+private fun Transactions(
+    records: List<LedgerRecord>,
+    modifier: Modifier,
+    onTransactionClick: (LedgerRecord) -> Unit,
+) {
     var search by rememberSaveable { mutableStateOf("") }
     var kindFilter by rememberSaveable { mutableStateOf("همه") }
     val filtered = records.filter { record ->
@@ -784,14 +820,14 @@ private fun Transactions(records: List<LedgerRecord>, modifier: Modifier) {
             }
         } else {
             items(items = filtered, key = { it.id }) { record ->
-                TransactionCard(record)
+                TransactionCard(record, onClick = { onTransactionClick(record) })
             }
         }
     }
 }
 
 @Composable
-private fun TransactionCard(record: LedgerRecord) {
+private fun TransactionCard(record: LedgerRecord, onClick: () -> Unit) {
     val expense = record.kind == LedgerKind.EXPENSE
     val transfer = record.kind == LedgerKind.TRANSFER
     val highlight = when {
@@ -805,6 +841,7 @@ private fun TransactionCard(record: LedgerRecord) {
         else -> Color(0xFFE9F6EF)
     }
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Paper),
         shape = RoundedCornerShape(18.dp),
