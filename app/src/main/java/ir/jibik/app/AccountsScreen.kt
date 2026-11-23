@@ -50,8 +50,7 @@ private val Subtle = Color(0xFF677A78)
 private val WarmBackground = Color(0xFFFFFAF5)
 private val White = Color.White
 
-private fun accountMoney(amount: Long) =
-    NumberFormat.getNumberInstance(Locale("fa", "IR")).format(amount) + " تومان"
+private fun accountMoney(amount: Long): String = formatToman(amount)
 
 internal fun parseAccountAmount(raw: String): Long? {
     val normalized = raw.trim().map { char ->
