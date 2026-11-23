@@ -73,7 +73,7 @@ internal fun ObligationsScreen(
             trailing = { TextButton(onClick = onBack) {
                 Text("بازگشت", color = JibikStyle.forest)
             } })
-        JibikHero(Modifier.fillMaxWidth()) {
+        JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.OBLIGATIONS) {
             Text("تعهدات تسویه‌نشده", fontSize = 13.sp,
                 color = Color(0xFFD8F2EA))
             Text(active.size.toString() + " مورد",
