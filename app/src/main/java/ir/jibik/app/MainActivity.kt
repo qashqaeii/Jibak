@@ -413,6 +413,7 @@ private fun JibikApp(
                     store = store,
                     accounts = accounts,
                     customCategories = customCategories,
+                    existingRecords = records,
                     onBack = { showBankSms = false },
                     onRegistered = { record ->
                         records.add(0, record)
