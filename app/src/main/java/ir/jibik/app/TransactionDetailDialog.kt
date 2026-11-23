@@ -37,8 +37,7 @@ import ir.jibik.core.finance.itemizedPurchaseTotal
 import java.text.NumberFormat
 import java.util.Locale
 
-private fun receiptMoney(amount: Long): String =
-    NumberFormat.getNumberInstance(Locale("fa", "IR")).format(amount) + " تومان"
+private fun receiptMoney(amount: Long): String = formatToman(amount)
 
 private fun receiptDate(timestampMillis: Long): String {
     val calendar = Calendar.getInstance(
