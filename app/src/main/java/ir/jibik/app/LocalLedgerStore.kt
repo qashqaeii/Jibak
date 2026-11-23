@@ -103,6 +103,7 @@ internal class LocalLedgerStore(context: Context) {
                         transactionId = record.id, lineIndex = index,
                         title = line.title.trim(), category = line.category.trim(),
                         quantity = line.quantity, unitPriceToman = line.unitPriceToman,
+                        unit = line.unit,
                     )
                 })
             }
@@ -111,7 +112,7 @@ internal class LocalLedgerStore(context: Context) {
     suspend fun loadPurchaseLines(transactionId: String): List<PurchaseLine> =
         withContext(Dispatchers.IO) {
             database.purchaseLineDao().forTransaction(transactionId).map {
-                PurchaseLine(it.title, it.category, it.quantity, it.unitPriceToman)
+                PurchaseLine(it.title, it.category, it.quantity, it.unitPriceToman, it.unit)
             }
         }
 
@@ -120,7 +121,7 @@ internal class LocalLedgerStore(context: Context) {
             database.purchaseLineDao().all()
                 .groupBy { it.transactionId }
                 .mapValues { (_, rows) ->
-                    rows.map { PurchaseLine(it.title, it.category, it.quantity, it.unitPriceToman) }
+                    rows.map { PurchaseLine(it.title, it.category, it.quantity, it.unitPriceToman, it.unit) }
                 }
         }
 
