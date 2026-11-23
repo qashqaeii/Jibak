@@ -114,6 +114,26 @@ internal class LocalLedgerStore(context: Context) {
             }
         }
 
+    suspend fun loadSavingsGoals(): List<SavingsGoalEntity> =
+        withContext(Dispatchers.IO) { database.savingsGoalDao().list() }
+
+    suspend fun addSavingsGoal(goal: SavingsGoalEntity) = withContext(Dispatchers.IO) {
+        require(goal.id.isNotBlank())
+        require(goal.title.isNotBlank() && goal.title.length <= 60)
+        require(goal.targetToman > 0L)
+        require(goal.accountId != "wallet") {
+            "Choose a dedicated savings account so no funds are counted twice"
+        }
+        database.withTransaction {
+            val accounts = accountDao.list()
+            require(accounts.any { it.id == goal.accountId }) { "Account not found" }
+            require(database.savingsGoalDao().list().none {
+                it.accountId == goal.accountId || it.id == goal.id
+            }) { "Savings account already assigned to a goal" }
+            database.savingsGoalDao().insert(goal)
+        }
+    }
+
     private suspend fun migrateLegacyIfNeeded() {
         if (preferences.getBoolean("room_ledger_imported_v1", false)) return
 
