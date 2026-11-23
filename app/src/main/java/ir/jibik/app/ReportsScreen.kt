@@ -61,7 +61,7 @@ internal fun ReportsScreen(
     val categories = categorySpending
     val cashFlow = totals.incomeToman - totals.expenseToman
     Column(
-        modifier = modifier.fillMaxSize().background(Ivory).verticalScroll(rememberScrollState())
+        modifier = modifier.fillMaxSize().liquidBackdrop().verticalScroll(rememberScrollState())
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
