@@ -50,6 +50,7 @@ internal fun ObligationsScreen(
     isSaving: Boolean = false,
 ) {
     val now = System.currentTimeMillis()
+    var expandedPaymentId by rememberSaveable { mutableStateOf("") }
     val active = obligations.filter { !obligationProgress(it, payments).settled }
     val due = active.count { item ->
         val installment = nextUnpaidInstallment(item, payments)
@@ -94,7 +95,11 @@ internal fun ObligationsScreen(
                     fontSize = 13.sp, color = JibikStyle.muted, lineHeight = 21.sp)
             }
         }
-        obligations.forEach { item ->
+        obligations.sortedWith(
+            compareBy<FinancialObligationEntity> {
+                obligationProgress(it, payments).settled
+            }.thenBy { it.dueAtMillis }
+        ).forEach { item ->
             val progress = obligationProgress(item, payments)
             val upcoming = nextUnpaidInstallment(item, payments)
             val nextDate = upcoming?.let {
@@ -167,7 +172,8 @@ internal fun ObligationsScreen(
                 if (itemPayments.isNotEmpty()) {
                     Text("سابقه پرداخت‌ها", color = JibikStyle.ink,
                         fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    itemPayments.take(6).forEach { payment ->
+                    (if (expandedPaymentId == item.id) itemPayments
+                        else itemPayments.take(6)).forEach { payment ->
                         LiquidGlassCard(
                             tone = GlassTone.CRYSTAL,
                             onClick = { onPaymentClick(payment.transactionId) },
@@ -194,8 +200,17 @@ internal fun ObligationsScreen(
                         }
                     }
                     if (itemPayments.size > 6) {
-                        Text("۶ پرداخت اخیر نمایش داده شده است",
-                            color = JibikStyle.muted, fontSize = 11.sp)
+                        TextButton(onClick = {
+                            expandedPaymentId =
+                                if (expandedPaymentId == item.id) "" else item.id
+                        }) {
+                            Text(
+                                if (expandedPaymentId == item.id)
+                                    "نمایش شش پرداخت اخیر"
+                                else "مشاهده تمام " + itemPayments.size + " پرداخت",
+                                color = JibikStyle.forest, fontSize = 12.sp,
+                            )
+                        }
                     }
                 }
                 if (!progress.settled) {
