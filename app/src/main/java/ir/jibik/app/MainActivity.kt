@@ -54,6 +54,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -131,6 +132,7 @@ private enum class Section(val title: String) {
 private fun JibikApp(store: LocalLedgerStore) {
     var welcomed by remember { mutableStateOf(store.hasFinishedWelcome()) }
     val records = remember { mutableStateListOf<LedgerRecord>() }
+    val savedReceiptLines = remember { mutableStateMapOf<String, List<PurchaseLine>>() }
     val accounts = remember { mutableStateListOf<Account>() }
     val goals = remember { mutableStateListOf<SavingsGoalEntity>() }
     val scope = rememberCoroutineScope()
@@ -143,6 +145,7 @@ private fun JibikApp(store: LocalLedgerStore) {
     LaunchedEffect(store, retryLoad) {
         try {
             val persisted = store.load()
+            val loadedReceipts = store.loadAllPurchaseLines()
             val loadedAccounts = store.loadAccounts()
             val persistedGoals = store.loadSavingsGoals()
             // Account definitions first, so the ledger can never reference a missing account.
@@ -152,6 +155,8 @@ private fun JibikApp(store: LocalLedgerStore) {
             goals.addAll(persistedGoals)
             records.clear()
             records.addAll(persisted)
+            savedReceiptLines.clear()
+            savedReceiptLines.putAll(loadedReceipts)
             loadingFailed = false
         } catch (_: Exception) {
             loadingFailed = true
@@ -164,8 +169,9 @@ private fun JibikApp(store: LocalLedgerStore) {
     val monthTotals = periodTotals(
         records.toList(), currentMonth.startMillis, currentMonth.endExclusiveMillis
     )
-    val categorySpending = categoryExpenses(
-        records.toList(), currentMonth.startMillis, currentMonth.endExclusiveMillis
+    val categorySpending = detailedCategoryExpenses(
+        records.toList(), savedReceiptLines.toMap(),
+        currentMonth.startMillis, currentMonth.endExclusiveMillis,
     )
     var section by rememberSaveable { mutableStateOf(Section.HOME) }
     var selectedTransactionId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -286,6 +292,7 @@ private fun JibikApp(store: LocalLedgerStore) {
             )
             Section.REPORTS -> ReportsScreen(
                 records = records,
+                categorySpending = categorySpending,
                 modifier = Modifier.padding(insets),
             )
             Section.ACCOUNTS -> if (showGoals) {
@@ -363,6 +370,7 @@ private fun JibikApp(store: LocalLedgerStore) {
                     scope.launch {
                         try {
                             store.appendItemizedPurchase(purchase, lines)
+                            savedReceiptLines[purchase.id] = lines.toList()
                             records.add(0, purchase)
                             showItemizedPurchase = false
                             scope.launch { notifications.showSnackbar("خرید با موفقیت ثبت شد.") }
