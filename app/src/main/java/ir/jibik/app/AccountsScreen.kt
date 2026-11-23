@@ -94,7 +94,7 @@ internal fun AccountsScreen(
             }
             JibikBrandLogo(Modifier.size(44.dp))
         }
-        JibikHero(Modifier.fillMaxWidth()) {
+        JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.ACCOUNTS) {
             Text("موجودی کل حساب‌ها", fontSize = 13.sp, color = Color(0xFFDAF1E7))
             Text(
                 accountMoney(totalBalance),
