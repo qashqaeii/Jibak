@@ -166,14 +166,12 @@ internal fun TransactionDetailDialog(
                         }
                         else -> {
                             lines.forEachIndexed { index, line ->
-                                Card(
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = JibikStyle.cream,
-                                    ),
-                                    shape = RoundedCornerShape(16.dp),
+                                LiquidGlassCard(
+                                    tone = GlassTone.CRYSTAL,
+                                    padding = androidx.compose.foundation.layout.PaddingValues(13.dp),
                                 ) {
                                     Column(
-                                        Modifier.fillMaxWidth().padding(13.dp),
+                                        Modifier.fillMaxWidth(),
                                         verticalArrangement = Arrangement.spacedBy(6.dp),
                                     ) {
                                         Row(
