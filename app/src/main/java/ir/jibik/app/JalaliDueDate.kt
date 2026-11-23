@@ -67,3 +67,19 @@ internal fun jalaliInstallmentDueDate(firstDueMillis: Long, index: Int): Long {
     calendar.add(Calendar.MONTH, index)
     return calendar.timeInMillis
 }
+
+/** A due date is overdue only *after* its complete Tehran calendar day has ended. */
+internal fun jalaliDueDayEndExclusive(dueAtMillis: Long): Long {
+    require(dueAtMillis > 0L)
+    val calendar = Calendar.getInstance(
+        TimeZone.getTimeZone("Asia/Tehran"),
+        ULocale("fa_IR@calendar=persian"),
+    )
+    calendar.timeInMillis = dueAtMillis
+    calendar.set(Calendar.HOUR_OF_DAY, 0)
+    calendar.set(Calendar.MINUTE, 0)
+    calendar.set(Calendar.SECOND, 0)
+    calendar.set(Calendar.MILLISECOND, 0)
+    calendar.add(Calendar.DAY_OF_MONTH, 1)
+    return calendar.timeInMillis
+}
