@@ -373,6 +373,8 @@ private fun JibikApp(store: LocalLedgerStore) {
                             savedReceiptLines[purchase.id] = lines.toList()
                             records.add(0, purchase)
                             showItemizedPurchase = false
+                            // Show the immutable saved receipt immediately after commit.
+                            selectedTransactionId = purchase.id
                             scope.launch { notifications.showSnackbar("خرید با موفقیت ثبت شد.") }
                         } catch (_: Exception) {
                             storageError = "خرید ذخیره نشد؛ هیچ مبلغی از حساب کسر نشده است."
