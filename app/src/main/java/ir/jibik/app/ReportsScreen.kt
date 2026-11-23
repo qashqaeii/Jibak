@@ -202,7 +202,7 @@ internal fun ReportsScreen(
                 "این آمار براساس تراکنش‌های ذخیره‌شده روی دستگاه است.",
             color = Muted, fontSize = 12.sp, lineHeight = 20.sp,
         )
-        Spacer(Modifier.height(100.dp))
+        Spacer(Modifier.height(12.dp))
     }
 }
 
