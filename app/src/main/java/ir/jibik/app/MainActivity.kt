@@ -287,15 +287,6 @@ private fun JibikApp(store: LocalLedgerStore) {
                 }
             }
         },
-        floatingActionButton = {
-            if (section != Section.HOME) {
-                LiquidGlassButton(
-                    text = "＋  ثبت تراکنش",
-                    onClick = { addKind = LedgerKind.EXPENSE; showAdd = true },
-                    tone = GlassTone.HONEY,
-                )
-            }
-        },
     ) { insets ->
         when (section) {
             Section.HOME -> Home(
@@ -317,6 +308,7 @@ private fun JibikApp(store: LocalLedgerStore) {
                 records = records,
                 modifier = Modifier.padding(insets),
                 onTransactionClick = { selectedTransactionId = it.id },
+                onCreateTransaction = { addKind = LedgerKind.EXPENSE; showAdd = true },
             )
             Section.BUDGET -> Budget(
                 spent = monthTotals.expenseToman,
@@ -727,7 +719,6 @@ private fun BrandHeader() {
                 Text("دستیار مالی مهربونت", color = Quiet, fontSize = 12.sp)
             }
         }
-        JiboMascot(Modifier.size(54.dp))
     }
 }
 
@@ -796,6 +787,7 @@ private fun Transactions(
     records: List<LedgerRecord>,
     modifier: Modifier,
     onTransactionClick: (LedgerRecord) -> Unit,
+    onCreateTransaction: () -> Unit,
 ) {
     var search by rememberSaveable { mutableStateOf("") }
     var kindFilter by rememberSaveable { mutableStateOf("همه") }
@@ -814,13 +806,20 @@ private fun Transactions(
     }
     LazyColumn(
         modifier = modifier.fillMaxSize().liquidBackdrop(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 98.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 22.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
             JibikSectionTitle(
                 "تراکنش‌ها",
                 "تمام درآمدها، هزینه‌ها و انتقال‌های ثبت‌شده",
+                trailing = {
+                    LiquidGlassButton(
+                        text = "＋ ثبت جدید",
+                        onClick = onCreateTransaction,
+                        tone = GlassTone.HONEY,
+                    )
+                },
             )
         }
         item {
@@ -1044,7 +1043,7 @@ private fun Budget(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        Spacer(Modifier.height(90.dp))
+        Spacer(Modifier.height(16.dp))
     }
 }
 
