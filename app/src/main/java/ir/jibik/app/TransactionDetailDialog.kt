@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -99,7 +100,7 @@ internal fun TransactionDetailDialog(
                 horizontalArrangement = Arrangement.spacedBy(11.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                JibikBrandLogo(Modifier.padding(1.dp))
+                JibikBrandLogo(Modifier.size(40.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(title, color = JibikStyle.ink, fontWeight = FontWeight.ExtraBold,
                         fontSize = 19.sp)
