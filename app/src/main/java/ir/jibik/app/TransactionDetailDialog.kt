@@ -187,11 +187,13 @@ internal fun TransactionDetailDialog(
                                                 modifier = Modifier.weight(1f),
                                             )
                                             Text(
-                                                receiptMoney(
-                                                    Math.multiplyExact(
-                                                        line.quantity.toLong(), line.unitPriceToman
+                                                runCatching {
+                                                    receiptMoney(
+                                                        Math.multiplyExact(
+                                                            line.quantity.toLong(), line.unitPriceToman
+                                                        )
                                                     )
-                                                ),
+                                                }.getOrDefault("مبلغ نامعتبر"),
                                                 color = JibikStyle.forest,
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 12.sp,
