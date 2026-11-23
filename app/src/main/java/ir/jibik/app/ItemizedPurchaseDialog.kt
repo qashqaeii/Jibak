@@ -51,11 +51,11 @@ private data class DraftPurchaseItem(
     val name: String = "",
     val quantity: String = "1",
     val unitPrice: String = "",
-    val category: String = "خوراک / خرید مواد غذایی / سایر",
+    val category: String = "",
 )
 
 private fun DraftPurchaseItem.toPurchaseLineOrNull(): PurchaseLine? {
-    val quantityNumber = parseAccountAmount(quantity)?.toInt()
+    val quantityNumber = parseAccountAmount(quantity)?.takeIf { it in 1L..10000L }?.toInt()
     val price = parseAccountAmount(unitPrice)
     return if (name.trim().isNotEmpty() && quantityNumber != null &&
         quantityNumber in 1..10000 && price != null && price >= 0L && category.isNotBlank()
