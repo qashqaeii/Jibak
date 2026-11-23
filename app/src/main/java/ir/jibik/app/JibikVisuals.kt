@@ -54,6 +54,13 @@ internal fun JibikNavigationIcon(position: Int, selected: Boolean) {
                 drawCircle(tint, unit * 4.7f, p(12f, 12f), style = Stroke(stroke))
                 drawCircle(tint, unit * 1.5f, p(12f, 12f))
             }
+            3 -> {
+                // Reports: three minimal bars with a shared baseline.
+                drawLine(tint, p(3f, 21f), p(21f, 21f), stroke, cap = StrokeCap.Round)
+                drawLine(tint, p(6f, 18f), p(6f, 12f), unit * 4f, cap = StrokeCap.Round)
+                drawLine(tint, p(12f, 18f), p(12f, 5f), unit * 4f, cap = StrokeCap.Round)
+                drawLine(tint, p(18f, 18f), p(18f, 9f), unit * 4f, cap = StrokeCap.Round)
+            }
             else -> {
                 // Wallet glyph for the dedicated financial accounts screen.
                 drawRoundRect(
