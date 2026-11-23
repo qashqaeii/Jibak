@@ -243,7 +243,7 @@ internal fun NewGoalDialog(
         eligible.any { it.id == accountId }
 
     AlertDialog(
-        modifier = Modifier.liquidGlass(tone = GlassTone.CRYSTAL, radius = 28.dp, elevation = 15.dp),
+        modifier = Modifier.liquidGlass(tone = GlassTone.FROSTED, radius = 28.dp, elevation = 15.dp),
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
         tonalElevation = 0.dp,
