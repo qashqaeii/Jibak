@@ -839,11 +839,10 @@ private fun Transactions(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 listOf("همه", "هزینه", "درآمد", "انتقال").forEach { option ->
-                    FilterChip(
+                    JibikGlassChip(
+                        text = option,
                         selected = kindFilter == option,
                         onClick = { kindFilter = option },
-                        label = { Text(option, fontSize = 12.sp) },
-                        shape = RoundedCornerShape(14.dp),
                     )
                 }
             }
@@ -1173,12 +1172,11 @@ private fun AddTransactionDialog(
                         horizontalArrangement = Arrangement.spacedBy(7.dp),
                     ) {
                         suggestedCategories.forEach { option ->
-                            FilterChip(
+                            JibikGlassChip(
+                                text = option,
                                 selected = category == option,
                                 onClick = { category = option },
                                 enabled = !isSaving,
-                                label = { Text(option, fontSize = 12.sp) },
-                                shape = RoundedCornerShape(12.dp),
                             )
                         }
                     }
@@ -1191,15 +1189,11 @@ private fun AddTransactionDialog(
                             ExpenseCategoryCatalog.leaves().filter {
                                 it.ids.size == 3 && it.ids.first() == "food"
                             }.forEach { option ->
-                                FilterChip(
+                                JibikGlassChip(
+                                    text = option.labels.last(),
                                     selected = category == option.displayName,
                                     onClick = { category = option.displayName },
                                     enabled = !isSaving,
-                                    label = {
-                                        Text(option.labels.last(), fontSize = 12.sp,
-                                            maxLines = 1)
-                                    },
-                                    shape = RoundedCornerShape(12.dp),
                                 )
                             }
                         }
