@@ -67,6 +67,8 @@ import ir.jibik.core.finance.FinanceEngine
 import ir.jibik.core.finance.LedgerKind
 import ir.jibik.core.finance.LedgerRecord
 import ir.jibik.core.finance.MoneySummary
+import ir.jibik.core.finance.PeriodTotals
+import ir.jibik.core.finance.periodTotals
 import java.text.NumberFormat
 import java.util.Locale
 import java.util.UUID
@@ -136,6 +138,10 @@ private fun JibikApp(store: LocalLedgerStore) {
     }
     val accounts = remember { listOf(Account("wallet", "کیف پول جیبیک")) }
     val summary = FinanceEngine.summary(accounts, records.toList())
+    val currentMonth = currentJalaliMonth()
+    val monthTotals = periodTotals(
+        records.toList(), currentMonth.startMillis, currentMonth.endExclusiveMillis
+    )
     var section by rememberSaveable { mutableStateOf(Section.HOME) }
     var showAdd by remember { mutableStateOf(false) }
     var budget by remember { mutableStateOf(store.budgetToman()) }
@@ -206,6 +212,8 @@ private fun JibikApp(store: LocalLedgerStore) {
                 summary = summary,
                 records = records,
                 budget = budget,
+                monthTotals = monthTotals,
+                monthTitle = currentMonth.title,
                 modifier = Modifier.padding(insets),
                 onAllTransactions = { section = Section.TRANSACTIONS },
                 onBudget = { section = Section.BUDGET },
@@ -214,8 +222,9 @@ private fun JibikApp(store: LocalLedgerStore) {
                 records = records, modifier = Modifier.padding(insets),
             )
             Section.BUDGET -> Budget(
-                spent = summary.expenseToman,
+                spent = monthTotals.expenseToman,
                 budget = budget,
+                monthTitle = currentMonth.title,
                 modifier = Modifier.padding(insets),
                 onEdit = { showEditBudget = true },
             )
@@ -305,6 +314,8 @@ private fun Home(
     summary: MoneySummary,
     records: List<LedgerRecord>,
     budget: Long,
+    monthTotals: PeriodTotals,
+    monthTitle: String,
     modifier: Modifier,
     onAllTransactions: () -> Unit,
     onBudget: () -> Unit,
@@ -316,9 +327,10 @@ private fun Home(
         BrandHeader()
         Text("حساب و کتابت، مرتب و روشن ✨", color = Quiet, fontSize = 14.sp)
         BalanceCard(summary)
+        Text("گزارش " + monthTitle, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Forest)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MetricCard("درآمد کل", summary.incomeToman, Mint, Modifier.weight(1f))
-            MetricCard("هزینه کل", summary.expenseToman, Coral, Modifier.weight(1f))
+            MetricCard("درآمد ماه", monthTotals.incomeToman, Mint, Modifier.weight(1f))
+            MetricCard("هزینه ماه", monthTotals.expenseToman, Coral, Modifier.weight(1f))
         }
         Card(
             onClick = onBudget,
@@ -328,16 +340,16 @@ private fun Home(
         ) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("بودجه هزینه‌ها", fontWeight = FontWeight.Bold)
+                    Text("بودجه " + monthTitle, fontWeight = FontWeight.Bold)
                     Text(money(budget), color = Forest, fontSize = 13.sp)
                 }
                 LinearProgressIndicator(
-                    progress = { (summary.expenseToman.toFloat() / budget.coerceAtLeast(1L)).coerceIn(0f, 1f) },
+                    progress = { (monthTotals.expenseToman.toFloat() / budget.coerceAtLeast(1L)).coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth().height(9.dp),
-                    color = if (summary.expenseToman > budget) Coral else Mint,
+                    color = if (monthTotals.expenseToman > budget) Coral else Mint,
                     trackColor = Cream,
                 )
-                Text("هزینه ثبت‌شده: " + money(summary.expenseToman) + " · در تمام زمان‌ها", color = Quiet, fontSize = 12.sp)
+                Text("هزینه این ماه: " + money(monthTotals.expenseToman), color = Quiet, fontSize = 12.sp)
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -490,14 +502,14 @@ private fun EmptyTransactions() {
 
 
 @Composable
-private fun Budget(spent: Long, budget: Long, modifier: Modifier, onEdit: () -> Unit) {
+private fun Budget(spent: Long, budget: Long, monthTitle: String, modifier: Modifier, onEdit: () -> Unit) {
     val remaining = budget - spent
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         Text("بودجه", fontWeight = FontWeight.ExtraBold, fontSize = 25.sp, color = Deep)
-        Text("برای خرج‌هات سقف تعیین کن و ببین چقدر ازش باقی مونده.", color = Quiet, fontSize = 14.sp)
+        Text("مدیریت سقف هزینه در " + monthTitle, color = Quiet, fontSize = 14.sp)
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Forest),
@@ -507,7 +519,7 @@ private fun Budget(spent: Long, budget: Long, modifier: Modifier, onEdit: () -> 
                 Text(if (remaining >= 0L) "باقی‌مانده از سقف بودجه" else "میزان عبور از سقف بودجه", color = Color(0xFFCCEEE5), fontSize = 14.sp)
                 Text(money(if (remaining >= 0L) remaining else -remaining), fontWeight = FontWeight.ExtraBold, fontSize = 29.sp, color = Paper)
                 HorizontalDivider(color = Color(0xFF438F7F))
-                Text("فعلاً بر اساس تمام هزینه‌های ثبت‌شده محاسبه می‌شود.", color = Color(0xFFE9F8F3), fontSize = 12.sp)
+                Text("براساس هزینه‌های ثبت‌شده در " + monthTitle, color = Color(0xFFE9F8F3), fontSize = 12.sp)
             }
         }
         Card(
@@ -521,7 +533,7 @@ private fun Budget(spent: Long, budget: Long, modifier: Modifier, onEdit: () -> 
                     Text(money(budget), color = Deep, fontWeight = FontWeight.Bold)
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("خرج ثبت‌شده", color = Quiet)
+                    Text("خرج این ماه", color = Quiet)
                     Text(money(spent), color = Deep, fontWeight = FontWeight.Bold)
                 }
                 LinearProgressIndicator(
@@ -655,7 +667,7 @@ private fun BudgetDialog(current: Long, onDismiss: () -> Unit, onSave: (Long) ->
         title = { Text("ویرایش بودجه", color = Deep, fontWeight = FontWeight.ExtraBold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("برای خرج‌هات یه سقف مناسب انتخاب کن.", fontSize = 13.sp, color = Quiet)
+                Text("این سقف برای هر ماه شمسی تکرار می‌شود.", fontSize = 13.sp, color = Quiet)
                 OutlinedTextField(
                     value = value,
                     onValueChange = { value = it },
