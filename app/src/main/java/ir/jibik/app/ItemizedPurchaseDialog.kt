@@ -26,7 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,14 +45,7 @@ import java.text.NumberFormat
 import java.util.Locale
 import java.util.UUID
 
-private data class DraftPurchaseItem(
-    val name: String = "",
-    val quantity: String = "1",
-    val unitPrice: String = "",
-    val category: String = "",
-)
-
-private fun DraftPurchaseItem.asPurchaseLine(): PurchaseLine? {
+private fun PurchaseDraftItem.asPurchaseLine(): PurchaseLine? {
     val count = parseTomanDraft(quantity)?.takeIf { it in 1L..10_000L }?.toInt()
     val price = parseTomanDraft(unitPrice)
     return if (name.isNotBlank() && name.length <= 80 &&
@@ -74,7 +66,9 @@ internal fun ItemizedPurchaseDialog(
 ) {
     var accountId by rememberSaveable { mutableStateOf(accounts.firstOrNull()?.id.orEmpty()) }
     var note by rememberSaveable { mutableStateOf("") }
-    val drafts = remember { mutableStateListOf(DraftPurchaseItem()) }
+    val drafts = rememberSaveable(saver = purchaseDraftStateSaver) {
+        mutableStateListOf(PurchaseDraftItem())
+    }
     val lines = drafts.mapNotNull { it.asPurchaseLine() }
     val total = if (lines.size == drafts.size) runCatching {
         itemizedPurchaseTotal(lines.map {
@@ -228,7 +222,7 @@ internal fun ItemizedPurchaseDialog(
                     }
                 }
                 OutlinedButton(
-                    onClick = { drafts.add(DraftPurchaseItem()) },
+                    onClick = { drafts.add(PurchaseDraftItem()) },
                     enabled = !isSaving && drafts.size < 20,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(15.dp),
