@@ -158,6 +158,7 @@ private fun JibikApp(store: LocalLedgerStore) {
     var showAdd by remember { mutableStateOf(false) }
     var addKind by remember { mutableStateOf(LedgerKind.EXPENSE) }
     var showCreateAccount by remember { mutableStateOf(false) }
+    var showItemizedPurchase by remember { mutableStateOf(false) }
     var budget by remember { mutableStateOf(store.budgetToman()) }
     var showEditBudget by remember { mutableStateOf(false) }
 
@@ -232,6 +233,7 @@ private fun JibikApp(store: LocalLedgerStore) {
                 modifier = Modifier.padding(insets),
                 onAllTransactions = { section = Section.TRANSACTIONS },
                 onBudget = { section = Section.BUDGET },
+                onItemizedPurchase = { showItemizedPurchase = true },
             )
             Section.TRANSACTIONS -> Transactions(
                 records = records, modifier = Modifier.padding(insets),
@@ -253,6 +255,28 @@ private fun JibikApp(store: LocalLedgerStore) {
         }
     }
 
+    if (showItemizedPurchase) {
+        ItemizedPurchaseDialog(
+            accounts = accounts,
+            onDismiss = { if (!isSaving) showItemizedPurchase = false },
+            onSave = { purchase, lines ->
+                if (!isSaving) {
+                    isSaving = true
+                    scope.launch {
+                        try {
+                            store.appendItemizedPurchase(purchase, lines)
+                            records.add(0, purchase)
+                            showItemizedPurchase = false
+                        } catch (_: Exception) {
+                            storageError = "خرید ذخیره نشد؛ هیچ مبلغی از حساب کسر نشده است."
+                        } finally {
+                            isSaving = false
+                        }
+                    }
+                }
+            },
+        )
+    }
     if (showCreateAccount) {
         CreateAccountDialog(
             existing = accounts,
@@ -369,6 +393,7 @@ private fun Home(
     modifier: Modifier,
     onAllTransactions: () -> Unit,
     onBudget: () -> Unit,
+    onItemizedPurchase: () -> Unit,
 ) {
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
@@ -381,6 +406,13 @@ private fun Home(
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MetricCard("درآمد ماه", monthTotals.incomeToman, Mint, Modifier.weight(1f))
             MetricCard("هزینه ماه", monthTotals.expenseToman, Coral, Modifier.weight(1f))
+        }
+        OutlinedButton(
+            onClick = onItemizedPurchase,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            Text("＋  ثبت خرید چندقلمی", color = Forest, fontWeight = FontWeight.Bold)
         }
         Card(
             onClick = onBudget,
