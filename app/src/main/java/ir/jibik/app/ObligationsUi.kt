@@ -226,48 +226,48 @@ internal fun ObligationsScreen(
                         },
                     )
                     if (showingHistoryId == item.id) {
-                    Text("سابقه پرداخت‌ها", color = JibikStyle.ink,
-                        fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    (if (expandedPaymentId == item.id) itemPayments
-                        else itemPayments.take(6)).forEach { payment ->
-                        LiquidGlassCard(
-                            tone = GlassTone.CRYSTAL,
-                            onClick = { onPaymentClick(payment.transactionId) },
-                            padding = androidx.compose.foundation.layout.PaddingValues(
-                                horizontal = 12.dp, vertical = 9.dp,
-                            ),
-                        ) {
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
+                        Text("سابقه پرداخت‌ها", color = JibikStyle.ink,
+                            fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        (if (expandedPaymentId == item.id) itemPayments
+                            else itemPayments.take(6)).forEach { payment ->
+                            LiquidGlassCard(
+                                tone = GlassTone.CRYSTAL,
+                                onClick = { onPaymentClick(payment.transactionId) },
+                                padding = androidx.compose.foundation.layout.PaddingValues(
+                                    horizontal = 12.dp, vertical = 9.dp,
+                                ),
                             ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(formatJalaliDueDate(payment.paidAtMillis),
-                                        color = JibikStyle.muted, fontSize = 12.sp)
-                                    Text("مشاهده رسید", color = JibikStyle.forest,
-                                        fontSize = 11.sp)
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(formatJalaliDueDate(payment.paidAtMillis),
+                                            color = JibikStyle.muted, fontSize = 12.sp)
+                                        Text("مشاهده رسید", color = JibikStyle.forest,
+                                            fontSize = 11.sp)
+                                    }
+                                    Text(formatToman(payment.amountToman),
+                                        color = JibikStyle.ink,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold)
                                 }
-                                Text(formatToman(payment.amountToman),
-                                    color = JibikStyle.ink,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold)
                             }
                         }
-                    }
-                    if (itemPayments.size > 6) {
-                        TextButton(onClick = {
-                            expandedPaymentId =
-                                if (expandedPaymentId == item.id) "" else item.id
-                        }) {
-                            Text(
-                                if (expandedPaymentId == item.id)
-                                    "نمایش شش پرداخت اخیر"
-                                else "مشاهده تمام " + itemPayments.size + " پرداخت",
-                                color = JibikStyle.forest, fontSize = 12.sp,
-                            )
+                        if (itemPayments.size > 6) {
+                            TextButton(onClick = {
+                                expandedPaymentId =
+                                    if (expandedPaymentId == item.id) "" else item.id
+                            }) {
+                                Text(
+                                    if (expandedPaymentId == item.id)
+                                        "نمایش شش پرداخت اخیر"
+                                    else "مشاهده تمام " + itemPayments.size + " پرداخت",
+                                    color = JibikStyle.forest, fontSize = 12.sp,
+                                )
+                            }
                         }
-                    }
                     }
                 }
                 if (!progress.settled) {
