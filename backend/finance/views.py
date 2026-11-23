@@ -141,7 +141,7 @@ class TransactionView(APIView):
             ).first()
             if previous is not None:
                 fields = ("kind", "amount_rial", "from_account", "to_account", "category", "note")
-                if any(getattr(previous, name) != value.get(name, "") for name in fields):
+                if any(getattr(previous, name) != value.get(name, None if name in ("from_account", "to_account") else "") for name in fields):
                     raise ValidationError({"idempotency_key": "Key reused with different contents"})
                 return Response(TransactionSerializer(previous).data, status=status.HTTP_200_OK)
             involved = [a.pk for a in (src, dst) if a]
