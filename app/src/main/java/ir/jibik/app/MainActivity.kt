@@ -921,7 +921,7 @@ private fun Home(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                JiboMascot(Modifier.size(48.dp))
+                JiboArt(JiboArtwork.ASSISTANT, Modifier.size(48.dp))
                 Column(Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("جیبو، همراه مالی هوشمند", color = Forest,
@@ -1113,7 +1113,7 @@ private fun BrandHeader() {
 @Composable
 private fun BalanceCard(summary: MoneySummary) {
     var balanceVisible by rememberSaveable { mutableStateOf(true) }
-    JibikHero(Modifier.fillMaxWidth()) {
+    JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.HOME) {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1456,7 +1456,7 @@ private fun Budget(
             title = "بودجه‌بندی",
             subtitle = "سقف هزینه در " + monthTitle,
         )
-        JibikHero(Modifier.fillMaxWidth()) {
+        JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.BUDGET) {
             Text(
                 if (remaining >= 0L) "باقی‌مانده بودجه" else "میزان عبور از بودجه",
                 color = Color(0xFFDCF3EA), fontSize = 13.sp,
