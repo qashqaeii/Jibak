@@ -125,6 +125,7 @@ private fun JibikApp(store: LocalLedgerStore) {
     var welcomed by remember { mutableStateOf(store.hasFinishedWelcome()) }
     val records = remember { mutableStateListOf<LedgerRecord>() }
     val accounts = remember { mutableStateListOf<Account>() }
+    val goals = remember { mutableStateListOf<SavingsGoalEntity>() }
     val scope = rememberCoroutineScope()
     var isLoaded by remember { mutableStateOf(false) }
     var loadingFailed by remember { mutableStateOf(false) }
@@ -135,9 +136,12 @@ private fun JibikApp(store: LocalLedgerStore) {
         try {
             val persisted = store.load()
             val loadedAccounts = store.loadAccounts()
+            val persistedGoals = store.loadSavingsGoals()
             // Account definitions first, so the ledger can never reference a missing account.
             accounts.clear()
             accounts.addAll(loadedAccounts)
+            goals.clear()
+            goals.addAll(persistedGoals)
             records.clear()
             records.addAll(persisted)
             loadingFailed = false
@@ -159,6 +163,8 @@ private fun JibikApp(store: LocalLedgerStore) {
     var showAdd by remember { mutableStateOf(false) }
     var addKind by remember { mutableStateOf(LedgerKind.EXPENSE) }
     var showCreateAccount by remember { mutableStateOf(false) }
+    var showGoals by rememberSaveable { mutableStateOf(false) }
+    var showNewGoal by remember { mutableStateOf(false) }
     var showItemizedPurchase by remember { mutableStateOf(false) }
     var budget by remember { mutableStateOf(store.budgetToman()) }
     var showEditBudget by remember { mutableStateOf(false) }
@@ -250,16 +256,51 @@ private fun JibikApp(store: LocalLedgerStore) {
                 records = records,
                 modifier = Modifier.padding(insets),
             )
-            Section.ACCOUNTS -> AccountsScreen(
+            Section.ACCOUNTS -> if (showGoals) {
+                Box(Modifier.padding(insets)) {
+                    GoalsScreen(
+                        goals = goals,
+                        accounts = accounts,
+                        balances = FinanceEngine.balances(accounts, records.toList()),
+                        onBack = { showGoals = false },
+                        onAdd = { showNewGoal = true },
+                    )
+                }
+            } else AccountsScreen(
                 accounts = accounts,
                 balances = FinanceEngine.balances(accounts, records.toList()),
                 modifier = Modifier.padding(insets),
                 onAdd = { showCreateAccount = true },
                 onTransfer = { addKind = LedgerKind.TRANSFER; showAdd = true },
+                onGoals = { showGoals = true },
             )
         }
     }
 
+    if (showNewGoal) {
+        NewGoalDialog(
+            accounts = accounts,
+            goals = goals,
+            onDismiss = { if (!isSaving) showNewGoal = false },
+            onSave = { newGoal ->
+                if (!isSaving) {
+                    isSaving = true
+                    scope.launch {
+                        try {
+                            store.addSavingsGoal(newGoal)
+                            goals.clear()
+                            goals.addAll(store.loadSavingsGoals())
+                            showNewGoal = false
+                        } catch (_: Exception) {
+                            storageError = "هدف پس‌انداز ذخیره نشد؛ اطلاعات قبلی محفوظ است."
+                        } finally {
+                            isSaving = false
+                        }
+                    }
+                }
+            },
+        )
+    }
     if (showItemizedPurchase) {
         ItemizedPurchaseDialog(
             accounts = accounts,
