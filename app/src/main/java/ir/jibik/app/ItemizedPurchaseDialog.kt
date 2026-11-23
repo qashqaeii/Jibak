@@ -85,8 +85,9 @@ internal fun ItemizedPurchaseDialog(
     }
 
     AlertDialog(
+        modifier = Modifier.liquidGlass(tone = GlassTone.CRYSTAL, radius = 28.dp, elevation = 15.dp),
         onDismissRequest = { if (!isSaving) onDismiss() },
-        containerColor = JibikStyle.paper,
+        containerColor = Color.Transparent,
         tonalElevation = 0.dp,
         shape = RoundedCornerShape(26.dp),
         title = {
