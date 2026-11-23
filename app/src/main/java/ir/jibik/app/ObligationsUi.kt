@@ -50,7 +50,11 @@ internal fun ObligationsScreen(
 ) {
     val now = System.currentTimeMillis()
     val active = obligations.filter { !obligationProgress(it, payments).settled }
-    val due = active.count { it.dueAtMillis < now }
+    val due = active.count { item ->
+        val installment = nextUnpaidInstallment(item, payments)
+        installment != null &&
+            jalaliInstallmentDueDate(item.dueAtMillis, installment.index) < now
+    }
     Column(
         modifier.fillMaxSize().liquidBackdrop()
             .verticalScroll(rememberScrollState())
@@ -89,7 +93,11 @@ internal fun ObligationsScreen(
         }
         obligations.forEach { item ->
             val progress = obligationProgress(item, payments)
-            val overdue = !progress.settled && item.dueAtMillis < now
+            val upcoming = nextUnpaidInstallment(item, payments)
+            val nextDate = upcoming?.let {
+                jalaliInstallmentDueDate(item.dueAtMillis, it.index)
+            }
+            val overdue = nextDate != null && nextDate < now
             val remaining = progress.remainingToman
             LiquidGlassCard(tone = GlassTone.CRYSTAL) {
                 Row(Modifier.fillMaxWidth(),
@@ -130,12 +138,21 @@ internal fun ObligationsScreen(
                     trackColor = Color(0xFFE6F1E9),
                 )
                 Text(
-                    "سررسید: " + formatJalaliDueDate(item.dueAtMillis) +
-                        if (item.installmentCount > 1)
-                            " · " + item.installmentCount + " قسط برنامه‌ریزی‌شده"
+                    if (nextDate == null) "تمام اقساط تسویه شده‌اند"
+                    else "سررسید بعدی: " + formatJalaliDueDate(nextDate) +
+                        if (upcoming != null && upcoming.count > 1)
+                            " · قسط " + (upcoming.index + 1) + " از " + upcoming.count
                         else "",
-                    fontSize = 12.sp, color = JibikStyle.muted,
+                    fontSize = 12.sp,
+                    color = if (overdue) JibikStyle.coral else JibikStyle.muted,
                 )
+                if (upcoming != null && upcoming.count > 1) {
+                    Text(
+                        "مانده قسط جاری: " +
+                            formatToman(upcoming.amountToman - upcoming.paidTowardToman),
+                        color = JibikStyle.muted, fontSize = 12.sp,
+                    )
+                }
                 if (item.note.isNotBlank()) {
                     Text(item.note, fontSize = 12.sp,
                         color = JibikStyle.muted, maxLines = 3)
@@ -238,9 +255,8 @@ internal fun NewObligationDialog(
                     maxLines = 3,
                 )
                 JibikFormHint(
-                    "سررسید، تاریخ پیگیری این تعهد است. " +
-                        "تعداد اقساط برای برنامه‌ریزی ثبت می‌شود؛ " +
-                        "هر پرداخت واقعی جداگانه و با تأیید تو ثبت خواهد شد."
+                    "تاریخ واردشده، سررسید اولین قسط است؛ اقساط بعدی هر ماه شمسی " +
+                        "بر اساس همین روز محاسبه می‌شوند. هر پرداخت واقعی فقط با تأیید ثبت می‌شود."
                 )
             }
         },
@@ -319,7 +335,7 @@ internal fun SettleObligationDialog(
                 )
                 JibikFormHint(
                     "با تأیید، دقیقاً یک تراکنش " +
-                        if (obligation.kind == "RECEIVABLE") "درآمد" else "هزینه" +
+                        (if (obligation.kind == "RECEIVABLE") "درآمد" else "هزینه") +
                         " ثبت می‌شود و مانده این تعهد کاهش پیدا می‌کند."
                 )
                 if (parsed != null && parsed > outstanding) JibikFormHint(
