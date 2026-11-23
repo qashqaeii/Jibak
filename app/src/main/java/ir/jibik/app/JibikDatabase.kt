@@ -103,6 +103,35 @@ internal interface PurchaseLineDao {
     suspend fun all(): List<PurchaseLineEntity>
 }
 
+/** User-defined private categories, kept even when archived for history stability. */
+@Entity(
+    tableName = "custom_categories",
+    indices = [Index(value = ["kind", "parentPath", "title"], unique = true)],
+)
+internal data class CustomCategoryEntity(
+    @PrimaryKey val id: String,
+    val kind: String,
+    val parentPath: String,
+    val title: String,
+    val archived: Boolean = false,
+    val createdAtMillis: Long,
+) {
+    val displayName: String
+        get() = if (parentPath.isEmpty()) title else "$parentPath / $title"
+}
+
+@Dao
+internal interface CustomCategoryDao {
+    @Query("SELECT * FROM custom_categories ORDER BY createdAtMillis, id")
+    suspend fun list(): List<CustomCategoryEntity>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(category: CustomCategoryEntity)
+
+    @Query("UPDATE custom_categories SET archived = :archived WHERE id = :id")
+    suspend fun setArchived(id: String, archived: Boolean)
+}
+
 /** A goal points to one real savings account; it cannot mint imaginary savings. */
 @Entity(
     tableName = "savings_goals",
@@ -132,8 +161,12 @@ internal interface SavingsGoalDao {
 }
 
 @Database(
-    entities = [LedgerEntity::class, FinancialAccountEntity::class, PurchaseLineEntity::class, SavingsGoalEntity::class],
-    version = 4,
+    entities = [
+        LedgerEntity::class, FinancialAccountEntity::class,
+        PurchaseLineEntity::class, SavingsGoalEntity::class,
+        CustomCategoryEntity::class,
+    ],
+    version = 5,
     exportSchema = false,
 )
 internal abstract class JibikDatabase : RoomDatabase() {
@@ -141,6 +174,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
     abstract fun accountDao(): FinancialAccountDao
     abstract fun purchaseLineDao(): PurchaseLineDao
     abstract fun savingsGoalDao(): SavingsGoalDao
+    abstract fun customCategoryDao(): CustomCategoryDao
 
     companion object {
         @Volatile private var instance: JibikDatabase? = null
@@ -194,13 +228,30 @@ internal abstract class JibikDatabase : RoomDatabase() {
             }
         }
 
+        /** Preserve all historical ledger and receipt rows, add only local category metadata. */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS custom_categories (" +
+                        "id TEXT NOT NULL, kind TEXT NOT NULL, parentPath TEXT NOT NULL, " +
+                        "title TEXT NOT NULL, archived INTEGER NOT NULL, " +
+                        "createdAtMillis INTEGER NOT NULL, PRIMARY KEY(id))"
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS " +
+                        "index_custom_categories_kind_parentPath_title ON " +
+                        "custom_categories(kind, parentPath, title)"
+                )
+            }
+        }
+
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     JibikDatabase::class.java,
                     "jibik_ledger_v1.db",
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { instance = it }
             }
     }
 }
