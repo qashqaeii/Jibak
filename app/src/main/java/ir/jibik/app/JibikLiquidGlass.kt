@@ -30,12 +30,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 
 /**
  * Compose-only optical glass vocabulary.
@@ -226,10 +229,9 @@ internal fun LiquidGlassCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val surface = modifier.fillMaxWidth().liquidGlass(tone)
-    val active = if (onClick == null) surface else surface.clickable(
-        role = Role.Button,
-        onClick = onClick,
-    )
+    val active = if (onClick == null) surface else surface
+        .heightIn(min = 48.dp)
+        .clickable(role = Role.Button, onClick = onClick)
     Column(
         modifier = active.padding(padding),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -256,6 +258,10 @@ internal fun LiquidGlassButton(
     ) {
         Text(
             text,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            lineHeight = 18.sp,
             color = when {
                 !enabled -> Color(0xFF667971)
                 tone == GlassTone.EMERALD -> Color.White
@@ -278,7 +284,7 @@ internal fun JibikGlassChip(
 ) {
     Box(
         modifier = modifier
-            .heightIn(min = 44.dp)
+            .heightIn(min = 48.dp)
             .liquidGlass(
                 tone = if (selected && enabled) GlassTone.EMERALD else GlassTone.CRYSTAL,
                 radius = 15.dp,
@@ -292,7 +298,10 @@ internal fun JibikGlassChip(
         Text(
             text = text,
             fontSize = 12.sp,
-            maxLines = 1,
+            maxLines = 2,
+            lineHeight = 16.sp,
+            textAlign = TextAlign.Center,
+            overflow = TextOverflow.Ellipsis,
             color = when {
                 !enabled -> Color(0xFF788985)
                 selected -> Color.White
