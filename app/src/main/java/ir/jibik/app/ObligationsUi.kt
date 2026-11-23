@@ -1,0 +1,344 @@
+package ir.jibik.app
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import ir.jibik.core.finance.Account
+import java.util.UUID
+
+private fun obligationKindName(kind: String): String = when (kind) {
+    "DEBT" -> "بدهی"
+    "LOAN" -> "وام و اقساط"
+    "BILL" -> "قبض و پرداخت"
+    "RECEIVABLE" -> "طلب"
+    else -> "تعهد"
+}
+
+/** Dedicated offline liabilities workspace. Creating a promise never posts money. */
+@Composable
+internal fun ObligationsScreen(
+    obligations: List<FinancialObligationEntity>,
+    payments: List<ObligationPaymentEntity>,
+    onBack: () -> Unit,
+    onAdd: () -> Unit,
+    onPay: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    isSaving: Boolean = false,
+) {
+    val now = System.currentTimeMillis()
+    val active = obligations.filter { !obligationProgress(it, payments).settled }
+    val due = active.count { it.dueAtMillis < now }
+    Column(
+        modifier.fillMaxSize().liquidBackdrop()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        JibikSectionTitle("تعهدات و اقساط", "بدهی، طلب، وام و قبوض ثبت‌شده",
+            trailing = { TextButton(onClick = onBack) {
+                Text("بازگشت", color = JibikStyle.forest)
+            } })
+        JibikHero(Modifier.fillMaxWidth()) {
+            Text("تعهدات تسویه‌نشده", fontSize = 13.sp,
+                color = Color(0xFFD8F2EA))
+            Text(active.size.toString() + " مورد",
+                color = Color.White, fontSize = 25.sp,
+                fontWeight = FontWeight.ExtraBold)
+            Text(if (due > 0) "$due مورد سررسید گذشته"
+                else "همه تعهدات ثبت‌شده قابل پیگیری هستند",
+                color = Color(0xFFDBF4EC), fontSize = 12.sp)
+        }
+        LiquidGlassButton(
+            text = "＋ ثبت بدهی، طلب، قبض یا وام",
+            onClick = onAdd, enabled = !isSaving,
+            tone = GlassTone.HONEY,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        JibikFormHint(
+            "ایجاد تعهد موجودی حساب را تغییر نمی‌دهد. فقط هنگام ثبت تسویه، " +
+                "یک تراکنش واقعی به دفتر مالی اضافه می‌شود."
+        )
+        if (obligations.isEmpty()) {
+            JibikSurfaceCard {
+                Text("هنوز تعهدی ثبت نشده. اولین قبض، قسط، بدهی یا طلب خودت را ثبت کن.",
+                    fontSize = 13.sp, color = JibikStyle.muted, lineHeight = 21.sp)
+            }
+        }
+        obligations.forEach { item ->
+            val progress = obligationProgress(item, payments)
+            val overdue = !progress.settled && item.dueAtMillis < now
+            val remaining = progress.remainingToman
+            LiquidGlassCard(tone = GlassTone.CRYSTAL) {
+                Row(Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column(Modifier.weight(1f)) {
+                        Text(item.title, fontWeight = FontWeight.ExtraBold,
+                            color = JibikStyle.ink, fontSize = 16.sp)
+                        Text(obligationKindName(item.kind),
+                            color = JibikStyle.muted, fontSize = 12.sp)
+                    }
+                    Text(
+                        if (progress.settled) "تسویه شد"
+                        else if (overdue) "سررسید گذشته"
+                        else "در جریان",
+                        color = if (overdue) JibikStyle.coral
+                            else JibikStyle.forest,
+                        fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                    )
+                }
+                Text("باقی‌مانده: " + formatToman(remaining),
+                    color = JibikStyle.ink, fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold)
+                Row(Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("کل: " + formatToman(item.totalToman),
+                        color = JibikStyle.muted, fontSize = 12.sp)
+                    Text("پرداخت/دریافت: " + formatToman(progress.paidToman),
+                        color = JibikStyle.forest, fontSize = 12.sp)
+                }
+                LinearProgressIndicator(
+                    progress = {
+                        (progress.paidToman.toDouble() / item.totalToman.toDouble())
+                            .toFloat().coerceIn(0f, 1f)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = JibikStyle.forest,
+                    trackColor = Color(0xFFE6F1E9),
+                )
+                Text(
+                    "سررسید: " + formatJalaliDueDate(item.dueAtMillis) +
+                        if (item.installmentCount > 1)
+                            " · " + item.installmentCount + " قسط برنامه‌ریزی‌شده"
+                        else "",
+                    fontSize = 12.sp, color = JibikStyle.muted,
+                )
+                if (item.note.isNotBlank()) {
+                    Text(item.note, fontSize = 12.sp,
+                        color = JibikStyle.muted, maxLines = 3)
+                }
+                val itemPayments = payments.count { it.obligationId == item.id }
+                Text("$itemPayments پرداخت/دریافت ثبت‌شده",
+                    color = JibikStyle.muted, fontSize = 11.sp)
+                if (!progress.settled) {
+                    LiquidGlassButton(
+                        text = if (item.kind == "RECEIVABLE") "ثبت دریافت طلب"
+                            else "ثبت پرداخت واقعی",
+                        onClick = { onPay(item.id) },
+                        modifier = Modifier.fillMaxWidth(),
+                        tone = GlassTone.EMERALD,
+                        enabled = !isSaving,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun NewObligationDialog(
+    onDismiss: () -> Unit,
+    onSave: (FinancialObligationEntity) -> Unit,
+    isSaving: Boolean = false,
+) {
+    var title by rememberSaveable { mutableStateOf("") }
+    var kind by rememberSaveable { mutableStateOf("DEBT") }
+    var amount by rememberSaveable { mutableStateOf("") }
+    var date by rememberSaveable { mutableStateOf(
+        formatJalaliDueDate(System.currentTimeMillis())
+    ) }
+    var count by rememberSaveable { mutableStateOf("1") }
+    var note by rememberSaveable { mutableStateOf("") }
+    val total = parseTomanDraft(amount)
+    val due = parseJalaliDueDate(date)
+    val installments = parseTomanDraft(count)?.takeIf { it in 1..120L }?.toInt()
+    val valid = !isSaving && title.trim().length in 2..70 &&
+        total != null && total > 0L && due != null && installments != null
+    AlertDialog(
+        modifier = Modifier.liquidGlass(tone = GlassTone.FROSTED,
+            radius = 26.dp, elevation = 15.dp),
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        containerColor = Color.Transparent,
+        title = {
+            Text("تعهد مالی جدید", color = JibikStyle.ink,
+                fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
+        },
+        text = {
+            Column(
+                Modifier.fillMaxWidth().heightIn(max = 460.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text("نوع تعهد", color = JibikStyle.muted, fontSize = 12.sp)
+                Row(Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf("DEBT", "LOAN", "BILL", "RECEIVABLE").forEach { option ->
+                        JibikGlassChip(
+                            text = obligationKindName(option),
+                            selected = kind == option,
+                            onClick = { kind = option },
+                            enabled = !isSaving,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = title, onValueChange = { title = it.take(70) },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    label = { Text("عنوان تعهد") },
+                    placeholder = { Text("مثلاً قسط وام یا اجاره") },
+                )
+                JibikTomanField(
+                    value = amount, onValueChange = { amount = it },
+                    label = if (kind == "RECEIVABLE") "مبلغ طلب" else "کل مبلغ تعهد",
+                )
+                OutlinedTextField(
+                    value = date, onValueChange = { date = it.take(10) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("سررسید شمسی (مثلاً ۱۴۰۵/۰۹/۲۰)") },
+                    singleLine = true,
+                    isError = date.isNotBlank() && due == null,
+                )
+                OutlinedTextField(
+                    value = count,
+                    onValueChange = {
+                        if (isAllowedTomanDraft(it)) count = normalizeTomanDraft(it).take(3)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("تعداد اقساط (۱ تا ۱۲۰)") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = note, onValueChange = { note = it.take(250) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("توضیحات اختیاری") },
+                    maxLines = 3,
+                )
+                JibikFormHint(
+                    "سررسید، تاریخ پیگیری این تعهد است. " +
+                        "تعداد اقساط برای برنامه‌ریزی ثبت می‌شود؛ " +
+                        "هر پرداخت واقعی جداگانه و با تأیید تو ثبت خواهد شد."
+                )
+            }
+        },
+        confirmButton = {
+            LiquidGlassButton(
+                text = if (isSaving) "در حال ذخیره..." else "ثبت تعهد",
+                enabled = valid,
+                onClick = {
+                    val value = total
+                    val at = due
+                    val parts = installments
+                    if (value != null && at != null && parts != null) {
+                        onSave(FinancialObligationEntity(
+                            id = UUID.randomUUID().toString(),
+                            title = title.trim(), kind = kind, totalToman = value,
+                            dueAtMillis = at, installmentCount = parts,
+                            note = note.trim(), createdAtMillis = System.currentTimeMillis(),
+                        ))
+                    }
+                },
+                tone = GlassTone.EMERALD,
+            )
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isSaving) {
+                Text("انصراف", color = JibikStyle.muted)
+            }
+        },
+    )
+}
+
+@Composable
+internal fun SettleObligationDialog(
+    obligation: FinancialObligationEntity,
+    payments: List<ObligationPaymentEntity>,
+    accounts: List<Account>,
+    onDismiss: () -> Unit,
+    onSave: (String, Long) -> Unit,
+    isSaving: Boolean = false,
+) {
+    val outstanding = obligationProgress(obligation, payments).remainingToman
+    var accountId by rememberSaveable { mutableStateOf(accounts.firstOrNull()?.id.orEmpty()) }
+    var amount by rememberSaveable { mutableStateOf(outstanding.toString()) }
+    val parsed = parseTomanDraft(amount)
+    val valid = !isSaving && parsed != null &&
+        parsed in 1..outstanding && accounts.any { it.id == accountId }
+    AlertDialog(
+        modifier = Modifier.liquidGlass(tone = GlassTone.FROSTED,
+            radius = 26.dp, elevation = 15.dp),
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        containerColor = Color.Transparent,
+        title = {
+            Text(
+                if (obligation.kind == "RECEIVABLE")
+                    "دریافت از طلب" else "پرداخت تعهد",
+                color = JibikStyle.ink, fontWeight = FontWeight.ExtraBold,
+                fontSize = 19.sp,
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                Text(obligation.title, color = JibikStyle.ink,
+                    fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("مانده تعهد: " + formatToman(outstanding),
+                    color = JibikStyle.muted, fontSize = 13.sp)
+                JibikAccountChoice(
+                    title = if (obligation.kind == "RECEIVABLE")
+                        "دریافت به حساب" else "برداشت از حساب",
+                    accounts = accounts,
+                    selectedId = accountId,
+                    onSelect = { accountId = it },
+                )
+                JibikTomanField(
+                    value = amount, onValueChange = { amount = it },
+                    label = "مبلغ واقعی این پرداخت / دریافت",
+                )
+                JibikFormHint(
+                    "با تأیید، دقیقاً یک تراکنش " +
+                        if (obligation.kind == "RECEIVABLE") "درآمد" else "هزینه" +
+                        " ثبت می‌شود و مانده این تعهد کاهش پیدا می‌کند."
+                )
+                if (parsed != null && parsed > outstanding) JibikFormHint(
+                    "مبلغ نمی‌تواند بیشتر از مانده تعهد باشد.", isWarning = true,
+                )
+            }
+        },
+        confirmButton = {
+            LiquidGlassButton(
+                text = if (isSaving) "در حال ثبت..." else "تأیید پرداخت واقعی",
+                onClick = { parsed?.let { onSave(accountId, it) } },
+                enabled = valid,
+                tone = GlassTone.EMERALD,
+            )
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isSaving) {
+                Text("انصراف", color = JibikStyle.muted)
+            }
+        },
+    )
+}
