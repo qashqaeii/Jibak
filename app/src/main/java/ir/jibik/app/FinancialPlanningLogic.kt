@@ -50,7 +50,7 @@ internal fun validateObligation(item: FinancialObligationEntity) {
     require(item.kind in listOf("DEBT", "LOAN", "BILL", "RECEIVABLE"))
     require(item.title.trim().length in 2..70)
     require(item.totalToman > 0L)
-    require(item.installmentCount in 1..120)
+    require(item.installmentCount in 1..120 && item.totalToman >= item.installmentCount)
     require(item.dueAtMillis > 0L && item.createdAtMillis > 0L)
     require(item.note.length <= 250)
 }
@@ -79,6 +79,34 @@ internal fun obligationProgress(
 }
 
 /** One confirmed settlement maps to one immutable ledger movement. */
+/** A predictable payment schedule with exact integer tomans; no phantom amounts. */
+internal data class InstallmentPreview(
+    val index: Int,
+    val count: Int,
+    val amountToman: Long,
+    val paidTowardToman: Long,
+)
+
+internal fun nextUnpaidInstallment(
+    obligation: FinancialObligationEntity,
+    payments: List<ObligationPaymentEntity>,
+): InstallmentPreview? {
+    val progress = obligationProgress(obligation, payments)
+    if (progress.settled) return null
+    val count = obligation.installmentCount
+    val base = obligation.totalToman / count
+    val extra = obligation.totalToman % count
+    var remainingPaid = progress.paidToman
+    for (index in 0 until count) {
+        val amount = Math.addExact(base, if (index.toLong() < extra) 1L else 0L)
+        if (remainingPaid < amount) {
+            return InstallmentPreview(index, count, amount, remainingPaid)
+        }
+        remainingPaid = Math.subtractExact(remainingPaid, amount)
+    }
+    error("Unsettled obligation must have an unpaid installment")
+}
+
 internal fun settlementRecord(
     obligation: FinancialObligationEntity,
     accountId: String,
