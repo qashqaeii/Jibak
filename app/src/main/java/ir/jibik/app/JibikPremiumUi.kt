@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.heading
@@ -151,13 +152,15 @@ internal fun JibikSectionTitle(
     }
 }
 
+/**
+ * Three-dimensional illustrations live in transparent WebP resources. Keep
+ * action imagery free of badge frames; let the card itself be the hit target.
+ */
 @Composable
 internal fun JibikQuickAction(
     title: String,
     subtitle: String,
-    symbol: String,
-    accent: Color,
-    background: Color,
+    artwork: JiboArtwork,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -165,48 +168,43 @@ internal fun JibikQuickAction(
         modifier = modifier,
         tone = GlassTone.CRYSTAL,
         padding = androidx.compose.foundation.layout.PaddingValues(
-            horizontal = 11.dp, vertical = 13.dp,
+            horizontal = 10.dp, vertical = 12.dp,
         ),
         onClick = onClick,
     ) {
-        Box(
-            modifier = Modifier.size(39.dp)
-                .liquidGlass(
-                    tone = if (accent == JibikStyle.coral) GlassTone.ROSE
-                    else if (accent == JibikStyle.forest) GlassTone.EMERALD
-                    else GlassTone.HONEY,
-                    radius = 13.dp,
-                    elevation = 4.dp,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                symbol,
-                color = if (accent == JibikStyle.forest) Color.White else accent,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Medium,
-            )
-        }
-        Text(
-            title, color = JibikStyle.ink, fontWeight = FontWeight.Bold,
-            fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        JiboArt(
+            illustration = artwork,
+            modifier = Modifier.size(54.dp).align(Alignment.CenterHorizontally),
         )
         Text(
-            subtitle, color = JibikStyle.muted, fontSize = 10.sp,
-            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            title,
+            color = JibikStyle.ink,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 13.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            subtitle,
+            color = JibikStyle.muted,
+            fontSize = 11.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+            maxLines = 2,
+            lineHeight = 16.sp,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
 
-/**
- * Wide third action on compact devices. The existing three-column layout
- * remains on larger phones, but on 320–390dp screens no action is clipped.
- */
+/** A full-width action for compact phones, with the same illustration system. */
 @Composable
 internal fun JibikWideQuickAction(
     title: String,
     subtitle: String,
-    symbol: String,
+    artwork: JiboArtwork,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -214,7 +212,7 @@ internal fun JibikWideQuickAction(
         modifier = modifier,
         tone = GlassTone.CRYSTAL,
         padding = androidx.compose.foundation.layout.PaddingValues(
-            horizontal = 14.dp, vertical = 12.dp,
+            horizontal = 14.dp, vertical = 10.dp,
         ),
         onClick = onClick,
     ) {
@@ -223,23 +221,19 @@ internal fun JibikWideQuickAction(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Box(
-                Modifier.size(42.dp).liquidGlass(
-                    tone = GlassTone.HONEY, radius = 14.dp, elevation = 3.dp,
-                ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(symbol, color = Color(0xFF8C531A),
-                    fontWeight = FontWeight.Bold, fontSize = 21.sp)
-            }
+            JiboArt(artwork, Modifier.size(54.dp))
             Column(
                 Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                Text(title, color = JibikStyle.ink, fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold)
-                Text(subtitle, color = JibikStyle.muted, fontSize = 12.sp,
-                    maxLines = 2)
+                Text(
+                    title, color = JibikStyle.ink, fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Text(
+                    subtitle, color = JibikStyle.muted, fontSize = 12.sp,
+                    maxLines = 2, lineHeight = 18.sp,
+                )
             }
             Text("‹", color = JibikStyle.forest, fontSize = 21.sp)
         }

@@ -925,6 +925,43 @@ private fun Home(
             MetricCard("درآمد", monthTotals.incomeToman, Mint, Modifier.weight(1f))
             MetricCard("هزینه", monthTotals.expenseToman, Coral, Modifier.weight(1f))
         }
+        JibikSectionTitle("ثبت سریع", "کارهای روزمره، بدون فرم‌های طولانی")
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val compact = maxWidth < 390.dp
+            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(9.dp),
+                ) {
+                    JibikQuickAction(
+                        title = "ثبت هزینه", subtitle = "مخارج روزانه",
+                        artwork = JiboArtwork.TRANSACTIONS,
+                        onClick = onNewExpense, modifier = Modifier.weight(1f),
+                    )
+                    JibikQuickAction(
+                        title = "ثبت درآمد", subtitle = "دریافتی‌ها",
+                        artwork = JiboArtwork.ACCOUNTS,
+                        onClick = onNewIncome, modifier = Modifier.weight(1f),
+                    )
+                    if (!compact) {
+                        JibikQuickAction(
+                            title = "خرید منزل", subtitle = "چند قلم کالا",
+                            artwork = JiboArtwork.PURCHASE,
+                            onClick = onItemizedPurchase,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+                if (compact) {
+                    JibikWideQuickAction(
+                        title = "ثبت خرید چندقلمی",
+                        subtitle = "برای هر کالا، مبلغ و دسته جداگانه",
+                        artwork = JiboArtwork.PURCHASE,
+                        onClick = onItemizedPurchase,
+                    )
+                }
+            }
+        }
         LiquidGlassCard(onClick = onAi, tone = GlassTone.CRYSTAL) {
             Row(
                 Modifier.fillMaxWidth(),
@@ -940,45 +977,6 @@ private fun Home(
                         color = Quiet, fontSize = 12.sp, lineHeight = 18.sp)
                 }
                 Text("‹", color = Forest, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            }
-        }
-        JibikSectionTitle("ثبت سریع", "کارهای روزمره، بدون فرم‌های طولانی")
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val compact = maxWidth < 390.dp
-            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(9.dp),
-                ) {
-                    JibikQuickAction(
-                        title = "ثبت هزینه", subtitle = "مخارج روزانه",
-                        symbol = "−", accent = Coral,
-                        background = Color(0xFFFFEDE9), onClick = onNewExpense,
-                        modifier = Modifier.weight(1f),
-                    )
-                    JibikQuickAction(
-                        title = "ثبت درآمد", subtitle = "دریافتی‌ها",
-                        symbol = "+", accent = Forest,
-                        background = Color(0xFFE9F6EF), onClick = onNewIncome,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (!compact) {
-                        JibikQuickAction(
-                            title = "خرید منزل", subtitle = "چند قلم کالا",
-                            symbol = "≡", accent = Color(0xFFBC620A),
-                            background = Color(0xFFFFF0DD),
-                            onClick = onItemizedPurchase,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
-                if (compact) {
-                    JibikWideQuickAction(
-                        title = "ثبت خرید چندقلمی",
-                        subtitle = "برای هر کالا، مبلغ و دسته جداگانه",
-                        symbol = "≡", onClick = onItemizedPurchase,
-                    )
-                }
             }
         }
         LiquidGlassCard(
