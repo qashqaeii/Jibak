@@ -54,8 +54,9 @@ private fun PurchaseDraftItem.asPurchaseLine(
     val price = parseTomanDraft(unitPrice)
     return if (name.isNotBlank() && name.length <= 80 &&
         count != null && price != null && price >= 0L &&
+        unit in PURCHASE_UNITS &&
         isSelectableCategory(category, false, customCategories)
-    ) PurchaseLine(name.trim(), category.trim(), count, price) else null
+    ) PurchaseLine(name.trim(), category.trim(), count, price, unit) else null
 }
 
 private fun money(value: Long): String = formatToman(value)
@@ -185,6 +186,26 @@ internal fun ItemizedPurchaseDialog(
                                     modifier = Modifier.weight(0.66f),
                                     allowZero = true,
                                 )
+                            }
+                            Text(
+                                "واحد اندازه‌گیری",
+                                color = JibikStyle.muted, fontSize = 12.sp,
+                            )
+                            Row(
+                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                            ) {
+                                PURCHASE_UNITS.forEach { option ->
+                                    JibikGlassChip(
+                                        text = option,
+                                        selected = draft.unit == option,
+                                        onClick = {
+                                            if (!isSaving) drafts[index] =
+                                                draft.copy(unit = option)
+                                        },
+                                        enabled = !isSaving,
+                                    )
+                                }
                             }
                             Text(
                                 "دسته‌بندی این کالا",
