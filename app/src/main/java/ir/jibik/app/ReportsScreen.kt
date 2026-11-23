@@ -54,6 +54,7 @@ internal fun ReportsScreen(
     categorySpending: List<CategoryExpense>,
     modifier: Modifier = Modifier,
     onExportCsv: () -> Unit = {},
+    onAi: () -> Unit = {},
 ) {
     val month = currentJalaliMonth()
     val totals = periodTotals(records, month.startMillis, month.endExclusiveMillis)
@@ -101,6 +102,12 @@ internal fun ReportsScreen(
                     )
                 }
             }
+        }
+        LiquidGlassCard(onClick = onAi, tone = GlassTone.CRYSTAL) {
+            Text("✦ تحلیل هوشمند هزینه‌ها با جیبو",
+                fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Emerald)
+            Text("پیشنهادهای کاربردی از روی خلاصه ۳۰ روز گذشته",
+                fontSize = 12.sp, color = Muted)
         }
         if (categories.isNotEmpty()) {
             JibikSurfaceCard {
