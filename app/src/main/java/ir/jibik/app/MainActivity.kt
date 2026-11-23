@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,13 +25,16 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -73,8 +77,14 @@ private val Paper = Color.White
 private val Quiet = Color(0xFF677A78)
 
 private val colors = lightColorScheme(
-    primary = Forest, onPrimary = Paper, background = Cream, onBackground = Deep,
-    surface = Paper, onSurface = Deep, secondary = Orange,
+    primary = Forest, onPrimary = Paper,
+    primaryContainer = Color(0xFFDFF3EA), onPrimaryContainer = Forest,
+    secondary = Orange, onSecondary = Deep,
+    secondaryContainer = Color(0xFFFFEBD4), onSecondaryContainer = Deep,
+    background = Cream, onBackground = Deep,
+    surface = Paper, onSurface = Deep, surfaceTint = Paper,
+    surfaceVariant = Color(0xFFF5F6F3), onSurfaceVariant = Quiet,
+    outline = Color(0xFFCBD6D0),
 )
 
 class MainActivity : ComponentActivity() {
@@ -91,10 +101,10 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Section(val title: String, val glyph: String) {
-    HOME("خانه", "⌂"),
-    TRANSACTIONS("تراکنش‌ها", "≡"),
-    BUDGET("بودجه", "◉"),
+private enum class Section(val title: String) {
+    HOME("خانه"),
+    TRANSACTIONS("تراکنش‌ها"),
+    BUDGET("بودجه"),
 }
 
 @Composable
@@ -119,13 +129,18 @@ private fun JibikApp(store: LocalLedgerStore) {
     Scaffold(
         containerColor = Cream,
         bottomBar = {
-            NavigationBar(containerColor = Paper) {
+            NavigationBar(containerColor = Paper, tonalElevation = 0.dp) {
                 Section.entries.forEach { destination ->
                     NavigationBarItem(
                         selected = section == destination,
                         onClick = { section = destination },
-                        icon = { Text(destination.glyph, fontSize = 22.sp) },
-                        label = { Text(destination.title) },
+                        icon = { JibikNavigationIcon(destination.ordinal, section == destination) },
+                        label = { Text(destination.title, fontSize = 12.sp) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedTextColor = Forest,
+                            unselectedTextColor = Quiet,
+                            indicatorColor = Color(0xFFE3F4EB),
+                        ),
                     )
                 }
             }
@@ -133,11 +148,12 @@ private fun JibikApp(store: LocalLedgerStore) {
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAdd = true },
+                modifier = Modifier.height(56.dp),
                 containerColor = Orange,
                 contentColor = Deep,
-                shape = RoundedCornerShape(22.dp),
+                shape = RoundedCornerShape(18.dp),
             ) {
-                Text("＋  ثبت تراکنش", modifier = Modifier.padding(horizontal = 18.dp), fontWeight = FontWeight.Bold)
+                Text("＋  ثبت تراکنش", modifier = Modifier.padding(horizontal = 16.dp), fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
         },
     ) { insets ->
@@ -186,6 +202,7 @@ private fun JibikApp(store: LocalLedgerStore) {
     }
 }
 
+
 @Composable
 private fun WelcomeScreen(onStart: () -> Unit) {
     Column(
@@ -193,23 +210,30 @@ private fun WelcomeScreen(onStart: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text("جیبیک", fontSize = 27.sp, color = Forest, fontWeight = FontWeight.ExtraBold)
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // Temporary glyph only; approved fox illustrations will be integrated as optimized WebP.
-            Text("🦊", fontSize = 106.sp)
-            Spacer(Modifier.height(18.dp))
-            Text("سلام! من جیبو هستم", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Deep)
-            Spacer(Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("جیبیک", fontSize = 29.sp, color = Forest, fontWeight = FontWeight.ExtraBold)
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Surface(color = Color(0xFFFFEBD8), shape = RoundedCornerShape(36.dp)) {
+                JiboMascot(Modifier.padding(20.dp).size(160.dp))
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("سلام! من جیبو هستم", fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, color = Deep)
             Text(
-                "خرج‌هات رو با خیال راحت ثبت کن، برای آینده‌ات برنامه بریز و پولت رو بهتر بشناس.",
-                textAlign = TextAlign.Center, color = Quiet, lineHeight = 28.sp,
+                "حساب‌وکتاب خونه و زندگی رو با هم ساده‌تر می‌کنیم.",
+                textAlign = TextAlign.Center, color = Quiet, lineHeight = 27.sp, fontSize = 15.sp,
             )
+            Text("ثبت سریع  •  بودجه‌بندی  •  آرامش بیشتر", color = Forest, fontSize = 12.sp)
         }
         Button(
             onClick = onStart, modifier = Modifier.fillMaxWidth().height(58.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Forest),
             shape = RoundedCornerShape(18.dp),
-        ) { Text("بزن بریم!", fontSize = 18.sp) }
+        ) { Text("شروع با جیبیک", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
     }
 }
 
@@ -227,7 +251,7 @@ private fun Home(
         verticalArrangement = Arrangement.spacedBy(17.dp),
     ) {
         BrandHeader()
-        Text("حساب و کتابت، مرتب و روشن ✨", color = Quiet)
+        Text("حساب و کتابت، مرتب و روشن ✨", color = Quiet, fontSize = 14.sp)
         BalanceCard(summary)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MetricCard("درآمد کل", summary.incomeToman, Mint, Modifier.weight(1f))
@@ -241,7 +265,7 @@ private fun Home(
         ) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("بودجه ثبت‌شده", fontWeight = FontWeight.Bold)
+                    Text("بودجه هزینه‌ها", fontWeight = FontWeight.Bold)
                     Text(money(budget), color = Forest, fontSize = 13.sp)
                 }
                 LinearProgressIndicator(
@@ -250,7 +274,7 @@ private fun Home(
                     color = if (summary.expenseToman > budget) Coral else Mint,
                     trackColor = Cream,
                 )
-                Text("این نسخه مجموع هزینه‌های ثبت‌شده را نمایش می‌دهد.", color = Quiet, fontSize = 12.sp)
+                Text("هزینه ثبت‌شده: " + money(summary.expenseToman) + " · در تمام زمان‌ها", color = Quiet, fontSize = 12.sp)
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -262,50 +286,70 @@ private fun Home(
         } else {
             records.take(4).forEach { TransactionCard(it) }
         }
-        Spacer(Modifier.height(65.dp))
+        Spacer(Modifier.height(90.dp))
     }
 }
+
 
 @Composable
 private fun BrandHeader() {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Column {
-            Text("جیبیک", fontWeight = FontWeight.ExtraBold, fontSize = 26.sp, color = Forest)
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("جیبیک", fontWeight = FontWeight.ExtraBold, fontSize = 27.sp, color = Forest)
             Text("دستیار مالی مهربونت", color = Quiet, fontSize = 13.sp)
         }
-        Surface(color = Color(0xFFFFF0DD), shape = RoundedCornerShape(20.dp)) {
-            Text("🦊", modifier = Modifier.padding(10.dp), fontSize = 32.sp)
+        Surface(color = Color(0xFFFFEBD8), shape = RoundedCornerShape(18.dp)) {
+            JiboMascot(modifier = Modifier.padding(5.dp).size(51.dp))
         }
     }
 }
 
+
 @Composable
 private fun BalanceCard(summary: MoneySummary) {
+    var balanceVisible by rememberSaveable { mutableStateOf(true) }
     Card(
         colors = CardDefaults.cardColors(containerColor = Forest),
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(26.dp),
     ) {
-        Column(Modifier.padding(23.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-            Text("موجودی کل", color = Color(0xFFCCEEE5), fontSize = 14.sp)
-            Text(money(summary.balanceToman), color = Paper, fontWeight = FontWeight.ExtraBold, fontSize = 29.sp)
+        Column(Modifier.padding(horizontal = 22.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("موجودی ثبت‌شده", color = Color(0xFFCCEEE5), fontSize = 14.sp)
+                TextButton(onClick = { balanceVisible = !balanceVisible }) {
+                    Text(if (balanceVisible) "مخفی‌کردن" else "نمایش", color = Color(0xFFE7F7EF), fontSize = 12.sp)
+                }
+            }
+            Text(
+                if (balanceVisible) money(summary.balanceToman) else "••••••",
+                color = Paper,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 29.sp,
+            )
             HorizontalDivider(color = Color(0xFF438F7F))
-            Text("هر هزینه کوچیک هم ارزش ثبت کردن داره 🌱", color = Color(0xFFE9F8F3), fontSize = 13.sp)
+            Text("با ثبت هر خرج و درآمد، تصویر روشن‌تری از پولت داری.", color = Color(0xFFE9F8F3), fontSize = 12.sp, lineHeight = 20.sp)
         }
     }
 }
+
 
 @Composable
 private fun MetricCard(title: String, amount: Long, accent: Color, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Paper),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Box(Modifier.size(10.dp).background(accent, RoundedCornerShape(5.dp)))
-            Text(title, color = Quiet, fontSize = 13.sp)
-            Text(money(amount), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Deep)
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.size(9.dp).background(accent, RoundedCornerShape(5.dp)))
+                Text(title, color = Quiet, fontSize = 13.sp)
+            }
+            Text(money(amount), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Deep, lineHeight = 23.sp)
         }
     }
 }
@@ -317,9 +361,9 @@ private fun Transactions(records: List<LedgerRecord>, modifier: Modifier) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("تراکنش‌ها", fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = Deep)
-        Text("همه درآمدها و هزینه‌هایی که ثبت کردی", color = Quiet)
+        Text("همه درآمدها و هزینه‌هایی که تا امروز ثبت کردی", color = Quiet, fontSize = 14.sp)
         if (records.isEmpty()) EmptyTransactions() else records.forEach { TransactionCard(it) }
-        Spacer(Modifier.height(68.dp))
+        Spacer(Modifier.height(90.dp))
     }
 }
 
@@ -356,45 +400,82 @@ private fun TransactionCard(record: LedgerRecord) {
     }
 }
 
+
 @Composable
 private fun EmptyTransactions() {
-    Column(
-        Modifier.fillMaxWidth().padding(vertical = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Paper),
     ) {
-        Text("🦊", fontSize = 42.sp)
-        Text("هنوز تراکنشی ثبت نکردی", color = Deep, fontWeight = FontWeight.Bold)
-        Text("با دکمه نارنجی، اولین درآمد یا خرجت رو ثبت کن.", color = Quiet, textAlign = TextAlign.Center)
+        Column(
+            Modifier.fillMaxWidth().padding(vertical = 28.dp, horizontal = 18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Surface(color = Color(0xFFFFF0E0), shape = RoundedCornerShape(26.dp)) {
+                JiboMascot(Modifier.padding(12.dp).size(78.dp))
+            }
+            Text("هنوز تراکنشی ثبت نکردی", color = Deep, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+            Text(
+                "اولین درآمد یا هزینه‌ت رو ثبت کن تا گزارش مالی‌ت شکل بگیره.",
+                color = Quiet, textAlign = TextAlign.Center, fontSize = 13.sp, lineHeight = 22.sp,
+            )
+        }
     }
 }
 
+
 @Composable
 private fun Budget(spent: Long, budget: Long, modifier: Modifier, onEdit: () -> Unit) {
+    val remaining = budget - spent
     Column(
-        modifier = modifier.fillMaxSize().padding(20.dp),
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Text("بودجه", fontWeight = FontWeight.ExtraBold, fontSize = 25.sp)
-        Text("در نسخه اولیه، بودجه روی کل تراکنش‌های ثبت‌شده محاسبه می‌شود؛ بودجه ماه شمسی در فاز بعد.", color = Quiet)
-        BalanceCard(MoneySummary(budget - spent, 0, spent))
-        Card(colors = CardDefaults.cardColors(containerColor = Paper), shape = RoundedCornerShape(22.dp)) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("سقف هزینه: " + money(budget))
-                Text("هزینه ثبت‌شده: " + money(spent))
+        Text("بودجه", fontWeight = FontWeight.ExtraBold, fontSize = 25.sp, color = Deep)
+        Text("برای خرج‌هات سقف تعیین کن و ببین چقدر ازش باقی مونده.", color = Quiet, fontSize = 14.sp)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Forest),
+            shape = RoundedCornerShape(26.dp),
+        ) {
+            Column(Modifier.padding(23.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(if (remaining >= 0L) "باقی‌مانده از سقف بودجه" else "میزان عبور از سقف بودجه", color = Color(0xFFCCEEE5), fontSize = 14.sp)
+                Text(money(if (remaining >= 0L) remaining else -remaining), fontWeight = FontWeight.ExtraBold, fontSize = 29.sp, color = Paper)
+                HorizontalDivider(color = Color(0xFF438F7F))
+                Text("فعلاً بر اساس تمام هزینه‌های ثبت‌شده محاسبه می‌شود.", color = Color(0xFFE9F8F3), fontSize = 12.sp)
+            }
+        }
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Paper),
+            shape = RoundedCornerShape(22.dp),
+        ) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("سقف هزینه", color = Quiet)
+                    Text(money(budget), color = Deep, fontWeight = FontWeight.Bold)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("خرج ثبت‌شده", color = Quiet)
+                    Text(money(spent), color = Deep, fontWeight = FontWeight.Bold)
+                }
                 LinearProgressIndicator(
                     progress = { (spent.toFloat() / budget.coerceAtLeast(1L)).coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().height(10.dp),
+                    modifier = Modifier.fillMaxWidth().height(9.dp),
                     color = if (spent > budget) Coral else Mint,
                     trackColor = Cream,
                 )
-                OutlinedButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = onEdit, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                     Text("ویرایش سقف بودجه")
                 }
             }
         }
+        Spacer(Modifier.height(90.dp))
     }
 }
+
 
 @Composable
 private fun AddTransactionDialog(onDismiss: () -> Unit, onSave: (LedgerRecord) -> Unit) {
@@ -403,34 +484,80 @@ private fun AddTransactionDialog(onDismiss: () -> Unit, onSave: (LedgerRecord) -
     var category by rememberSaveable { mutableStateOf("خوراک") }
     var note by rememberSaveable { mutableStateOf("") }
     val numericAmount = parseMoney(amount)
+    val suggestedCategories = if (isExpense) {
+        listOf("خوراک", "خرید منزل", "حمل‌ونقل", "قبوض", "درمان", "تفریح")
+    } else {
+        listOf("حقوق", "پاداش", "هدیه", "درآمد جانبی")
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("ثبت تراکنش جدید", fontWeight = FontWeight.Bold) },
+        title = { Text("ثبت تراکنش", color = Deep, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { isExpense = true; category = "خوراک" }, colors = ButtonDefaults.buttonColors(containerColor = if (isExpense) Forest else Quiet)) { Text("هزینه") }
-                    Button(onClick = { isExpense = false; category = "حقوق" }, colors = ButtonDefaults.buttonColors(containerColor = if (!isExpense) Forest else Quiet)) { Text("درآمد") }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { isExpense = true; category = "خوراک" },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isExpense) Forest else Color(0xFFE9F1EC),
+                            contentColor = if (isExpense) Paper else Forest,
+                        ),
+                        shape = RoundedCornerShape(14.dp),
+                    ) { Text("هزینه") }
+                    Button(
+                        onClick = { isExpense = false; category = "حقوق" },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (!isExpense) Forest else Color(0xFFE9F1EC),
+                            contentColor = if (!isExpense) Paper else Forest,
+                        ),
+                        shape = RoundedCornerShape(14.dp),
+                    ) { Text("درآمد") }
                 }
                 OutlinedTextField(
-                    value = amount, onValueChange = { amount = it },
-                    label = { Text("مبلغ (تومان)") }, singleLine = true,
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = { Text("مبلغ (تومان)") },
+                    singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                )
+                Text("دسته‌های پیشنهادی", color = Quiet, fontSize = 12.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    suggestedCategories.forEach { option ->
+                        FilterChip(
+                            selected = category == option,
+                            onClick = { category = option },
+                            label = { Text(option, fontSize = 12.sp) },
+                            shape = RoundedCornerShape(12.dp),
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = category,
+                    onValueChange = { category = it },
+                    label = { Text("دسته‌بندی") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
                 )
                 OutlinedTextField(
-                    value = category, onValueChange = { category = it },
-                    label = { Text("دسته‌بندی") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = note, onValueChange = { note = it },
-                    label = { Text("توضیحات (اختیاری)") }, modifier = Modifier.fillMaxWidth(),
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("توضیحات (اختیاری)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
                 )
             }
         },
         confirmButton = {
             Button(
-                enabled = numericAmount != null && numericAmount > 0,
+                enabled = numericAmount != null && numericAmount > 0 && category.isNotBlank(),
+                shape = RoundedCornerShape(14.dp),
                 onClick = {
                     val value = numericAmount ?: return@Button
                     onSave(
@@ -446,12 +573,15 @@ private fun AddTransactionDialog(onDismiss: () -> Unit, onSave: (LedgerRecord) -
                         )
                     )
                 },
-            ) { Text("ثبت") }
+            ) { Text("ثبت تراکنش") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } },
-        shape = RoundedCornerShape(24.dp),
+        containerColor = Paper,
+        tonalElevation = 0.dp,
+        shape = RoundedCornerShape(26.dp),
     )
 }
+
 
 @Composable
 private fun BudgetDialog(current: Long, onDismiss: () -> Unit, onSave: (Long) -> Unit) {
@@ -459,19 +589,31 @@ private fun BudgetDialog(current: Long, onDismiss: () -> Unit, onSave: (Long) ->
     val parsed = parseMoney(value)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("ویرایش بودجه") },
+        title = { Text("ویرایش بودجه", color = Deep, fontWeight = FontWeight.ExtraBold) },
         text = {
-            OutlinedTextField(
-                value = value, onValueChange = { value = it },
-                label = { Text("بودجه (تومان)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("برای خرج‌هات یه سقف مناسب انتخاب کن.", fontSize = 13.sp, color = Quiet)
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = { value = it },
+                    label = { Text("سقف هزینه (تومان)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                )
+            }
         },
         confirmButton = {
-            Button(enabled = parsed != null && parsed > 0, onClick = { parsed?.let(onSave) }) { Text("ذخیره") }
+            Button(
+                enabled = parsed != null && parsed > 0,
+                onClick = { parsed?.let(onSave) },
+                shape = RoundedCornerShape(14.dp),
+            ) { Text("ذخیره بودجه") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("لغو") } },
+        containerColor = Paper,
+        tonalElevation = 0.dp,
+        shape = RoundedCornerShape(26.dp),
     )
 }
 
