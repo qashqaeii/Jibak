@@ -70,6 +70,46 @@ class ReceiptCategoryReportTest {
         )
     }
 
+    @Test fun threeLevelDrillDownConservesEveryTomanIncludingDirectParentExpenses() {
+        val items = listOf(
+            CategoryExpense("خوراک / خرید مواد غذایی / حبوبات", 30_000L),
+            CategoryExpense("خوراک / رستوران و غذای بیرون / کافه", 20_000L),
+            CategoryExpense("خوراک", 15_000L),
+            CategoryExpense("مسکن / اجاره", 50_000L),
+        )
+        val roots = categoryReportRows(items)
+        assertEquals(115_000L, roots.sumOf { it.amountToman })
+        assertEquals(65_000L, roots.first { it.path == "خوراک" }.amountToman)
+        assertEquals(50_000L, roots.first { it.path == "مسکن" }.amountToman)
+        val children = categoryReportRows(items, "خوراک")
+        assertEquals(65_000L, children.sumOf { it.amountToman })
+        assertEquals(15_000L, children.single { it.direct }.amountToman)
+        assertEquals(30_000L, children.single { it.path == "خوراک / خرید مواد غذایی" }.amountToman)
+        val leaves = categoryReportRows(items, "خوراک / خرید مواد غذایی")
+        assertEquals(1, leaves.size)
+        assertEquals("حبوبات", leaves.single().title)
+        assertEquals(30_000L, leaves.single().amountToman)
+        assertEquals(0L, categoryReportRows(items, "سلامت").sumOf { it.amountToman })
+    }
+
+    @Test fun classifiedReceiptContributionsPreserveAmountsAndTransactionIdentity() {
+        val trip = LedgerRecord("trip2", LedgerKind.EXPENSE, 70_000L,
+            fromAccountId = "wallet", category = "خرید منزل", timestampMillis = 1100L)
+        val groceries = mapOf("trip2" to listOf(
+            PurchaseLine("میوه", "خوراک / خرید مواد غذایی / میوه", 2, 20_000L),
+            PurchaseLine("لبنیات", "خوراک / خرید مواد غذایی / لبنیات", 1, 30_000L),
+        ))
+        val classified = classifiedExpenseLines(listOf(trip), groceries, start, end)
+        assertEquals(70_000L, classified.sumOf { it.amountToman })
+        assertEquals(2, classified.size)
+        assertEquals(1, classified.map { it.record.id }.distinct().size)
+        val fruitOnly = categoryReportContributions(classified,
+            "خوراک / خرید مواد غذایی / میوه", directOnly = true)
+        assertEquals(40_000L, fruitOnly.sumOf { it.amountToman })
+        val allFood = categoryReportContributions(classified, "خوراک", directOnly = false)
+        assertEquals(70_000L, allFood.sumOf { it.amountToman })
+    }
+
     @Test fun excludesOtherMonthsAndPreventsDoubleCounting() {
         val previous = LedgerRecord(
             "old", LedgerKind.EXPENSE, 123L,
