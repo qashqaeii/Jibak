@@ -31,6 +31,7 @@ internal fun BankSmsReviewDialog(
     candidate: BankSmsCandidateEntity,
     accounts: List<Account>,
     customCategories: List<CustomCategoryEntity>,
+    existingRecords: List<LedgerRecord>,
     busy: Boolean,
     onDismiss: () -> Unit,
     onConfirm: (LedgerRecord) -> Unit,
@@ -46,6 +47,11 @@ internal fun BankSmsReviewDialog(
     var note by remember(candidate.id) { mutableStateOf("") }
     val amount = candidate.amountRial.takeIf { it > 0L && it % 10L == 0L }
         ?.div(10L)
+    val looksDuplicate = amount != null && existingRecords.any {
+        it.kind == if (income) LedgerKind.INCOME else LedgerKind.EXPENSE &&
+            it.amountToman == amount &&
+            kotlin.math.abs(it.timestampMillis - candidate.receivedAtMillis) < 900_000L
+    }
     val valid = !busy && amount != null && amount > 0L &&
         accounts.any { it.id == accountId } &&
         isSelectableCategory(category, income, customCategories)
@@ -88,6 +94,17 @@ internal fun BankSmsReviewDialog(
                 JibikFormHint(
                     "مبلغ و جهت تراکنش را با پیام بانک مقایسه کن. " +
                         "شماره حساب پیامک الزاماً با حساب‌های جیبیک همسان نیست."
+                )
+                if (looksDuplicate) {
+                    JibikFormHint(
+                        "احتمال ثبت تکراری: تراکنشی با همین مبلغ و جهت " +
+                            "نزدیک به زمان این پیام از قبل وجود دارد.",
+                        isWarning = true,
+                    )
+                }
+                JibikFormHint(
+                    "انتقال بین حساب‌های خودت با درآمد یا هزینه فرق دارد. " +
+                        "اگر پیام مربوط به انتقال داخلی است، آن را دستی به‌صورت انتقال ثبت کن.",
                 )
                 JibikAccountChoice(
                     title = if (income) "به کدام حساب واریز شده؟"
