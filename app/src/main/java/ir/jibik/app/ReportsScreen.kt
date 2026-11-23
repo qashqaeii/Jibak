@@ -124,13 +124,11 @@ internal fun ReportsScreen(
                 }
             }
         }
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(22.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        LiquidGlassCard(
             modifier = Modifier.fillMaxWidth(),
+            tone = GlassTone.CRYSTAL,
         ) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
+            Column(Modifier.padding(0.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
                 Text("سهم دسته‌ها از هزینه", fontSize = 18.sp,
                     fontWeight = FontWeight.ExtraBold, color = Ink)
                 if (categories.isEmpty()) {
@@ -188,11 +186,12 @@ internal fun ReportsScreen(
                     "خروجی فقط با انتخاب خودت در محل دلخواه ذخیره می‌شه.",
                 color = Muted, fontSize = 12.sp, lineHeight = 20.sp,
             )
-            Button(
+            LiquidGlassButton(
+                text = "ذخیره فایل CSV",
                 onClick = onExportCsv,
                 modifier = Modifier.fillMaxWidth().height(49.dp),
-                shape = RoundedCornerShape(15.dp),
-            ) { Text("ذخیره فایل CSV") }
+                tone = GlassTone.EMERALD,
+            )
             JibikFormHint(
                 "این فایل اطلاعات مالی شخصی داره؛ فقط در جای امن ذخیره یا ارسالش کن. " +
                     "CSV نسخه پشتیبان قابل بازیابی نیست.",
