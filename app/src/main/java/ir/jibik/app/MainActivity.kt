@@ -1103,7 +1103,10 @@ private fun AddTransactionDialog(
 ) {
     var kind by rememberSaveable { mutableStateOf(initialKind) }
     var amount by rememberSaveable { mutableStateOf("") }
-    var category by rememberSaveable { mutableStateOf("خوراک") }
+    var category by rememberSaveable(initialKind) {
+        mutableStateOf(if (initialKind == LedgerKind.INCOME) "حقوق و دستمزد" else "خوراک")
+    }
+    var showCategoryPicker by rememberSaveable { mutableStateOf(false) }
     var note by rememberSaveable { mutableStateOf("") }
     var sourceId by rememberSaveable {
         mutableStateOf(accounts.firstOrNull()?.id.orEmpty())
@@ -1120,11 +1123,12 @@ private fun AddTransactionDialog(
     val canSave = !isSaving && numericAmount != null && numericAmount > 0L &&
         sourceValid && (kind != LedgerKind.TRANSFER ||
             (accounts.size > 1 && targetValid && sourceId != targetId)) &&
-        (kind == LedgerKind.TRANSFER || category.isNotBlank())
-    val suggestedCategories = if (kind == LedgerKind.INCOME) {
-        listOf("حقوق", "پاداش", "هدیه", "درآمد جانبی")
-    } else {
-        listOf("خوراک", "خرید منزل", "حمل‌ونقل", "قبوض", "درمان", "تفریح")
+        categoryValid
+    val categoryValid = when (kind) {
+        LedgerKind.EXPENSE -> ExpenseCategoryCatalog.byDisplayName(category) != null
+        LedgerKind.INCOME -> ir.jibik.core.finance.IncomeCategoryCatalog.all()
+            .any { it.displayName == category }
+        LedgerKind.TRANSFER -> true
     }
     AlertDialog(
         modifier = Modifier.liquidGlass(tone = GlassTone.FROSTED, radius = 28.dp, elevation = 15.dp),
@@ -1167,7 +1171,7 @@ private fun AddTransactionDialog(
                             text = label,
                             onClick = {
                                 kind = option
-                                category = if (option == LedgerKind.INCOME) "حقوق" else "خوراک"
+                                category = if (option == LedgerKind.INCOME) "حقوق و دستمزد" else "خوراک"
                                 if (option == LedgerKind.TRANSFER && targetId == sourceId) {
                                     targetId = accounts.firstOrNull {
                                         it.id != sourceId
@@ -1210,47 +1214,33 @@ private fun AddTransactionDialog(
                     )
                     JibikFormHint("انتقال بین حساب‌ها درآمد یا هزینه محسوب نمی‌شه.")
                 } else {
-                    Text("دسته‌بندی", fontSize = 12.sp, color = Quiet)
-                    Row(
-                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(7.dp),
-                    ) {
-                        suggestedCategories.forEach { option ->
-                            JibikGlassChip(
-                                text = option,
-                                selected = category == option,
-                                onClick = { category = option },
-                                enabled = !isSaving,
-                            )
-                        }
-                    }
-                    if (kind == LedgerKind.EXPENSE) {
-                        Text("جزئیات خرید منزل", fontSize = 12.sp, color = Quiet)
-                        Row(
-                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(7.dp),
-                        ) {
-                            ExpenseCategoryCatalog.leaves().filter {
-                                it.ids.size == 3 && it.ids.first() == "food"
-                            }.forEach { option ->
-                                JibikGlassChip(
-                                    text = option.labels.last(),
-                                    selected = category == option.displayName,
-                                    onClick = { category = option.displayName },
-                                    enabled = !isSaving,
-                                )
-                            }
-                        }
-                    }
-                    OutlinedTextField(
-                        value = category,
-                        onValueChange = { category = it.take(120) },
-                        label = { Text("نام دسته") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isSaving,
-                        shape = RoundedCornerShape(15.dp),
+                    JibikSectionTitle(
+                        title = if (kind == LedgerKind.INCOME) "دسته درآمد" else "دسته هزینه",
+                        subtitle = "برای گزارش دقیق‌تر، جزئیات رو انتخاب کن",
                     )
+                    LiquidGlassCard(
+                        onClick = { if (!isSaving) showCategoryPicker = true },
+                        tone = GlassTone.CRYSTAL,
+                        padding = PaddingValues(horizontal = 14.dp, vertical = 13.dp),
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                category.ifBlank { "انتخاب دسته‌بندی" },
+                                color = if (categoryValid) Deep else Coral,
+                                modifier = Modifier.weight(1f),
+                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                maxLines = 3,
+                            )
+                            Text("‹ تغییر", color = Forest, fontSize = 12.sp)
+                        }
+                    }
+                    if (!categoryValid) {
+                        JibikFormHint("یک دسته معتبر انتخاب کن.", isWarning = true)
+                    }
                 }
                 OutlinedTextField(
                     value = note,
@@ -1307,6 +1297,17 @@ private fun AddTransactionDialog(
         tonalElevation = 0.dp,
         shape = RoundedCornerShape(26.dp),
     )
+    if (showCategoryPicker && kind != LedgerKind.TRANSFER && !isSaving) {
+        CategoryPickerDialog(
+            income = kind == LedgerKind.INCOME,
+            selected = category,
+            onSelected = {
+                category = it
+                showCategoryPicker = false
+            },
+            onDismiss = { showCategoryPicker = false },
+        )
+    }
 }
 
 @Composable
