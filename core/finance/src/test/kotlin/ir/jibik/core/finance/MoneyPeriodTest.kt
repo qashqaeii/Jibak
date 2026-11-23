@@ -45,4 +45,27 @@ class MoneyPeriodTest {
             periodTotals(entries, start, end)
         }
     }
+    @Test fun groupsExpenseCategoriesWithoutCountingTransfers() {
+        val records = listOf(
+            LedgerRecord("1", LedgerKind.EXPENSE, 40_000, fromAccountId = "wallet", category = "خوراک", timestampMillis = start),
+            LedgerRecord("2", LedgerKind.EXPENSE, 65_000, fromAccountId = "wallet", category = "خوراک", timestampMillis = start + 1),
+            LedgerRecord("3", LedgerKind.EXPENSE, 80_000, fromAccountId = "wallet", category = "قبوض", timestampMillis = start + 2),
+            LedgerRecord("4", LedgerKind.TRANSFER, 2_000_000, "wallet", "saving", category = "قبوض", timestampMillis = start + 3),
+            LedgerRecord("5", LedgerKind.EXPENSE, 10_000, fromAccountId = "wallet", category = "خوراک", timestampMillis = end),
+        )
+        assertEquals(
+            listOf(CategoryExpense("خوراک", 105_000), CategoryExpense("قبوض", 80_000)),
+            categoryExpenses(records, start, end),
+        )
+    }
+
+    @Test fun emptyCategoryBecomesOtherAndDoesNotLoseExpense() {
+        val records = listOf(
+            LedgerRecord("uncat", LedgerKind.EXPENSE, 25_000, fromAccountId = "wallet", timestampMillis = start)
+        )
+        assertEquals(
+            listOf(CategoryExpense("سایر هزینه‌ها", 25_000)),
+            categoryExpenses(records, start, end),
+        )
+    }
 }
