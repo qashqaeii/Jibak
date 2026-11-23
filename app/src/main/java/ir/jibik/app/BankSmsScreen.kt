@@ -42,6 +42,7 @@ internal fun BankSmsScreen(
     store: LocalLedgerStore,
     accounts: List<Account>,
     customCategories: List<CustomCategoryEntity>,
+    existingRecords: List<LedgerRecord>,
     onBack: () -> Unit,
     onRegistered: (LedgerRecord) -> Unit,
     modifier: Modifier = Modifier,
@@ -384,6 +385,7 @@ internal fun BankSmsScreen(
             candidate = candidate,
             accounts = accounts,
             customCategories = customCategories,
+            existingRecords = existingRecords,
             busy = busy,
             onDismiss = { if (!busy) selected = null },
             onConfirm = { record ->
