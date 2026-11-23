@@ -45,6 +45,7 @@ internal fun ObligationsScreen(
     onBack: () -> Unit,
     onAdd: () -> Unit,
     onPay: (String) -> Unit,
+    onPaymentClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     isSaving: Boolean = false,
 ) {
@@ -157,9 +158,43 @@ internal fun ObligationsScreen(
                     Text(item.note, fontSize = 12.sp,
                         color = JibikStyle.muted, maxLines = 3)
                 }
-                val itemPayments = payments.count { it.obligationId == item.id }
-                Text("$itemPayments پرداخت/دریافت ثبت‌شده",
+                val itemPayments = payments.filter { it.obligationId == item.id }
+                Text(itemPayments.size.toString() + " پرداخت/دریافت ثبت‌شده",
                     color = JibikStyle.muted, fontSize = 11.sp)
+                if (itemPayments.isNotEmpty()) {
+                    Text("سابقه پرداخت‌ها", color = JibikStyle.ink,
+                        fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    itemPayments.take(6).forEach { payment ->
+                        LiquidGlassCard(
+                            tone = GlassTone.CRYSTAL,
+                            onClick = { onPaymentClick(payment.transactionId) },
+                            padding = androidx.compose.foundation.layout.PaddingValues(
+                                horizontal = 12.dp, vertical = 9.dp,
+                            ),
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(formatJalaliDueDate(payment.paidAtMillis),
+                                        color = JibikStyle.muted, fontSize = 12.sp)
+                                    Text("مشاهده رسید", color = JibikStyle.forest,
+                                        fontSize = 11.sp)
+                                }
+                                Text(formatToman(payment.amountToman),
+                                    color = JibikStyle.ink,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    if (itemPayments.size > 6) {
+                        Text("۶ پرداخت اخیر نمایش داده شده است",
+                            color = JibikStyle.muted, fontSize = 11.sp)
+                    }
+                }
                 if (!progress.settled) {
                     LiquidGlassButton(
                         text = if (item.kind == "RECEIVABLE") "ثبت دریافت طلب"
