@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.jibik.core.finance.CategoryExpense
@@ -67,35 +68,61 @@ internal fun ReportsScreen(records: List<LedgerRecord>, modifier: Modifier = Mod
             }
             JibikBrandLogo(Modifier.size(44.dp))
         }
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Emerald),
-            shape = RoundedCornerShape(26.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-                Text("خالص جریان پول این ماه", fontSize = 14.sp, color = Color(0xFFCCEAE2))
-                Text(
-                    moneyReport(cashFlow),
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color.White,
-                )
-                HorizontalDivider(color = Color(0xFF478F80))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("درآمد ماه", color = Color(0xFFCCEAE2), fontSize = 12.sp)
-                        Text(moneyReport(totals.incomeToman), color = Color.White, fontSize = 13.sp)
-                    }
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("هزینه ماه", color = Color(0xFFCCEAE2), fontSize = 12.sp)
-                        Text(moneyReport(totals.expenseToman), color = Color.White, fontSize = 13.sp)
-                    }
+        JibikHero(Modifier.fillMaxWidth()) {
+            Text("خالص جریان پول این ماه", fontSize = 13.sp, color = Color(0xFFDAF1E9))
+            Text(
+                moneyReport(cashFlow),
+                fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, color = Color.White,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("درآمد ماه", color = Color(0xFFCCEEE5), fontSize = 12.sp)
+                    Text(
+                        moneyReport(totals.incomeToman), color = Color.White, fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("هزینه ماه", color = Color(0xFFCCEEE5), fontSize = 12.sp)
+                    Text(
+                        moneyReport(totals.expenseToman), color = Color.White, fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+        if (categories.isNotEmpty()) {
+            JibikSurfaceCard {
+                Text("بیشترین هزینه در این ماه", color = Muted, fontSize = 12.sp)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        categories.first().category, color = Ink, fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        moneyReport(categories.first().amountToman), color = Emerald,
+                        fontSize = 13.sp, fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
         Card(
             colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(22.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
