@@ -57,3 +57,14 @@ internal fun JibikNavigationIcon(position: Int, selected: Boolean) {
         }
     }
 }
+
+/** Distinct brand mark; transparent WebP that stays crisp on light surfaces. */
+@Composable
+internal fun JibikBrandLogo(modifier: Modifier = Modifier) {
+    Image(
+        painter = painterResource(id = R.drawable.jibik_logo),
+        contentDescription = "لوگوی جیبیک",
+        modifier = modifier,
+        contentScale = ContentScale.Fit,
+    )
+}
