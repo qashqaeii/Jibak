@@ -109,19 +109,19 @@ internal fun AccountsScreen(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Button(
-                onClick = onAdd, modifier = Modifier.weight(1f).height(50.dp),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Text("＋ حساب جدید", fontSize = 12.sp, maxLines = 1)
-            }
-            OutlinedButton(
-                onClick = onTransfer, enabled = accounts.size > 1,
+            LiquidGlassButton(
+                text = "＋ حساب جدید",
+                onClick = onAdd,
+                tone = GlassTone.HONEY,
                 modifier = Modifier.weight(1f).height(50.dp),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Text("انتقال پول", fontSize = 12.sp, maxLines = 1)
-            }
+            )
+            LiquidGlassButton(
+                text = "انتقال پول",
+                onClick = onTransfer,
+                enabled = accounts.size > 1,
+                tone = GlassTone.CRYSTAL,
+                modifier = Modifier.weight(1f).height(50.dp),
+            )
         }
         JibikSurfaceCard(
             modifier = Modifier.fillMaxWidth().clickable(onClick = onGoals),
@@ -146,13 +146,9 @@ internal fun AccountsScreen(
             subtitle = "جزئیات موجودی هر حساب",
         )
         accounts.forEachIndexed { index, account ->
-            Card(
+            LiquidGlassCard(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (index == 0) Color(0xFFEAF5EF) else White,
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = if (index == 0) 0.dp else 1.dp),
+                tone = if (index == 0) GlassTone.CRYSTAL else GlassTone.CRYSTAL,
             ) {
                 Column(
                     Modifier.fillMaxWidth().padding(17.dp),
