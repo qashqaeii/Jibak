@@ -67,6 +67,22 @@ jobs:
             exit 1
           fi
           test -s "${apks[0]}"
+          # Temporary no-SMS test build must not request restricted permissions.
+          permissions="$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump permissions "${apks[0]}")"
+          if printf '%s\\n' "$permissions" | grep -Eq 'android.permission.(READ_SMS|RECEIVE_SMS)'; then
+            echo "::error::Sensitive SMS permission leaked into test APK" >&2
+            exit 1
+          fi
+          # Verify embedded offline Persian typography is actually packaged.
+          apk_contents="$(unzip -Z1 "${apks[0]}")"
+          for weight in regular medium semibold bold extrabold; do
+            test -s "app/src/main/res/font/vazirmatn_${weight}.ttf"
+            if ! printf '%s\\n' "$apk_contents" | grep -Fq "res/font/vazirmatn_${weight}.ttf"; then
+              echo "::error::Missing bundled Vazirmatn ${weight} in APK" >&2
+              exit 1
+            fi
+          done
+          echo "APK SMS permissions and embedded Persian fonts verified"
           sha256sum "${apks[0]}" > "${apks[0]}.sha256"
           echo "APK size: $(stat -c %s "${apks[0]}") bytes"
           cat "${apks[0]}.sha256"
