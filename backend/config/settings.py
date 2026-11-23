@@ -1,6 +1,7 @@
 """Jibik API. PostgreSQL required outside explicit local development."""
 import os
 from pathlib import Path
+from datetime import timedelta
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -65,7 +66,10 @@ SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 SECURE_CONTENT_TYPE_NOSNIFF = True
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_THROTTLE_CLASSES": [
@@ -79,10 +83,18 @@ REST_FRAMEWORK = {
 ARVAN_AI_ENABLED = os.getenv("ARVAN_AI_ENABLED", "false").lower() == "true"
 ARVAN_AI_BASE_URL = os.getenv("ARVAN_AI_BASE_URL", "")
 ARVAN_AI_API_KEY = os.getenv("ARVAN_AI_API_KEY", "")
-ARVAN_AI_MODEL = os.getenv("ARVAN_AI_MODEL", "")
+ARVAN_AI_MODEL = os.getenv("ARVAN_AI_MODEL", "Gemini-2.5-Flash-lite")
 ARVAN_AI_TIMEOUT_SECONDS = int(os.getenv("ARVAN_AI_TIMEOUT_SECONDS", "10"))
 ARVAN_AI_MAX_RETRIES = int(os.getenv("ARVAN_AI_MAX_RETRIES", "1"))
 ARVAN_AI_MAX_TOKENS = int(os.getenv("ARVAN_AI_MAX_TOKENS", "700"))
 ARVAN_AI_TEMPERATURE = float(os.getenv("ARVAN_AI_TEMPERATURE", "0.2"))
 ARVAN_AI_USER_DAILY_LIMIT = int(os.getenv("ARVAN_AI_USER_DAILY_LIMIT", "10"))
 ARVAN_AI_GLOBAL_DAILY_LIMIT = int(os.getenv("ARVAN_AI_GLOBAL_DAILY_LIMIT", "200"))
+
+# Mobile alpha: short-lived, stateless access; refresh is intentionally not used
+# by the current Android client. Never embed passwords, tokens or AI keys in APK.
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(hours=12),
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
