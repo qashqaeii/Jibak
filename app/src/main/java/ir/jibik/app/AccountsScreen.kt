@@ -124,8 +124,10 @@ internal fun AccountsScreen(
                 modifier = Modifier.weight(1f).height(50.dp),
             )
         }
-        JibikSurfaceCard(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onGoals),
+        LiquidGlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            tone = GlassTone.CRYSTAL,
+            onClick = onGoals,
         ) {
             Row(
                 Modifier.fillMaxWidth(),
@@ -227,18 +229,14 @@ internal fun AccountsScreen(
                         )
                     }
                     HorizontalDivider(color = Color(0xFFE6EAE4))
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("موجودی", color = Subtle, fontSize = 12.sp)
-                        Text(
-                            accountMoney(balances[account.id] ?: account.openingBalanceToman),
-                            color = Green, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+                    JibikFinancialDetail(
+                        label = "موجودی حساب",
+                        value = accountMoney(
+                            balances[account.id] ?: account.openingBalanceToman
+                        ),
+                        emphasis = true,
+                        valueColor = Green,
+                    )
                 }
             }
         }
