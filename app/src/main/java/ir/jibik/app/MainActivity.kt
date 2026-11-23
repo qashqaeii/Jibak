@@ -153,7 +153,7 @@ class MainActivity : ComponentActivity() {
         }
         val store = LocalLedgerStore(applicationContext)
         setContent {
-            MaterialTheme(colorScheme = colors) {
+            MaterialTheme(colorScheme = colors, typography = JibikTypography) {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     JibikApp(
                         store, dueReminderOpenSignal.intValue,
