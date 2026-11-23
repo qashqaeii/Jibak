@@ -47,6 +47,17 @@ class PurchaseLineTest {
         }
     }
 
+    @Test fun supportsMeasuredUnitsButRejectsUnknownUnit() {
+        validateItemizedPurchase(payment, listOf(
+            PurchaseLine("برنج", "خوراک", 2, 175_000L, "کیلوگرم"),
+        ))
+        assertThrows(IllegalArgumentException::class.java) {
+            validateItemizedPurchase(payment, listOf(
+                PurchaseLine("برنج", "خوراک", 2, 175_000L, "واحد ناشناخته"),
+            ))
+        }
+    }
+
     @Test fun cannotOverflowReceiptTotals() {
         val lines = listOf(
             PurchaseLine("بسیار گران", "آزمایشی", 2, Long.MAX_VALUE),
