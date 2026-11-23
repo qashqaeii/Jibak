@@ -22,6 +22,7 @@ internal class LocalLedgerStore(context: Context) {
     private val database = JibikDatabase.get(context)
     private val dao = database.ledgerDao()
     private val accountDao = database.accountDao()
+    private val customCategoryDao = database.customCategoryDao()
 
     fun hasFinishedWelcome(): Boolean = preferences.getBoolean("welcome_finished", false)
 
@@ -121,6 +122,42 @@ internal class LocalLedgerStore(context: Context) {
                 .mapValues { (_, rows) ->
                     rows.map { PurchaseLine(it.title, it.category, it.quantity, it.unitPriceToman) }
                 }
+        }
+
+    suspend fun loadCustomCategories(): List<CustomCategoryEntity> =
+        withContext(Dispatchers.IO) { customCategoryDao.list() }
+
+    suspend fun addCustomCategory(item: CustomCategoryEntity) =
+        withContext(Dispatchers.IO) {
+            database.withTransaction {
+                val existing = customCategoryDao.list()
+                val cleaned = item.copy(
+                    title = item.title.trim(), parentPath = item.parentPath.trim(),
+                )
+                val invalid = customCategoryValidation(cleaned, existing)
+                require(invalid == null) { invalid ?: "Invalid category" }
+                customCategoryDao.insert(cleaned)
+            }
+        }
+
+    suspend fun setCustomCategoryArchived(id: String, archived: Boolean) =
+        withContext(Dispatchers.IO) {
+            database.withTransaction {
+                val all = customCategoryDao.list()
+                val row = all.firstOrNull { it.id == id }
+                    ?: error("Category not found")
+                if (archived) {
+                    check(all.none {
+                        !it.archived && it.parentPath == row.displayName
+                    }) { "Archive child categories before their parent" }
+                } else if (row.parentPath.isNotBlank()) {
+                    val sameKindIncome = row.kind == "INCOME"
+                    check(isSelectableCategory(row.parentPath, sameKindIncome, all)) {
+                        "Restore the parent category first"
+                    }
+                }
+                customCategoryDao.setArchived(id, archived)
+            }
         }
 
     suspend fun loadSavingsGoals(): List<SavingsGoalEntity> =
