@@ -1606,7 +1606,10 @@ private fun AddTransactionDialog(
                 horizontalArrangement = Arrangement.spacedBy(9.dp),
             ) {
                 JibikBrandLogo(Modifier.size(39.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
                     Text(
                         if (kind == LedgerKind.TRANSFER) "انتقال بین حساب‌ها" else "تراکنش جدید",
                         color = Deep, fontWeight = FontWeight.ExtraBold,
@@ -1793,7 +1796,10 @@ private fun BudgetDialog(
             Text("ویرایش سقف بودجه", color = Deep, fontWeight = FontWeight.ExtraBold)
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
                 JibikFormHint(
                     "این سقف برای هر ماه شمسی تکرار می‌شه. " +
                         "تراکنش‌های گذشته حذف یا ویرایش نمی‌شن.",
