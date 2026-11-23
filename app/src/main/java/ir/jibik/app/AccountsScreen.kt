@@ -77,7 +77,7 @@ internal fun AccountsScreen(
         Math.addExact(total, value)
     }
     Column(
-        modifier.fillMaxSize().background(WarmBackground)
+        modifier.fillMaxSize().liquidBackdrop()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
