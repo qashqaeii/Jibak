@@ -119,3 +119,52 @@ class JibikFinanceApiTests(APITestCase):
         self.auth(self.alice)
         ids = [item["id"] for item in self.client.get("/api/v1/households/").json()]
         self.assertNotIn(r.data["id"], ids)
+
+    def test_sync_pull_never_exposes_private_account_to_household_viewer(self):
+        LedgerTransaction.objects.create(
+            created_by=self.alice, idempotency_key="pvt",
+            kind="expense", amount_rial=1000, from_account=self.personal,
+        )
+        LedgerTransaction.objects.create(
+            created_by=self.alice, idempotency_key="shared",
+            kind="expense", amount_rial=2000, from_account=self.shared,
+        )
+        self.auth(self.carol)
+        response = self.client.get("/api/v1/sync/pull/")
+        self.assertEqual(response.status_code, 200, response.data)
+        amounts = [item["amount_rial"] for item in response.data["transactions"]]
+        self.assertEqual(amounts, [2000])
+        self.auth(self.alice)
+        self.assertEqual(
+            len(self.client.get("/api/v1/sync/pull/").data["transactions"]), 2
+        )
+
+    def test_signed_sync_cursor_paginates_without_repeating_rows(self):
+        for number in range(53):
+            LedgerTransaction.objects.create(
+                created_by=self.alice, idempotency_key=f"batch-{number}",
+                kind="expense", amount_rial=100,
+                from_account=self.personal,
+            )
+        self.auth(self.alice)
+        first = self.client.get("/api/v1/sync/pull/")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(len(first.data["transactions"]), 50)
+        self.assertTrue(first.data["has_more"])
+        second = self.client.get(
+            "/api/v1/sync/pull/", {"cursor": first.data["next_cursor"]}
+        )
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(len(second.data["transactions"]), 3)
+        first_ids = {row["id"] for row in first.data["transactions"]}
+        second_ids = {row["id"] for row in second.data["transactions"]}
+        self.assertFalse(first_ids.intersection(second_ids))
+        self.assertFalse(second.data["has_more"])
+
+        self.auth(self.bob)
+        self.assertEqual(
+            self.client.get(
+                "/api/v1/sync/pull/", {"cursor": first.data["next_cursor"]}
+            ).status_code,
+            400,
+        )
