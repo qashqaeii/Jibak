@@ -37,7 +37,11 @@ jobs:
         with:
           gradle-version: '8.13'
       - name: Unit tests and debug APK
-        run: gradle --no-daemon :core:finance:test :app:testDebugUnitTest :app:assembleDebug --stacktrace
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p ci-diagnostics
+          gradle --no-daemon :core:finance:test :app:testDebugUnitTest :app:assembleDebug --stacktrace 2>&1 | tee ci-diagnostics/gradle-build.log
       - name: Upload test and build diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
@@ -48,6 +52,7 @@ jobs:
             **/build/reports/tests/**
             **/build/reports/problems/**
             **/build/outputs/logs/**
+            ci-diagnostics/gradle-build.log
           if-no-files-found: warn
           retention-days: 7
       - name: Upload installable debug APK
