@@ -3,7 +3,8 @@ from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .ai_assistant import FEATURES, analyze
+from .ai_assistant import FEATURES, analyze, analyze_for_context
+from .ai_snapshot import SummarySerializer, summary_context
 from .ai_provider import AiError, available
 
 ERRORS = {
@@ -62,4 +63,46 @@ class AiAnalysisView(APIView):
             "result": result, "cached": cached, "feature": data["feature"],
             "scope": data["scope"], "period": "rolling_30_days",
             "advisory_only": True,
+        })
+
+
+class AiMobileRequestSerializer(serializers.Serializer):
+    feature = serializers.ChoiceField(choices=FEATURES)
+    consent = serializers.BooleanField(required=True)
+    summary = SummarySerializer()
+
+    def validate_consent(self, value):
+        if value is not True:
+            raise serializers.ValidationError("Explicit consent required")
+        return value
+
+
+class AiMobileSummaryView(APIView):
+    """Cloud assistance for offline-first Android without uploading the ledger.
+
+    Caller must be authenticated; provider sees only enumerated anonymous totals.
+    The device never receives an Arvan credential or provider endpoint.
+    """
+    def post(self, request):
+        form = AiMobileRequestSerializer(data=request.data)
+        form.is_valid(raise_exception=True)
+        if not request.data.get("consent") is True:
+            return no_store({"code": "consent_required"}, 400)
+        data = form.validated_data
+        try:
+            result, cached = analyze_for_context(
+                request.user, data["feature"], "mobile_summary",
+                summary_context(data["summary"]),
+            )
+        except AiError as exc:
+            code = str(exc)
+            message, http_status = ERRORS.get(code, ERRORS["provider_unavailable"])
+            return no_store({
+                "code": code if code in ERRORS else "provider_unavailable",
+                "message": message,
+            }, http_status)
+        return no_store({
+            "result": result, "cached": cached, "feature": data["feature"],
+            "period": "rolling_30_days", "advisory_only": True,
+            "source": "user_approved_mobile_summary",
         })
