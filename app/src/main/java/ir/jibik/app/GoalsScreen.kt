@@ -60,7 +60,7 @@ internal fun GoalsScreen(
         (balances[it.accountId] ?: 0L) >= it.targetToman
     }
     Column(
-        Modifier.fillMaxSize().background(JibikStyle.cream)
+        Modifier.fillMaxSize().liquidBackdrop()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
