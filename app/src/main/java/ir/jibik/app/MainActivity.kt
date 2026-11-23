@@ -242,6 +242,7 @@ private fun JibikApp(store: LocalLedgerStore) {
     var showItemizedPurchase by rememberSaveable { mutableStateOf(false) }
     var budget by remember { mutableStateOf(store.budgetToman()) }
     var showEditBudget by remember { mutableStateOf(false) }
+    var jiboAiFeature by remember { mutableStateOf<JiboAiFeature?>(null) }
 
     if (!welcomed) {
         WelcomeScreen(onStart = {
@@ -314,6 +315,7 @@ private fun JibikApp(store: LocalLedgerStore) {
                 onNewExpense = { addKind = LedgerKind.EXPENSE; showAdd = true },
                 onNewIncome = { addKind = LedgerKind.INCOME; showAdd = true },
                 onTransactionClick = { selectedTransactionId = it.id },
+                onAi = { jiboAiFeature = JiboAiFeature.SPENDING },
             )
             Section.TRANSACTIONS -> Transactions(
                 records = records,
@@ -327,6 +329,7 @@ private fun JibikApp(store: LocalLedgerStore) {
                 monthTitle = currentMonth.title,
                 modifier = Modifier.padding(insets),
                 onEdit = { showEditBudget = true },
+                onAi = { jiboAiFeature = JiboAiFeature.BUDGET },
             )
             Section.REPORTS -> ReportsScreen(
                 records = records,
@@ -337,6 +340,7 @@ private fun JibikApp(store: LocalLedgerStore) {
                         exportLauncher.launch("jibik-ledger.csv")
                     }
                 },
+                onAi = { jiboAiFeature = JiboAiFeature.SPENDING },
             )
             Section.ACCOUNTS -> if (showGoals) {
                 Box(Modifier.padding(insets)) {
@@ -346,6 +350,7 @@ private fun JibikApp(store: LocalLedgerStore) {
                         balances = FinanceEngine.balances(accounts, records.toList()),
                         onBack = { showGoals = false },
                         onAdd = { showNewGoal = true },
+                        onAi = { jiboAiFeature = JiboAiFeature.SAVINGS },
                         onTransferTo = { destination ->
                             addKind = LedgerKind.TRANSFER
                             addTargetAccountId = destination
@@ -362,6 +367,11 @@ private fun JibikApp(store: LocalLedgerStore) {
                 onGoals = { showGoals = true },
             )
         }
+    }
+
+    jiboAiFeature?.let { feature ->
+        JiboAiDialog(feature = feature, records = records,
+            onDismiss = { jiboAiFeature = null })
     }
 
     selectedTransactionId?.let { id ->
@@ -563,6 +573,7 @@ private fun Home(
     onNewExpense: () -> Unit,
     onNewIncome: () -> Unit,
     onTransactionClick: (LedgerRecord) -> Unit,
+    onAi: () -> Unit,
 ) {
     Column(
         modifier = modifier.fillMaxSize().liquidBackdrop().verticalScroll(rememberScrollState())
@@ -575,6 +586,21 @@ private fun Home(
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             MetricCard("درآمد", monthTotals.incomeToman, Mint, Modifier.weight(1f))
             MetricCard("هزینه", monthTotals.expenseToman, Coral, Modifier.weight(1f))
+        }
+        LiquidGlassCard(onClick = onAi, tone = GlassTone.CRYSTAL) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("✦ جیبو، همراه مالی هوشمند", color = Forest,
+                        fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                    Text("بررسی خرج‌ها، بدون دست‌کاری اطلاعات", color = Quiet,
+                        fontSize = 12.sp)
+                }
+                Text("مشاهده", color = Forest, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
         }
         JibikSectionTitle("ثبت سریع", "کارهای روزمره، بدون فرم‌های طولانی")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -987,6 +1013,7 @@ private fun Budget(
     monthTitle: String,
     modifier: Modifier,
     onEdit: () -> Unit,
+    onAi: () -> Unit,
 ) {
     val remaining = budget - spent
     val usage = (spent.toDouble() / budget.coerceAtLeast(1L).toDouble()).toFloat()
@@ -1052,6 +1079,12 @@ private fun Budget(
                 text = "ویرایش سقف بودجه",
                 onClick = onEdit,
                 tone = GlassTone.HONEY,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            LiquidGlassButton(
+                text = "✦ پیشنهاد هوشمند بودجه با جیبو",
+                onClick = onAi,
+                tone = GlassTone.CRYSTAL,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
