@@ -1122,16 +1122,16 @@ private fun AddTransactionDialog(
     val numericAmount = parseTomanDraft(amount)
     val sourceValid = accounts.any { it.id == sourceId }
     val targetValid = accounts.any { it.id == targetId }
-    val canSave = !isSaving && numericAmount != null && numericAmount > 0L &&
-        sourceValid && (kind != LedgerKind.TRANSFER ||
-            (accounts.size > 1 && targetValid && sourceId != targetId)) &&
-        categoryValid
     val categoryValid = when (kind) {
         LedgerKind.EXPENSE -> ExpenseCategoryCatalog.byDisplayName(category) != null
         LedgerKind.INCOME -> ir.jibik.core.finance.IncomeCategoryCatalog.all()
             .any { it.displayName == category }
         LedgerKind.TRANSFER -> true
     }
+    val canSave = !isSaving && numericAmount != null && numericAmount > 0L &&
+        sourceValid && (kind != LedgerKind.TRANSFER ||
+            (accounts.size > 1 && targetValid && sourceId != targetId)) &&
+        categoryValid
     AlertDialog(
         modifier = Modifier.liquidGlass(tone = GlassTone.FROSTED, radius = 28.dp, elevation = 15.dp),
         onDismissRequest = { if (!isSaving) onDismiss() },
