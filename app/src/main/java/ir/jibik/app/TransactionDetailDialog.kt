@@ -122,7 +122,8 @@ internal fun TransactionDetailDialog(
                         color = Color.White,
                         fontSize = 23.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        maxLines = 1,
+                        lineHeight = 30.sp,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
@@ -244,10 +245,11 @@ internal fun TransactionDetailDialog(
                         tone = GlassTone.HONEY,
                     )
                 }
-                Button(
+                LiquidGlassButton(
+                    text = "بستن",
                     onClick = onDismiss,
-                    shape = RoundedCornerShape(15.dp),
-                ) { Text("بستن") }
+                    tone = GlassTone.CRYSTAL,
+                )
             }
         },
     )
@@ -255,18 +257,9 @@ internal fun TransactionDetailDialog(
 
 @Composable
 private fun DetailRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, color = JibikStyle.muted, fontSize = 12.sp)
-        Text(
-            value,
-            modifier = Modifier.weight(1f),
-            color = JibikStyle.ink,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 12.sp,
-        )
-    }
+    JibikFinancialDetail(
+        label = label,
+        value = value,
+        valueColor = JibikStyle.ink,
+    )
 }
