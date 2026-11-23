@@ -62,13 +62,22 @@ internal fun CategoryBudgetsPanel(
                     fontSize = 15.sp, color = JibikStyle.ink,
                     fontWeight = FontWeight.ExtraBold,
                 )
-                Text(line.categoryPath, fontSize = 11.sp, color = JibikStyle.muted)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("مصرف: " + formatToman(line.spentToman),
-                        color = JibikStyle.ink, fontSize = 12.sp)
-                    Text("سقف: " + formatToman(line.limitToman),
-                        color = JibikStyle.muted, fontSize = 12.sp)
-                }
+                Text(
+                    line.categoryPath,
+                    fontSize = 12.sp, color = JibikStyle.muted,
+                    lineHeight = 19.sp, maxLines = 2,
+                )
+                JibikFinancialDetail(
+                    label = "هزینه این ماه",
+                    value = formatToman(line.spentToman),
+                    valueColor = if (line.alert == "over") JibikStyle.coral
+                        else JibikStyle.ink,
+                    emphasis = true,
+                )
+                JibikFinancialDetail(
+                    label = "سقف ماهانه",
+                    value = formatToman(line.limitToman),
+                )
                 LinearProgressIndicator(
                     progress = { line.usageRatio.toFloat().coerceIn(0f, 1f) },
                     color = if (line.alert == "over") JibikStyle.coral
