@@ -194,7 +194,8 @@ private fun JibikApp(store: LocalLedgerStore) {
     var showCreateAccount by remember { mutableStateOf(false) }
     var showGoals by rememberSaveable { mutableStateOf(false) }
     var showNewGoal by remember { mutableStateOf(false) }
-    var showItemizedPurchase by remember { mutableStateOf(false) }
+    // Keep the editor composed after rotation so its SavedState draft can be restored.
+    var showItemizedPurchase by rememberSaveable { mutableStateOf(false) }
     var budget by remember { mutableStateOf(store.budgetToman()) }
     var showEditBudget by remember { mutableStateOf(false) }
 
