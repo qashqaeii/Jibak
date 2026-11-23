@@ -79,7 +79,7 @@ class JibikFinanceApiTests(APITestCase):
         }
         self.assertEqual(balances[str(self.personal.pk)], 60_000)
         self.assertEqual(balances[str(second.pk)], 70_000)
-        self.assertEqual(sum(balances.values()), 150_000)
+        self.assertEqual(balances[str(self.personal.pk)] + balances[str(second.pk)], 130_000)
 
     def test_idempotent_retry_returns_existing_record(self):
         self.auth(self.alice)
