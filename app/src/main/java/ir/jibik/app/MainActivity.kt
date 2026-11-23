@@ -535,11 +535,12 @@ private fun WelcomeScreen(onStart: () -> Unit) {
             )
             Text("ثبت سریع  •  بودجه‌بندی  •  آرامش بیشتر", color = Forest, fontSize = 12.sp)
         }
-        Button(
-            onClick = onStart, modifier = Modifier.fillMaxWidth().height(58.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Forest),
-            shape = RoundedCornerShape(18.dp),
-        ) { Text("شروع با جیبیک", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
+        LiquidGlassButton(
+            text = "شروع با جیبیک",
+            onClick = onStart,
+            modifier = Modifier.fillMaxWidth().height(58.dp),
+            tone = GlassTone.EMERALD,
+        )
     }
 }
 
@@ -662,13 +663,12 @@ private fun SpendingByCategory(
     onClick: () -> Unit,
 ) {
     val palette = listOf(Forest, Orange, Mint, Coral)
-    Card(
+    LiquidGlassCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Paper),
-        shape = RoundedCornerShape(22.dp),
+        tone = GlassTone.CRYSTAL,
     ) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(Modifier.padding(0.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("خرج‌ها کجا رفتن؟", color = Deep, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
                 Text(monthTitle, color = Quiet, fontSize = 12.sp)
@@ -896,15 +896,14 @@ private fun TransactionCard(record: LedgerRecord, onClick: () -> Unit) {
         transfer -> Color(0xFFFFF0DD)
         else -> Color(0xFFE9F6EF)
     }
-    Card(
+    LiquidGlassCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Paper),
-        shape = RoundedCornerShape(18.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        tone = GlassTone.CRYSTAL,
+        padding = PaddingValues(horizontal = 13.dp, vertical = 13.dp),
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 13.dp),
+            Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1037,12 +1036,12 @@ private fun Budget(
                 },
                 fontSize = 12.sp, color = Quiet, lineHeight = 20.sp,
             )
-            OutlinedButton(
-                onClick = onEdit, modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Text("ویرایش سقف بودجه", fontWeight = FontWeight.Bold)
-            }
+            LiquidGlassButton(
+                text = "ویرایش سقف بودجه",
+                onClick = onEdit,
+                tone = GlassTone.HONEY,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
         Spacer(Modifier.height(90.dp))
     }
