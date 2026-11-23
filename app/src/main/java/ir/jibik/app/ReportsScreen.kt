@@ -145,10 +145,18 @@ internal fun ReportsScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                             Row(Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(entry.category, fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium, color = Ink)
-                                Text(moneyReport(entry.amountToman),
-                                    fontSize = 12.sp, color = Muted)
+                                Text(
+                                    entry.category, fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium, color = Ink,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    moneyReport(entry.amountToman),
+                                    fontSize = 12.sp, color = Muted,
+                                    modifier = Modifier.weight(0.9f),
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
                             }
                             LinearProgressIndicator(
                                 progress = {
