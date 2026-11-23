@@ -100,15 +100,44 @@ internal interface PurchaseLineDao {
     suspend fun forTransaction(transactionId: String): List<PurchaseLineEntity>
 }
 
+/** A goal points to one real savings account; it cannot mint imaginary savings. */
+@Entity(
+    tableName = "savings_goals",
+    foreignKeys = [ForeignKey(
+        entity = FinancialAccountEntity::class,
+        parentColumns = ["id"],
+        childColumns = ["accountId"],
+        onDelete = ForeignKey.RESTRICT,
+    )],
+    indices = [Index(value = ["accountId"], unique = true)],
+)
+internal data class SavingsGoalEntity(
+    @PrimaryKey val id: String,
+    val title: String,
+    val accountId: String,
+    val targetToman: Long,
+    val createdAtMillis: Long,
+)
+
+@Dao
+internal interface SavingsGoalDao {
+    @Query("SELECT * FROM savings_goals ORDER BY createdAtMillis DESC, id DESC")
+    suspend fun list(): List<SavingsGoalEntity>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(goal: SavingsGoalEntity)
+}
+
 @Database(
-    entities = [LedgerEntity::class, FinancialAccountEntity::class, PurchaseLineEntity::class],
-    version = 3,
+    entities = [LedgerEntity::class, FinancialAccountEntity::class, PurchaseLineEntity::class, SavingsGoalEntity::class],
+    version = 4,
     exportSchema = false,
 )
 internal abstract class JibikDatabase : RoomDatabase() {
     abstract fun ledgerDao(): LedgerDao
     abstract fun accountDao(): FinancialAccountDao
     abstract fun purchaseLineDao(): PurchaseLineDao
+    abstract fun savingsGoalDao(): SavingsGoalDao
 
     companion object {
         @Volatile private var instance: JibikDatabase? = null
@@ -146,13 +175,29 @@ internal abstract class JibikDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS savings_goals (" +
+                        "id TEXT NOT NULL, title TEXT NOT NULL, accountId TEXT NOT NULL, " +
+                        "targetToman INTEGER NOT NULL, createdAtMillis INTEGER NOT NULL, " +
+                        "PRIMARY KEY(id), FOREIGN KEY(accountId) REFERENCES " +
+                        "financial_accounts(id) ON UPDATE NO ACTION ON DELETE RESTRICT)"
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_savings_goals_accountId " +
+                        "ON savings_goals(accountId)"
+                )
+            }
+        }
+
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     JibikDatabase::class.java,
                     "jibik_ledger_v1.db",
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { instance = it }
             }
     }
 }
