@@ -45,8 +45,7 @@ private val Coral = Color(0xFFE95C50)
 private val Mint = Color(0xFF21C79B)
 private val Amber = Color(0xFFFF8A1F)
 
-private fun moneyReport(value: Long): String =
-    NumberFormat.getNumberInstance(Locale("fa", "IR")).format(value) + " تومان"
+private fun moneyReport(value: Long): String = formatToman(value)
 
 /** Always uses real local ledger rows. Offline, private, and free of fabricated trends. */
 @Composable
