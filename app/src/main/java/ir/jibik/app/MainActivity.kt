@@ -167,6 +167,7 @@ private fun JibikApp(store: LocalLedgerStore) {
     var section by rememberSaveable { mutableStateOf(Section.HOME) }
     var showAdd by remember { mutableStateOf(false) }
     var addKind by remember { mutableStateOf(LedgerKind.EXPENSE) }
+    var addTargetAccountId by remember { mutableStateOf<String?>(null) }
     var showCreateAccount by remember { mutableStateOf(false) }
     var showGoals by rememberSaveable { mutableStateOf(false) }
     var showNewGoal by remember { mutableStateOf(false) }
@@ -274,6 +275,11 @@ private fun JibikApp(store: LocalLedgerStore) {
                         balances = FinanceEngine.balances(accounts, records.toList()),
                         onBack = { showGoals = false },
                         onAdd = { showNewGoal = true },
+                        onTransferTo = { destination ->
+                            addKind = LedgerKind.TRANSFER
+                            addTargetAccountId = destination
+                            showAdd = true
+                        },
                     )
                 }
             } else AccountsScreen(
@@ -292,6 +298,7 @@ private fun JibikApp(store: LocalLedgerStore) {
             accounts = accounts,
             goals = goals,
             onDismiss = { if (!isSaving) showNewGoal = false },
+            isSaving = isSaving,
             onSave = { newGoal ->
                 if (!isSaving) {
                     isSaving = true
@@ -315,6 +322,7 @@ private fun JibikApp(store: LocalLedgerStore) {
         ItemizedPurchaseDialog(
             accounts = accounts,
             onDismiss = { if (!isSaving) showItemizedPurchase = false },
+            isSaving = isSaving,
             onSave = { purchase, lines ->
                 if (!isSaving) {
                     isSaving = true
@@ -336,7 +344,8 @@ private fun JibikApp(store: LocalLedgerStore) {
     if (showCreateAccount) {
         CreateAccountDialog(
             existing = accounts,
-            onDismiss = { showCreateAccount = false },
+            onDismiss = { if (!isSaving) showCreateAccount = false },
+            isSaving = isSaving,
             onSave = { newAccount ->
                 if (!isSaving) {
                     isSaving = true
@@ -360,7 +369,9 @@ private fun JibikApp(store: LocalLedgerStore) {
         AddTransactionDialog(
             accounts = accounts,
             initialKind = addKind,
-            onDismiss = { showAdd = false },
+            initialTargetAccountId = addTargetAccountId,
+            isSaving = isSaving,
+            onDismiss = { if (!isSaving) { showAdd = false; addTargetAccountId = null } },
             onSave = { record ->
                 if (!isSaving) {
                     isSaving = true
@@ -370,6 +381,7 @@ private fun JibikApp(store: LocalLedgerStore) {
                             store.append(record)
                             records.add(0, record)
                             showAdd = false
+                            addTargetAccountId = null
                         } catch (_: Exception) {
                             storageError = "تراکنش ذخیره نشد؛ اطلاعات قبلی شما محفوظ است."
                         } finally {
