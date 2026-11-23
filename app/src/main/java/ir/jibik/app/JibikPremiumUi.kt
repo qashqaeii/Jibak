@@ -18,6 +18,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -52,6 +53,7 @@ internal object JibikStyle {
 @Composable
 internal fun JibikHero(
     modifier: Modifier = Modifier,
+    illustration: JiboArtwork? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Box(
@@ -71,6 +73,14 @@ internal fun JibikHero(
                 color = JibikStyle.mint.copy(alpha = 0.09f),
                 radius = size.width * 0.27f,
                 center = Offset(size.width * 0.08f, size.height * 1.03f),
+            )
+        }
+        illustration?.let { art ->
+            // Low-contrast transparent WebP below all text; never obstructs totals.
+            JiboArt(
+                illustration = art,
+                modifier = Modifier.align(Alignment.BottomEnd)
+                    .size(122.dp).alpha(0.18f),
             )
         }
         Column(
@@ -235,7 +245,7 @@ internal fun JibikStatePanel(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            JiboMascot(Modifier.size(75.dp))
+            JiboArt(JiboArtwork.EMPTY, Modifier.size(75.dp))
             Column(
                 Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(7.dp),
