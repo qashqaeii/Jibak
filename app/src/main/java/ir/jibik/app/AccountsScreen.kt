@@ -222,47 +222,93 @@ internal fun CreateAccountDialog(
     existing: List<Account>,
     onDismiss: () -> Unit,
     onSave: (Account) -> Unit,
+    isSaving: Boolean = false,
 ) {
     var title by rememberSaveable { mutableStateOf("") }
     var opening by rememberSaveable { mutableStateOf("0") }
-    val amount = parseAccountAmount(opening)
+    val amount = parseTomanDraft(opening)
     val cleanTitle = title.trim()
-    val valid = cleanTitle.isNotBlank() && cleanTitle.length <= 48 &&
-        existing.none { it.title == cleanTitle } && amount != null && amount >= 0L
+    val duplicated = existing.any { it.title.trim() == cleanTitle }
+    val valid = !isSaving && cleanTitle.isNotBlank() &&
+        cleanTitle.length <= 48 && !duplicated &&
+        amount != null && amount >= 0L
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = White,
+        tonalElevation = 0.dp,
         shape = RoundedCornerShape(26.dp),
-        title = { Text("حساب مالی جدید", color = Ink, fontWeight = FontWeight.ExtraBold) },
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+            ) {
+                JibikBrandLogo(Modifier.size(38.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        "حساب مالی جدید",
+                        color = Ink, fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                    Text(
+                        "برای هر کارت یا پس‌انداز، یک حساب",
+                        color = Subtle, fontSize = 11.sp,
+                    )
+                }
+            }
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("برای هر کارت بانکی، کیف نقدی یا پس‌انداز حساب جدا داشته باش.",
-                    fontSize = 13.sp, color = Subtle)
+                JibikFormHint(
+                    "موجودی حساب‌هات جدا ثبت می‌شه تا انتقال پول دوباره‌شماری نشه.",
+                )
                 OutlinedTextField(
-                    value = title, onValueChange = { title = it.take(48) },
+                    value = title,
+                    onValueChange = { title = it.take(48) },
                     label = { Text("نام حساب") },
-                    placeholder = { Text("مثلاً کارت بانک یا پس‌انداز") },
+                    placeholder = { Text("مثلاً کارت بانکی یا پس‌انداز") },
                     singleLine = true,
+                    enabled = !isSaving,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(15.dp),
                 )
-                OutlinedTextField(
-                    value = opening, onValueChange = { opening = it },
-                    label = { Text("موجودی اولیه (تومان)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
+                if (duplicated && cleanTitle.isNotEmpty()) {
+                    JibikFormHint(
+                        "حسابی با این نام قبلاً ثبت شده.",
+                        isWarning = true,
+                    )
+                }
+                JibikTomanField(
+                    value = opening,
+                    onValueChange = { opening = it },
+                    label = "موجودی اولیه",
+                    allowZero = true,
                 )
-                Text("موجودی اولیه درآمد محسوب نمی‌شود؛ فقط مقدار شروع حساب است.",
-                    fontSize = 12.sp, color = Subtle)
+                JibikFormHint(
+                    "موجودی اولیه درآمد محسوب نمی‌شه؛ فقط مقدار شروع حسابه.",
+                )
             }
         },
         confirmButton = {
-            Button(enabled = valid, onClick = {
-                onSave(Account(UUID.randomUUID().toString(), cleanTitle, amount ?: 0L))
-            }) { Text("ایجاد حساب") }
+            Button(
+                enabled = valid,
+                shape = RoundedCornerShape(15.dp),
+                onClick = {
+                    onSave(
+                        Account(
+                            UUID.randomUUID().toString(),
+                            cleanTitle,
+                            amount ?: 0L,
+                        )
+                    )
+                },
+            ) {
+                Text(if (isSaving) "در حال ایجاد..." else "ایجاد حساب")
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isSaving) {
+                Text("انصراف")
+            }
+        },
     )
 }
