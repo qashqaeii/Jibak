@@ -11,6 +11,8 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
  * v1 local ledger is deliberately append-only: never silently replace a
@@ -31,6 +33,26 @@ internal data class LedgerEntity(
     val timestampMillis: Long,
 )
 
+/** User-created accounts are local/private until household ACLs ship. */
+@Entity(tableName = "financial_accounts")
+internal data class FinancialAccountEntity(
+    @PrimaryKey val id: String,
+    val title: String,
+    val openingBalanceToman: Long,
+)
+
+@Dao
+internal interface FinancialAccountDao {
+    @Query("SELECT * FROM financial_accounts ORDER BY CASE WHEN id = 'wallet' THEN 0 ELSE 1 END, title, id")
+    suspend fun list(): List<FinancialAccountEntity>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertDefault(account: FinancialAccountEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(account: FinancialAccountEntity)
+}
+
 @Dao
 internal interface LedgerDao {
     @Query("SELECT * FROM ledger_records ORDER BY timestampMillis DESC, id DESC")
@@ -47,12 +69,32 @@ internal interface LedgerDao {
     suspend fun countMatchingIds(ids: List<String>): Int
 }
 
-@Database(entities = [LedgerEntity::class], version = 1, exportSchema = false)
+@Database(
+    entities = [LedgerEntity::class, FinancialAccountEntity::class],
+    version = 2,
+    exportSchema = false,
+)
 internal abstract class JibikDatabase : RoomDatabase() {
     abstract fun ledgerDao(): LedgerDao
+    abstract fun accountDao(): FinancialAccountDao
 
     companion object {
         @Volatile private var instance: JibikDatabase? = null
+
+        /** Add accounts without modifying or deleting any existing ledger data. */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS financial_accounts (" +
+                        "id TEXT NOT NULL, title TEXT NOT NULL, " +
+                        "openingBalanceToman INTEGER NOT NULL, PRIMARY KEY(id))"
+                )
+                db.execSQL(
+                    "INSERT OR IGNORE INTO financial_accounts " +
+                        "(id, title, openingBalanceToman) VALUES ('wallet', 'کیف پول جیبیک', 0)"
+                )
+            }
+        }
 
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
@@ -60,7 +102,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
                     context.applicationContext,
                     JibikDatabase::class.java,
                     "jibik_ledger_v1.db",
-                ).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
             }
     }
 }
