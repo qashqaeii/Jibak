@@ -52,17 +52,12 @@ internal fun JibikHero(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val shape = RoundedCornerShape(26.dp)
     Box(
-        modifier = modifier
-            .background(
-                brush = Brush.linearGradient(
-                    listOf(JibikStyle.forest, JibikStyle.forestDeep),
-                    start = Offset.Zero,
-                    end = Offset(900f, 650f),
-                ),
-                shape = shape,
-            ),
+        modifier = modifier.liquidGlass(
+            tone = GlassTone.EMERALD,
+            radius = 27.dp,
+            elevation = 14.dp,
+        ),
     ) {
         Canvas(Modifier.matchParentSize()) {
             drawCircle(
@@ -119,33 +114,40 @@ internal fun JibikQuickAction(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        onClick = onClick,
+    LiquidGlassCard(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = JibikStyle.paper),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        tone = GlassTone.CRYSTAL,
+        padding = androidx.compose.foundation.layout.PaddingValues(
+            horizontal = 11.dp, vertical = 13.dp,
+        ),
+        onClick = onClick,
     ) {
-        Column(
-            Modifier.fillMaxWidth().padding(horizontal = 11.dp, vertical = 13.dp),
-            verticalArrangement = Arrangement.spacedBy(9.dp),
-            horizontalAlignment = Alignment.Start,
+        Box(
+            modifier = Modifier.size(39.dp)
+                .liquidGlass(
+                    tone = if (accent == JibikStyle.coral) GlassTone.ROSE
+                    else if (accent == JibikStyle.forest) GlassTone.EMERALD
+                    else GlassTone.HONEY,
+                    radius = 13.dp,
+                    elevation = 4.dp,
+                ),
+            contentAlignment = Alignment.Center,
         ) {
-            Box(
-                modifier = Modifier.size(35.dp).background(background, RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(symbol, color = accent, fontSize = 20.sp, fontWeight = FontWeight.Medium)
-            }
             Text(
-                title, color = JibikStyle.ink, fontWeight = FontWeight.Bold,
-                fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                subtitle, color = JibikStyle.muted, fontSize = 10.sp,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                symbol,
+                color = if (accent == JibikStyle.forest) Color.White else accent,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Medium,
             )
         }
+        Text(
+            title, color = JibikStyle.ink, fontWeight = FontWeight.Bold,
+            fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            subtitle, color = JibikStyle.muted, fontSize = 10.sp,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -155,18 +157,11 @@ internal fun JibikSurfaceCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Card(
+    LiquidGlassCard(
         modifier = modifier,
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = JibikStyle.paper),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-    ) {
-        Column(
-            Modifier.fillMaxWidth().padding(17.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            content = content,
-        )
-    }
+        tone = GlassTone.CRYSTAL,
+        content = content,
+    )
 }
 
 /** A consistent recovery/empty state with a real action, not a dead placeholder. */
