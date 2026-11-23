@@ -1058,7 +1058,8 @@ private fun TransactionCard(record: LedgerRecord, onClick: () -> Unit) {
             ) {
                 Text(
                     record.note.ifBlank {
-                        record.category.ifBlank { if (transfer) "انتقال بین حساب‌ها" else "تراکنش" }
+                        record.category.substringAfterLast(" / ")
+                            .ifBlank { if (transfer) "انتقال بین حساب‌ها" else "تراکنش" }
                     },
                     fontWeight = FontWeight.Bold, color = Deep,
                     fontSize = 13.sp, maxLines = 1,
@@ -1066,12 +1067,14 @@ private fun TransactionCard(record: LedgerRecord, onClick: () -> Unit) {
                 )
                 Text(
                     when (record.kind) {
-                        LedgerKind.EXPENSE -> "هزینه · " + record.category
-                        LedgerKind.INCOME -> "درآمد · " + record.category
+                        LedgerKind.EXPENSE -> "هزینه · " +
+                            record.category.substringBeforeLast(" / ", record.category)
+                        LedgerKind.INCOME -> "درآمد · " +
+                            record.category.substringBeforeLast(" / ", record.category)
                         LedgerKind.TRANSFER -> "انتقال بین حساب‌ها"
                     },
                     color = Quiet, fontSize = 11.sp,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
             }
             Text(
