@@ -102,7 +102,7 @@ internal object BankSmsParser {
                         normalized.lastIndexOf('\n', hit.range.first).let { it + 1 },
                         hit.range.first,
                     )
-                    !Regex("مانده|موجودی").containsMatchIn(line)
+                    !Regex("مانده|موجودی|باقیمانده|موجودي").containsMatchIn(line)
                 }
                 val amount = labelled ?: moneyWithUnit.findAll(normalized).firstOrNull { hit ->
                     val line = normalized.substring(
