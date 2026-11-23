@@ -57,7 +57,7 @@ internal object BankSmsParser {
             'ي', 'ى' -> 'ی'
             'ك' -> 'ک'
             '٬', '،' -> ','
-            '\\u200c', '\\u200f', '\\u200e' -> ' '
+            0x200C.toChar(), 0x200F.toChar(), 0x200E.toChar() -> ' '
             else -> ch
         })
     }.lowercase(Locale.ROOT)
