@@ -325,6 +325,8 @@ private fun JibikApp(store: LocalLedgerStore) {
             )
             Section.TRANSACTIONS -> Transactions(
                 records = records,
+                receiptLines = savedReceiptLines.toMap(),
+                customCategories = customCategories,
                 modifier = Modifier.padding(insets),
                 onTransactionClick = { selectedTransactionId = it.id },
                 onCreateTransaction = { addKind = LedgerKind.EXPENSE; showAdd = true },
@@ -885,25 +887,20 @@ private fun MetricCard(title: String, amount: Long, accent: Color, modifier: Mod
 @Composable
 private fun Transactions(
     records: List<LedgerRecord>,
+    receiptLines: Map<String, List<PurchaseLine>>,
+    customCategories: List<CustomCategoryEntity>,
     modifier: Modifier,
     onTransactionClick: (LedgerRecord) -> Unit,
     onCreateTransaction: () -> Unit,
 ) {
     var search by rememberSaveable { mutableStateOf("") }
     var kindFilter by rememberSaveable { mutableStateOf("همه") }
-    val filtered = records.filter { record ->
-        val filterMatches = when (kindFilter) {
-            "درآمد" -> record.kind == LedgerKind.INCOME
-            "هزینه" -> record.kind == LedgerKind.EXPENSE
-            "انتقال" -> record.kind == LedgerKind.TRANSFER
-            else -> true
-        }
-        val searchMatches = search.isBlank() ||
-            record.note.contains(search.trim(), ignoreCase = true) ||
-            record.category.contains(search.trim(), ignoreCase = true) ||
-            record.amountToman.toString().contains(search.trim())
-        filterMatches && searchMatches
-    }
+    var categoryPath by rememberSaveable { mutableStateOf("") }
+    var showCategoryPicker by rememberSaveable { mutableStateOf(false) }
+    val filtered = filterLocalTransactions(
+        records = records, receiptLines = receiptLines,
+        kindFilter = kindFilter, categoryPath = categoryPath, query = search,
+    )
     LazyColumn(
         modifier = modifier.fillMaxSize().liquidBackdrop(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 22.dp),
@@ -942,8 +939,27 @@ private fun Transactions(
                     JibikGlassChip(
                         text = option,
                         selected = kindFilter == option,
-                        onClick = { kindFilter = option },
+                        onClick = { kindFilter = option; categoryPath = "" },
                     )
+                }
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LiquidGlassButton(
+                    text = if (categoryPath.isBlank()) "◉ فیلتر دسته‌بندی"
+                        else categoryPath.substringAfterLast(" / "),
+                    onClick = { showCategoryPicker = true },
+                    tone = if (categoryPath.isBlank()) GlassTone.CRYSTAL else GlassTone.HONEY,
+                    enabled = kindFilter != "انتقال",
+                    modifier = Modifier.weight(1f),
+                )
+                if (categoryPath.isNotBlank()) {
+                    TextButton(onClick = { categoryPath = "" }) {
+                        Text("پاک‌کردن", color = Forest, fontSize = 12.sp)
+                    }
                 }
             }
         }
@@ -968,7 +984,11 @@ private fun Transactions(
                             Text("جستجو یا فیلترت رو تغییر بده.", fontSize = 12.sp, color = Quiet)
                         }
                     }
-                    TextButton(onClick = { search = ""; kindFilter = "همه" }) {
+                    TextButton(onClick = {
+                        search = ""
+                        kindFilter = "همه"
+                        categoryPath = ""
+                    }) {
                         Text("پاک‌کردن فیلترها")
                     }
                 }
@@ -978,6 +998,19 @@ private fun Transactions(
                 TransactionCard(record, onClick = { onTransactionClick(record) })
             }
         }
+    }
+    if (showCategoryPicker && kindFilter != "انتقال") {
+        CategoryPickerDialog(
+            income = kindFilter == "درآمد",
+            selected = categoryPath,
+            custom = customCategories,
+            onSelected = {
+                categoryPath = it
+                kindFilter = if (kindFilter == "درآمد") "درآمد" else "هزینه"
+                showCategoryPicker = false
+            },
+            onDismiss = { showCategoryPicker = false },
+        )
     }
 }
 
