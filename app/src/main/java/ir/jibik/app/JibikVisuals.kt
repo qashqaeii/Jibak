@@ -49,10 +49,23 @@ internal fun JibikNavigationIcon(position: Int, selected: Boolean) {
                     drawLine(tint, p(10f, y), p(21f, y), stroke, cap = StrokeCap.Round)
                 }
             }
-            else -> {
+            2 -> {
                 drawCircle(tint, unit * 9f, p(12f, 12f), style = Stroke(stroke))
                 drawCircle(tint, unit * 4.7f, p(12f, 12f), style = Stroke(stroke))
                 drawCircle(tint, unit * 1.5f, p(12f, 12f))
+            }
+            else -> {
+                // Wallet glyph for the dedicated financial accounts screen.
+                drawRoundRect(
+                    color = tint,
+                    topLeft = p(3f, 6f),
+                    size = androidx.compose.ui.geometry.Size(18f * unit, 15f * unit),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f * unit),
+                    style = Stroke(stroke),
+                )
+                drawLine(tint, p(3f, 9f), p(3f, 4f), stroke, cap = StrokeCap.Round)
+                drawLine(tint, p(3f, 4f), p(18f, 4f), stroke, cap = StrokeCap.Round)
+                drawCircle(tint, unit * 1.3f, p(16.5f, 13.5f))
             }
         }
     }
