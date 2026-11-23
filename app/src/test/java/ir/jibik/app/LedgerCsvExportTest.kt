@@ -36,8 +36,7 @@ class LedgerCsvExportTest {
     @Test fun exportsUtf8PersianAmountsAndUtcTimestamp() {
         val csv = export(listOf(record("id-1", "خرید نان")))
         assertTrue(csv.startsWith("\uFEFF"))
-        assertTrue(csv.contains("\"123456\"").not())
-        assertTrue(csv.contains("\"123456\"") || csv.contains("\"123456\""))
+        assertTrue(csv.contains("\"123456\""))
         assertTrue(csv.contains("\"کیف پول\""))
         assertTrue(csv.contains("\"خرید نان\""))
         assertTrue(csv.contains("2023-11-14T"))
