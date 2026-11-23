@@ -69,6 +69,7 @@ internal fun AccountsScreen(
     modifier: Modifier = Modifier,
     onAdd: () -> Unit,
     onTransfer: () -> Unit,
+    onGoals: () -> Unit,
 ) {
     Column(
         modifier.fillMaxSize().background(WarmBackground).verticalScroll(rememberScrollState())
@@ -98,6 +99,11 @@ internal fun AccountsScreen(
                 Text("انتقال بین حساب‌ها")
             }
         }
+        OutlinedButton(
+            onClick = onGoals,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(15.dp),
+        ) { Text("اهداف پس‌انداز و برنامه‌های مالی") }
         if (accounts.size < 2) {
             Text("برای انتقال پول، اول یک حساب دیگر اضافه کن.",
                 fontSize = 12.sp, color = Subtle)
