@@ -1,9 +1,5 @@
 package ir.jibik.app
 
-import android.Manifest
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -50,10 +46,7 @@ internal fun BankSmsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var approved by remember { mutableStateOf(BankSmsSettings.approvedBanks(context)) }
-    var enabled by remember { mutableStateOf(BankSmsSettings.isEnabled(context)) }
-    var permission by remember { mutableStateOf(BankSmsSettings.permissionGranted(context)) }
     var pendingItems by remember { mutableStateOf<List<BankSmsCandidateEntity>>(emptyList()) }
-    var found by remember { mutableStateOf<List<BankSmsMatch>>(emptyList()) }
     var sample by rememberSaveable { mutableStateOf("") }
     var sampleResult by remember { mutableStateOf<BankSmsMatch?>(null) }
     var showAllBanks by rememberSaveable { mutableStateOf(false) }
@@ -61,20 +54,6 @@ internal fun BankSmsScreen(
     var selected by remember { mutableStateOf<BankSmsCandidateEntity?>(null) }
     var busy by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
-
-    val smsPermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions(),
-    ) {
-        permission = BankSmsSettings.permissionGranted(context)
-        notice = if (permission) "دسترسی برقرار شد؛ اکنون بانک‌ها را انتخاب کن."
-            else "اجازه SMS داده نشد. می‌توانی نمونه پیام را بدون مجوز بررسی کنی."
-    }
-    val notificationPermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        notice = if (granted) "اعلان بررسی پیام‌های بانکی فعال است."
-            else "پیشنهادها ذخیره می‌شوند ولی اعلان گوشی نمایش داده نمی‌شود."
-    }
 
     LaunchedEffect(Unit) {
         runCatching { pendingItems = store.bankSmsSuggestions() }
@@ -110,22 +89,13 @@ internal fun BankSmsScreen(
         )
         LiquidGlassCard(tone = GlassTone.CRYSTAL) {
             JibikSectionTitle(
-                "۱. مجوز پیامک",
-                if (permission) "خواندن و دریافت SMS مجاز است"
-                else "تنها پس از درخواست خودت فعال می‌شود",
+                "۱. دسترسی به پیامک",
+                "موقتاً برای نصب و تست APK غیرفعال است",
             )
-            LiquidGlassButton(
-                text = if (permission) "✓ بررسی وضعیت دسترسی"
-                    else "دریافت اجازه خواندن پیامک‌ها",
-                onClick = {
-                    smsPermission.launch(arrayOf(
-                        Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS
-                    ))
-                },
-                tone = if (permission) GlassTone.CRYSTAL else GlassTone.HONEY,
-                modifier = Modifier.fillMaxWidth(),
+            JibikFormHint(
+                "در این نسخه هیچ اجازه خواندن یا دریافت پیامک درخواست نمی‌شود. " +
+                    "می‌توانی پایین‌تر نمونه پیام بانکی را دستی بررسی کنی."
             )
-            JibikFormHint("بدون این مجوز همچنان می‌توانی نمونه پیام بانک را دستی آزمایش کنی.")
         }
         LiquidGlassCard(tone = GlassTone.CRYSTAL) {
             JibikSectionTitle("۲. انتخاب بانک‌ها", "فقط بانک‌های تأییدشده بررسی می‌شوند")
@@ -146,10 +116,6 @@ internal fun BankSmsScreen(
                                     context, bank.id, bank.id !in approved,
                                 )
                                 approved = BankSmsSettings.approvedBanks(context)
-                                if (approved.isEmpty() && enabled) {
-                                    BankSmsSettings.setEnabled(context, false)
-                                    enabled = false
-                                }
                             },
                         )
                     }
@@ -164,60 +130,8 @@ internal fun BankSmsScreen(
             }
         }
         LiquidGlassCard(tone = GlassTone.CRYSTAL) {
-            JibikSectionTitle(
-                "۳. بررسی پیامک‌های قبلی",
-                "فقط با لمس دکمه، حداکثر ۴۰۰ پیام آخر اسکن می‌شود",
-            )
-            LiquidGlassButton(
-                text = if (busy) "در حال بررسی..." else "شناسایی پیام‌های بانکی موجود",
-                enabled = !busy,
-                modifier = Modifier.fillMaxWidth(),
-                tone = GlassTone.HONEY,
-                onClick = {
-                    if (!permission) {
-                        notice = "ابتدا به برنامه اجازه خواندن پیامک بده."
-                    } else {
-                        busy = true
-                        scope.launch {
-                            try {
-                                found = BankSmsInboxScanner.scan(context)
-                                notice = found.size.toString() +
-                                    " پیام مالی قابل‌تشخیص پیدا شد."
-                            } catch (_: Exception) {
-                                notice = "اسکن ممکن نشد؛ اجازه و تنظیمات گوشی را بررسی کن."
-                            } finally { busy = false }
-                        }
-                    }
-                },
-            )
-            if (found.isNotEmpty()) {
-                found.groupBy { it.bankId }.forEach { (bankId, rows) ->
-                    Text(
-                        (BankSmsParser.banks.firstOrNull { it.id == bankId }?.title
-                            ?: "بانک") + " • " + rows.size + " پیام",
-                        color = JibikStyle.ink, fontSize = 12.sp,
-                    )
-                }
-                val chosen = found.filter { it.bankId in approved }
-                LiquidGlassButton(
-                    text = "افزودن " + chosen.size + " پیام منتخب به صف بررسی",
-                    enabled = chosen.isNotEmpty() && !busy,
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = {
-                        busy = true
-                        scope.launch {
-                            try {
-                                val added = store.importBankSms(chosen)
-                                pendingItems = store.bankSmsSuggestions()
-                                found = emptyList()
-                                notice = added.toString() + " پیشنهاد جدید آماده بررسی شد."
-                            } catch (_: Exception) {
-                                notice = "انتقال پیشنهادها موفق نبود."
-                            } finally { busy = false }
-                        }
-                    },
-                )
-            }
+            JibikSectionTitle("۳. بررسی پیامک‌های قبلی", "موقتاً در نسخه تست غیرفعال")
+            JibikFormHint("اسکن صندوق پیامک‌ها به مجوز READ_SMS نیاز دارد؛ در این APK اجرا نمی‌شود.")
         }
         LiquidGlassCard(tone = GlassTone.CRYSTAL) {
             JibikSectionTitle("۴. آزمایش نمونه پیام",
@@ -259,36 +173,10 @@ internal fun BankSmsScreen(
             }
         }
         LiquidGlassCard(tone = GlassTone.CRYSTAL) {
-            JibikSectionTitle(
-                "۵. شناسایی خودکار پیامک‌های جدید",
-                if (enabled) "روشن • هر پیام نیازمند تأیید است"
-                else "خاموش • هیچ پیامکی در پس‌زمینه بررسی نمی‌شود",
-            )
-            LiquidGlassButton(
-                text = if (enabled) "خاموش‌کردن پایش خودکار"
-                    else "فعال‌کردن بانک‌های منتخب",
-                modifier = Modifier.fillMaxWidth(),
-                tone = if (enabled) GlassTone.CRYSTAL else GlassTone.EMERALD,
-                onClick = {
-                    if (enabled) {
-                        BankSmsSettings.setEnabled(context, false)
-                        BankSmsNotifications.clear(context)
-                        enabled = false
-                        notice = "پایش خاموش شد؛ پیشنهادهای قبلی محفوظ‌اند."
-                    } else if (BankSmsSettings.setEnabled(context, true)) {
-                        enabled = true
-                        notice = "پایش فعال است؛ ثبت مالی همیشه به تأیید تو نیاز دارد."
-                        if (Build.VERSION.SDK_INT >= 33) {
-                            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        }
-                    } else {
-                        notice = "ابتدا مجوز SMS و دست‌کم یک بانک را فعال کن."
-                    }
-                },
-            )
+            JibikSectionTitle("۵. پایش پیامک‌های جدید", "موقتاً در نسخه تست غیرفعال")
             JibikFormHint(
-                "برای نمایش اعلان به مجوز اعلان Android نیاز است. " +
-                    "قطع اجازه SMS از تنظیمات گوشی، پایش خودکار را متوقف می‌کند."
+                "دریافت خودکار پیامک بانکی به مجوز RECEIVE_SMS نیاز دارد. " +
+                    "با بازگرداندن مجوزها در نسخه کامل، این قابلیت دوباره فعال می‌شود."
             )
         }
         val pending = pendingItems.filter { it.state == "PENDING" }
@@ -307,8 +195,8 @@ internal fun BankSmsScreen(
         )
         if (pending.isEmpty()) JibikStatePanel(
             title = "پیام جدیدی در صف نیست",
-            description = "پس از اسکن یا دریافت SMS از بانک منتخب، " +
-                "پیشنهادها برای تأیید اینجا ظاهر می‌شوند.",
+            description = "در این نسخه پیامک جدیدی خوانده نمی‌شود؛ " +
+                "پیشنهادهای ثبت‌شده قبلی، در صورت وجود، اینجا باقی می‌مانند.",
         )
         pending.take(if (showAllPending) 100 else 12).forEach { item ->
             LiquidGlassCard(tone = GlassTone.CRYSTAL) {
