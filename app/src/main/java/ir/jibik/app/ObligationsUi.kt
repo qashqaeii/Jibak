@@ -46,6 +46,9 @@ internal fun ObligationsScreen(
     onAdd: () -> Unit,
     onPay: (String) -> Unit,
     onPaymentClick: (String) -> Unit,
+    remindersEnabled: Boolean,
+    onEnableReminders: () -> Unit,
+    onDisableReminders: () -> Unit,
     modifier: Modifier = Modifier,
     isSaving: Boolean = false,
 ) {
@@ -78,6 +81,47 @@ internal fun ObligationsScreen(
             Text(if (due > 0) "$due مورد سررسید گذشته"
                 else "همه تعهدات ثبت‌شده قابل پیگیری هستند",
                 color = Color(0xFFDBF4EC), fontSize = 12.sp)
+        }
+        LiquidGlassCard(tone = GlassTone.CRYSTAL) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("یادآوری آفلاین جیبو", color = JibikStyle.ink,
+                        fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(
+                        if (remindersEnabled)
+                            "فعال • بررسی روزانه سررسیدها"
+                        else "خاموش • فقط با اجازه تو فعال می‌شود",
+                        color = if (remindersEnabled) JibikStyle.forest
+                            else JibikStyle.muted,
+                        fontSize = 12.sp,
+                    )
+                }
+                Text(
+                    if (remindersEnabled) "●" else "○",
+                    color = if (remindersEnabled) JibikStyle.forest
+                        else JibikStyle.muted, fontSize = 21.sp,
+                )
+            }
+            JibikFormHint(
+                "سررسید امروز، سه روز آینده و موارد عقب‌افتاده را حدود " +
+                    "۹ صبح تهران یادآوری می‌کنیم. ممکن است به‌دلیل مصرف باتری گوشی " +
+                    "با تأخیر نمایش داده شود. مبلغ و نام افراد در اعلان نیست."
+            )
+            LiquidGlassButton(
+                text = if (remindersEnabled) "خاموش‌کردن یادآوری‌ها"
+                    else "فعال‌کردن یادآوری‌ها",
+                onClick = if (remindersEnabled) onDisableReminders
+                    else onEnableReminders,
+                tone = if (remindersEnabled) GlassTone.CRYSTAL
+                    else GlassTone.EMERALD,
+                enabled = !isSaving,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
         LiquidGlassButton(
             text = "＋ ثبت بدهی، طلب، قبض یا وام",
