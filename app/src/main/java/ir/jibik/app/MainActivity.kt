@@ -868,55 +868,83 @@ private fun EmptyTransactions() {
 
 
 @Composable
-private fun Budget(spent: Long, budget: Long, monthTitle: String, modifier: Modifier, onEdit: () -> Unit) {
+private fun Budget(
+    spent: Long,
+    budget: Long,
+    monthTitle: String,
+    modifier: Modifier,
+    onEdit: () -> Unit,
+) {
     val remaining = budget - spent
+    val usage = (spent.toDouble() / budget.coerceAtLeast(1L).toDouble()).toFloat()
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(15.dp),
     ) {
-        Text("بودجه", fontWeight = FontWeight.ExtraBold, fontSize = 25.sp, color = Deep)
-        Text("مدیریت سقف هزینه در " + monthTitle, color = Quiet, fontSize = 14.sp)
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Forest),
-            shape = RoundedCornerShape(26.dp),
-        ) {
-            Column(Modifier.padding(23.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(if (remaining >= 0L) "باقی‌مانده از سقف بودجه" else "میزان عبور از سقف بودجه", color = Color(0xFFCCEEE5), fontSize = 14.sp)
-                Text(money(if (remaining >= 0L) remaining else -remaining), fontWeight = FontWeight.ExtraBold, fontSize = 29.sp, color = Paper)
-                HorizontalDivider(color = Color(0xFF438F7F))
-                Text("براساس هزینه‌های ثبت‌شده در " + monthTitle, color = Color(0xFFE9F8F3), fontSize = 12.sp)
-            }
+        JibikSectionTitle(
+            title = "بودجه‌بندی",
+            subtitle = "سقف هزینه در " + monthTitle,
+        )
+        JibikHero(Modifier.fillMaxWidth()) {
+            Text(
+                if (remaining >= 0L) "باقی‌مانده بودجه" else "میزان عبور از بودجه",
+                color = Color(0xFFDCF3EA), fontSize = 13.sp,
+            )
+            Text(
+                money(if (remaining >= 0L) remaining else -remaining),
+                fontSize = 28.sp, color = Paper, fontWeight = FontWeight.ExtraBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            HorizontalDivider(color = Paper.copy(alpha = 0.18f))
+            Text(
+                "براساس تراکنش‌های واقعی ثبت‌شده در " + monthTitle,
+                color = Color(0xFFE3F5ED), fontSize = 12.sp,
+            )
         }
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Paper),
-            shape = RoundedCornerShape(22.dp),
-        ) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("سقف هزینه", color = Quiet)
-                    Text(money(budget), color = Deep, fontWeight = FontWeight.Bold)
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("خرج این ماه", color = Quiet)
-                    Text(money(spent), color = Deep, fontWeight = FontWeight.Bold)
-                }
-                LinearProgressIndicator(
-                    progress = { (spent.toFloat() / budget.coerceAtLeast(1L)).coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().height(9.dp),
-                    color = if (spent > budget) Coral else Mint,
-                    trackColor = Cream,
+        JibikSurfaceCard {
+            JibikSectionTitle("وضعیت مصرف بودجه")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("سقف تعیین‌شده", color = Quiet, fontSize = 13.sp)
+                Text(
+                    money(budget), color = Deep, fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                OutlinedButton(onClick = onEdit, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-                    Text("ویرایش سقف بودجه")
-                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("هزینه‌های این ماه", color = Quiet, fontSize = 13.sp)
+                Text(
+                    money(spent), color = Deep, fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            LinearProgressIndicator(
+                progress = { usage.coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth().height(10.dp),
+                color = if (usage > 1f) Coral else if (usage >= 0.85f) Orange else Mint,
+                trackColor = Color(0xFFE9F2EC),
+            )
+            Text(
+                when {
+                    usage > 1f -> "بودجه این ماه تمام شده؛ می‌تونی سقف رو بازبینی کنی."
+                    usage >= 0.85f -> "به سقف بودجه نزدیک شدی. خرج‌های پیش رو رو بررسی کن."
+                    spent == 0L -> "با اولین هزینه، پیشرفت بودجه اینجا نمایش داده می‌شه."
+                    else -> "تا اینجا هزینه‌ها در محدوده بودجه‌ات هستند."
+                },
+                fontSize = 12.sp, color = Quiet, lineHeight = 20.sp,
+            )
+            OutlinedButton(
+                onClick = onEdit, modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Text("ویرایش سقف بودجه", fontWeight = FontWeight.Bold)
             }
         }
         Spacer(Modifier.height(90.dp))
     }
 }
-
 
 @Composable
 private fun AddTransactionDialog(
