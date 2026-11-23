@@ -77,9 +77,9 @@ internal class JibikDueReminderWorker(
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             val body = listOfNotNull(
-                summary.overdueCount.takeIf { it > 0 }?.let { "$"+"{it} تعهد سررسیدگذشته" },
-                summary.todayCount.takeIf { it > 0 }?.let { "$"+"{it} تعهد امروز" },
-                summary.upcomingCount.takeIf { it > 0 }?.let { "$"+"{it} تعهد نزدیک به سررسید" },
+                summary.overdueCount.takeIf { it > 0 }?.let { it.toString() + " تعهد سررسیدگذشته" },
+                summary.todayCount.takeIf { it > 0 }?.let { it.toString() + " تعهد امروز" },
+                summary.upcomingCount.takeIf { it > 0 }?.let { it.toString() + " تعهد نزدیک به سررسید" },
             ).joinToString(" · ")
             val notification = NotificationCompat.Builder(app, LocalDueReminders.CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
