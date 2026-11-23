@@ -90,8 +90,9 @@ internal fun TransactionDetailDialog(
         }.getOrNull()
     }
     AlertDialog(
+        modifier = Modifier.liquidGlass(tone = GlassTone.CRYSTAL, radius = 28.dp, elevation = 15.dp),
         onDismissRequest = onDismiss,
-        containerColor = JibikStyle.paper,
+        containerColor = Color.Transparent,
         shape = RoundedCornerShape(26.dp),
         tonalElevation = 0.dp,
         title = {
