@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -69,14 +70,45 @@ internal interface LedgerDao {
     suspend fun countMatchingIds(ids: List<String>): Int
 }
 
+/** One receipt has multiple classified items, but exactly one ledger payment. */
+@Entity(
+    tableName = "purchase_lines",
+    primaryKeys = ["transactionId", "lineIndex"],
+    foreignKeys = [ForeignKey(
+        entity = LedgerEntity::class,
+        parentColumns = ["id"],
+        childColumns = ["transactionId"],
+        onDelete = ForeignKey.CASCADE,
+    )],
+    indices = [Index(value = ["transactionId"])],
+)
+internal data class PurchaseLineEntity(
+    val transactionId: String,
+    val lineIndex: Int,
+    val title: String,
+    val category: String,
+    val quantity: Int,
+    val unitPriceToman: Long,
+)
+
+@Dao
+internal interface PurchaseLineDao {
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertAll(lines: List<PurchaseLineEntity>)
+
+    @Query("SELECT * FROM purchase_lines WHERE transactionId = :transactionId ORDER BY lineIndex")
+    suspend fun forTransaction(transactionId: String): List<PurchaseLineEntity>
+}
+
 @Database(
-    entities = [LedgerEntity::class, FinancialAccountEntity::class],
-    version = 2,
+    entities = [LedgerEntity::class, FinancialAccountEntity::class, PurchaseLineEntity::class],
+    version = 3,
     exportSchema = false,
 )
 internal abstract class JibikDatabase : RoomDatabase() {
     abstract fun ledgerDao(): LedgerDao
     abstract fun accountDao(): FinancialAccountDao
+    abstract fun purchaseLineDao(): PurchaseLineDao
 
     companion object {
         @Volatile private var instance: JibikDatabase? = null
@@ -96,13 +128,31 @@ internal abstract class JibikDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS purchase_lines (" +
+                        "transactionId TEXT NOT NULL, lineIndex INTEGER NOT NULL, " +
+                        "title TEXT NOT NULL, category TEXT NOT NULL, " +
+                        "quantity INTEGER NOT NULL, unitPriceToman INTEGER NOT NULL, " +
+                        "PRIMARY KEY(transactionId, lineIndex), " +
+                        "FOREIGN KEY(transactionId) REFERENCES ledger_records(id) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_purchase_lines_transactionId " +
+                        "ON purchase_lines(transactionId)"
+                )
+            }
+        }
+
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     JibikDatabase::class.java,
                     "jibik_ledger_v1.db",
-                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
             }
     }
 }
