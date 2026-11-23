@@ -157,7 +157,7 @@ internal fun GoalsScreen(
                 tone = GlassTone.CRYSTAL,
             ) {
                 Column(
-                    Modifier.fillMaxWidth().padding(17.dp),
+                    Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(13.dp),
                 ) {
                     Row(
@@ -219,7 +219,7 @@ internal fun GoalsScreen(
                 }
             }
         }
-        Spacer(Modifier.height(90.dp))
+        Spacer(Modifier.height(12.dp))
     }
 }
 
