@@ -11,6 +11,11 @@ internal data class PurchaseLine(
     val category: String,
     val quantity: Int,
     val unitPriceToman: Long,
+    val unit: String = "عدد",
+)
+
+internal val PURCHASE_UNITS = listOf(
+    "عدد", "بسته", "گرم", "کیلوگرم", "میلی‌لیتر", "لیتر", "متر", "دست",
 )
 
 internal fun validateItemizedPurchase(payment: LedgerRecord, lines: List<PurchaseLine>) {
@@ -20,6 +25,7 @@ internal fun validateItemizedPurchase(payment: LedgerRecord, lines: List<Purchas
     lines.forEach {
         require(it.title.isNotBlank() && it.title.length <= 80)
         require(it.category.isNotBlank() && it.category.length <= 120)
+        require(it.unit in PURCHASE_UNITS) { "Unsupported purchase quantity unit" }
     }
     val total = itemizedPurchaseTotal(
         lines.map { ShoppingItem(it.title, it.quantity, it.unitPriceToman) }
