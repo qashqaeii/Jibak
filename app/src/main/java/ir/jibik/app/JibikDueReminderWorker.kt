@@ -82,7 +82,7 @@ internal class JibikDueReminderWorker(
                 summary.upcomingCount.takeIf { it > 0 }?.let { it.toString() + " تعهد نزدیک به سررسید" },
             ).joinToString(" · ")
             val notification = NotificationCompat.Builder(app, LocalDueReminders.CHANNEL_ID)
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.drawable.ic_jibik_due_notification)
                 .setContentTitle("جیبو • یادآوری تعهدات")
                 .setContentText(body)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -142,11 +142,13 @@ internal object LocalDueReminders {
         val work = PeriodicWorkRequestBuilder<JibikDueReminderWorker>(
             24, TimeUnit.HOURS,
         ).setInitialDelay(delay, TimeUnit.MILLISECONDS).build()
-        check(app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putBoolean(OPTED_IN, true).commit())
         WorkManager.getInstance(app).enqueueUniquePeriodicWork(
             UNIQUE_WORK, ExistingPeriodicWorkPolicy.UPDATE, work,
         )
+        // Write consent after scheduling succeeds; an error must not show
+        // a falsely enabled state in the app.
+        check(app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(OPTED_IN, true).commit())
         return true
     }
 
