@@ -73,6 +73,42 @@ internal fun detailedCategoryExpenses(
         .sortedWith(compareByDescending<CategoryExpense> { it.amountToman }.thenBy { it.category })
 }
 
+/** Income has no receipt rows: each received amount is accounted for once. */
+internal fun classifiedIncomeLines(
+    records: List<LedgerRecord>,
+    startMillis: Long,
+    endExclusiveMillis: Long,
+): List<ClassifiedExpenseLine> {
+    require(startMillis < endExclusiveMillis)
+    return records.asSequence().filter { record ->
+        record.kind == LedgerKind.INCOME &&
+            record.timestampMillis >= startMillis &&
+            record.timestampMillis < endExclusiveMillis
+    }.map { record ->
+        require(record.amountToman > 0L)
+        ClassifiedExpenseLine(
+            record = record,
+            category = record.category.trim().ifBlank { "سایر درآمدها" },
+            amountToman = record.amountToman,
+        )
+    }.toList()
+}
+
+internal fun detailedIncomeCategories(
+    records: List<LedgerRecord>,
+    startMillis: Long,
+    endExclusiveMillis: Long,
+): List<CategoryExpense> {
+    val totals = mutableMapOf<String, Long>()
+    classifiedIncomeLines(records, startMillis, endExclusiveMillis).forEach { line ->
+        totals[line.category] = Math.addExact(
+            totals[line.category] ?: 0L, line.amountToman,
+        )
+    }
+    return totals.map { (key, value) -> CategoryExpense(key, value) }
+        .sortedWith(compareByDescending<CategoryExpense> { it.amountToman }.thenBy { it.category })
+}
+
 /**
  * A drilldown level groups by exactly one additional hierarchy segment.
  * Direct postings on a parent are preserved as a separate "direct" line.
