@@ -151,6 +151,7 @@ private fun JibikApp(store: LocalLedgerStore) {
     val savedReceiptLines = remember { mutableStateMapOf<String, List<PurchaseLine>>() }
     val accounts = remember { mutableStateListOf<Account>() }
     val goals = remember { mutableStateListOf<SavingsGoalEntity>() }
+    val customCategories = remember { mutableStateListOf<CustomCategoryEntity>() }
     val scope = rememberCoroutineScope()
     val notifications = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -192,11 +193,14 @@ private fun JibikApp(store: LocalLedgerStore) {
             val loadedReceipts = store.loadAllPurchaseLines()
             val loadedAccounts = store.loadAccounts()
             val persistedGoals = store.loadSavingsGoals()
+            val persistedCategories = store.loadCustomCategories()
             // Account definitions first, so the ledger can never reference a missing account.
             accounts.clear()
             accounts.addAll(loadedAccounts)
             goals.clear()
             goals.addAll(persistedGoals)
+            customCategories.clear()
+            customCategories.addAll(persistedCategories)
             records.clear()
             records.addAll(persisted)
             savedReceiptLines.clear()
@@ -237,6 +241,8 @@ private fun JibikApp(store: LocalLedgerStore) {
     var addTargetAccountId by remember { mutableStateOf<String?>(null) }
     var showCreateAccount by remember { mutableStateOf(false) }
     var showGoals by rememberSaveable { mutableStateOf(false) }
+    var showCategoryManager by rememberSaveable { mutableStateOf(false) }
+    var showNewCategory by remember { mutableStateOf(false) }
     var showNewGoal by remember { mutableStateOf(false) }
     // Keep the editor composed after rotation so its SavedState draft can be restored.
     var showItemizedPurchase by rememberSaveable { mutableStateOf(false) }
@@ -344,8 +350,34 @@ private fun JibikApp(store: LocalLedgerStore) {
                 },
                 onAi = { jiboAiFeature = JiboAiFeature.SPENDING },
             )
-            Section.ACCOUNTS -> if (showGoals) {
-                Box(Modifier.padding(insets)) {
+            Section.ACCOUNTS -> when {
+                showCategoryManager -> CategoryManagementScreen(
+                    categories = customCategories,
+                    modifier = Modifier.padding(insets),
+                    onBack = { showCategoryManager = false },
+                    onAdd = { showNewCategory = true },
+                    isSaving = isSaving,
+                    onArchive = { categoryId, archived ->
+                        if (!isSaving) {
+                            isSaving = true
+                            scope.launch {
+                                try {
+                                    store.setCustomCategoryArchived(categoryId, archived)
+                                    customCategories.clear()
+                                    customCategories.addAll(store.loadCustomCategories())
+                                    notifications.showSnackbar(
+                                        if (archived) "دسته بایگانی شد." else "دسته بازیابی شد."
+                                    )
+                                } catch (_: Exception) {
+                                    storageError = "وضعیت دسته تغییر نکرد؛ ممکن است زیر‌دسته فعالی داشته باشد."
+                                } finally {
+                                    isSaving = false
+                                }
+                            }
+                        }
+                    },
+                )
+                showGoals -> Box(Modifier.padding(insets)) {
                     GoalsScreen(
                         goals = goals,
                         accounts = accounts,
@@ -360,14 +392,16 @@ private fun JibikApp(store: LocalLedgerStore) {
                         },
                     )
                 }
-            } else AccountsScreen(
-                accounts = accounts,
-                balances = FinanceEngine.balances(accounts, records.toList()),
-                modifier = Modifier.padding(insets),
-                onAdd = { showCreateAccount = true },
-                onTransfer = { addKind = LedgerKind.TRANSFER; showAdd = true },
-                onGoals = { showGoals = true },
-            )
+                else -> AccountsScreen(
+                    accounts = accounts,
+                    balances = FinanceEngine.balances(accounts, records.toList()),
+                    modifier = Modifier.padding(insets),
+                    onAdd = { showCreateAccount = true },
+                    onTransfer = { addKind = LedgerKind.TRANSFER; showAdd = true },
+                    onGoals = { showGoals = true },
+                    onCategories = { showCategoryManager = true },
+                )
+            }
         }
     }
 
