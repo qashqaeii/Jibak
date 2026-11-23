@@ -134,6 +134,84 @@ internal interface CustomCategoryDao {
     suspend fun setArchived(id: String, archived: Boolean)
 }
 
+/** One monthly cap per hierarchical expense path. Caps never post transactions. */
+@Entity(tableName = "category_budgets")
+internal data class CategoryBudgetEntity(
+    @PrimaryKey val categoryPath: String,
+    val limitToman: Long,
+    val warningPercent: Int = 80,
+)
+
+@Dao
+internal interface CategoryBudgetDao {
+    @Query("SELECT * FROM category_budgets ORDER BY categoryPath")
+    suspend fun list(): List<CategoryBudgetEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(budget: CategoryBudgetEntity)
+
+    @Query("DELETE FROM category_budgets WHERE categoryPath = :path")
+    suspend fun remove(path: String)
+}
+
+/** A liability is a memo until a real payment is posted atomically to the ledger. */
+@Entity(tableName = "financial_obligations", indices = [Index(value = ["dueAtMillis"])])
+internal data class FinancialObligationEntity(
+    @PrimaryKey val id: String,
+    val title: String,
+    val kind: String,
+    val totalToman: Long,
+    val dueAtMillis: Long,
+    val installmentCount: Int,
+    val note: String,
+    val createdAtMillis: Long,
+)
+
+@Dao
+internal interface FinancialObligationDao {
+    @Query("SELECT * FROM financial_obligations ORDER BY dueAtMillis, createdAtMillis, id")
+    suspend fun list(): List<FinancialObligationEntity>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(obligation: FinancialObligationEntity)
+}
+
+/** Exactly one accounting entry per confirmed repayment/collection. */
+@Entity(
+    tableName = "obligation_payments",
+    foreignKeys = [
+        ForeignKey(
+            entity = FinancialObligationEntity::class,
+            parentColumns = ["id"], childColumns = ["obligationId"],
+            onDelete = ForeignKey.RESTRICT,
+        ),
+        ForeignKey(
+            entity = LedgerEntity::class,
+            parentColumns = ["id"], childColumns = ["transactionId"],
+            onDelete = ForeignKey.RESTRICT,
+        ),
+    ],
+    indices = [Index(value = ["obligationId"])],
+)
+internal data class ObligationPaymentEntity(
+    @PrimaryKey val transactionId: String,
+    val obligationId: String,
+    val amountToman: Long,
+    val paidAtMillis: Long,
+)
+
+@Dao
+internal interface ObligationPaymentDao {
+    @Query("SELECT * FROM obligation_payments ORDER BY paidAtMillis DESC, transactionId")
+    suspend fun list(): List<ObligationPaymentEntity>
+
+    @Query("SELECT * FROM obligation_payments WHERE obligationId = :id ORDER BY paidAtMillis DESC")
+    suspend fun forObligation(id: String): List<ObligationPaymentEntity>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(row: ObligationPaymentEntity)
+}
+
 /** A goal points to one real savings account; it cannot mint imaginary savings. */
 @Entity(
     tableName = "savings_goals",
@@ -166,9 +244,10 @@ internal interface SavingsGoalDao {
     entities = [
         LedgerEntity::class, FinancialAccountEntity::class,
         PurchaseLineEntity::class, SavingsGoalEntity::class,
-        CustomCategoryEntity::class,
+        CustomCategoryEntity::class, CategoryBudgetEntity::class,
+        FinancialObligationEntity::class, ObligationPaymentEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 internal abstract class JibikDatabase : RoomDatabase() {
@@ -177,6 +256,9 @@ internal abstract class JibikDatabase : RoomDatabase() {
     abstract fun purchaseLineDao(): PurchaseLineDao
     abstract fun savingsGoalDao(): SavingsGoalDao
     abstract fun customCategoryDao(): CustomCategoryDao
+    abstract fun categoryBudgetDao(): CategoryBudgetDao
+    abstract fun obligationDao(): FinancialObligationDao
+    abstract fun obligationPaymentDao(): ObligationPaymentDao
 
     companion object {
         @Volatile private var instance: JibikDatabase? = null
@@ -257,13 +339,52 @@ internal abstract class JibikDatabase : RoomDatabase() {
             }
         }
 
+        /** Append-only schema upgrade. Existing accounts, records and receipts survive. */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS category_budgets (" +
+                        "categoryPath TEXT NOT NULL, limitToman INTEGER NOT NULL, " +
+                        "warningPercent INTEGER NOT NULL, PRIMARY KEY(categoryPath))"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS financial_obligations (" +
+                        "id TEXT NOT NULL, title TEXT NOT NULL, kind TEXT NOT NULL, " +
+                        "totalToman INTEGER NOT NULL, dueAtMillis INTEGER NOT NULL, " +
+                        "installmentCount INTEGER NOT NULL, note TEXT NOT NULL, " +
+                        "createdAtMillis INTEGER NOT NULL, PRIMARY KEY(id))"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_financial_obligations_dueAtMillis " +
+                        "ON financial_obligations(dueAtMillis)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS obligation_payments (" +
+                        "transactionId TEXT NOT NULL, obligationId TEXT NOT NULL, " +
+                        "amountToman INTEGER NOT NULL, paidAtMillis INTEGER NOT NULL, " +
+                        "PRIMARY KEY(transactionId), " +
+                        "FOREIGN KEY(obligationId) REFERENCES financial_obligations(id) " +
+                        "ON UPDATE NO ACTION ON DELETE RESTRICT, " +
+                        "FOREIGN KEY(transactionId) REFERENCES ledger_records(id) " +
+                        "ON UPDATE NO ACTION ON DELETE RESTRICT)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_obligation_payments_obligationId " +
+                        "ON obligation_payments(obligationId)"
+                )
+            }
+        }
+
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     JibikDatabase::class.java,
                     "jibik_ledger_v1.db",
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { instance = it }
+                ).addMigrations(
+                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
+                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
+                ).build().also { instance = it }
             }
     }
 }
