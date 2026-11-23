@@ -87,3 +87,32 @@ class LedgerTransaction(models.Model):
                                    name="positive_transaction_rial"),
         ]
         ordering = ["-created_at", "-id"]
+
+
+class AiQuotaDay(models.Model):
+    """Row lock serializes the global daily AI budget."""
+    day = models.DateField(primary_key=True)
+
+
+class AiAnalysisRun(models.Model):
+    """Minimal audit metadata. Never stores prompts or raw financial records."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    day = models.DateField(db_index=True)
+    feature = models.CharField(max_length=32)
+    scope = models.CharField(max_length=48)
+    fingerprint = models.CharField(max_length=64)
+    state = models.CharField(max_length=12, default="pending")
+    result = models.JSONField(default=dict)
+    input_tokens = models.PositiveIntegerField(null=True, blank=True)
+    output_tokens = models.PositiveIntegerField(null=True, blank=True)
+    error = models.CharField(max_length=32, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["user", "day", "feature", "fingerprint"],
+                name="jibik_ai_run_lookup",
+            ),
+        ]
