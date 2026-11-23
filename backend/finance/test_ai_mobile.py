@@ -47,6 +47,14 @@ class MobileAiTests(APITestCase):
             self.assertEqual(self.client.post(self.url, bad, format="json").status_code, 400)
             bad = dict(self.payload, summary=dict(self.payload["summary"], income_toman=2**65))
             self.assertEqual(self.client.post(self.url, bad, format="json").status_code, 400)
+            bad = dict(self.payload, summary=dict(self.payload["summary"], income_toman=1000.1))
+            self.assertEqual(self.client.post(self.url, bad, format="json").status_code, 400)
+            bad = dict(self.payload, summary=dict(self.payload["summary"], income_toman=True))
+            self.assertEqual(self.client.post(self.url, bad, format="json").status_code, 400)
+            bad = dict(self.payload, summary=dict(self.payload["summary"], private_note="confidential"))
+            self.assertEqual(self.client.post(self.url, bad, format="json").status_code, 400)
+            bad = dict(self.payload, transactions=[{"note": "must not be accepted"}])
+            self.assertEqual(self.client.post(self.url, bad, format="json").status_code, 400)
             complete.assert_not_called()
 
     @override_settings(
