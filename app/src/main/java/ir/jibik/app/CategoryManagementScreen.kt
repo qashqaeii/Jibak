@@ -43,6 +43,8 @@ internal fun CategoryManagementScreen(
     isSaving: Boolean = false,
 ) {
     var income by rememberSaveable { mutableStateOf(false) }
+    var showBuiltins by rememberSaveable { mutableStateOf(false) }
+    var expandedBuiltin by rememberSaveable { mutableStateOf("") }
     val selectedKind = if (income) "INCOME" else "EXPENSE"
     val roots = if (income) IncomeCategoryCatalog.roots
         else ExpenseCategoryCatalog.roots
@@ -139,23 +141,78 @@ internal fun CategoryManagementScreen(
                 }
             }
         }
-        JibikSectionTitle("دسته‌های پیش‌فرض", "ساختار کامل سه‌سطحی و آماده استفاده")
-        roots.forEach { root ->
-            LiquidGlassCard(
-                tone = GlassTone.CRYSTAL,
-                padding = androidx.compose.foundation.layout.PaddingValues(
-                    horizontal = 13.dp, vertical = 11.dp,
-                ),
-            ) {
-                Row(Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text(root.title, color = JibikStyle.ink,
-                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        root.children.size.toString() + " زیر‌دسته",
-                        fontSize = 11.sp, color = JibikStyle.muted,
-                    )
+        JibikSectionTitle(
+            "دسته‌های پیش‌فرض",
+            "ساختار سه‌سطحی آماده برای همه فرم‌ها",
+        )
+        LiquidGlassButton(
+            text = if (showBuiltins) "بستن فهرست دسته‌های آماده"
+                else "مشاهده " + roots.size + " دسته اصلی آماده",
+            tone = GlassTone.CRYSTAL,
+            onClick = {
+                showBuiltins = !showBuiltins
+                expandedBuiltin = ""
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (showBuiltins) {
+            roots.forEach { root ->
+                LiquidGlassCard(
+                    tone = GlassTone.CRYSTAL,
+                    onClick = {
+                        expandedBuiltin =
+                            if (expandedBuiltin == root.id) "" else root.id
+                    },
+                    padding = androidx.compose.foundation.layout.PaddingValues(
+                        horizontal = 14.dp, vertical = 12.dp,
+                    ),
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(
+                            Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                root.title, color = JibikStyle.ink,
+                                fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                root.children.size.toString() + " زیر‌دسته",
+                                fontSize = 12.sp, color = JibikStyle.muted,
+                            )
+                        }
+                        Text(
+                            if (expandedBuiltin == root.id) "⌃" else "⌄",
+                            fontSize = 19.sp, color = JibikStyle.forest,
+                        )
+                    }
+                    if (expandedBuiltin == root.id) {
+                        root.children.forEach { child ->
+                            Column(
+                                Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    "• " + child.title,
+                                    color = JibikStyle.ink,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                if (child.children.isNotEmpty()) {
+                                    Text(
+                                        child.children.joinToString("، ") { it.title },
+                                        color = JibikStyle.muted,
+                                        fontSize = 12.sp,
+                                        lineHeight = 20.sp,
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
