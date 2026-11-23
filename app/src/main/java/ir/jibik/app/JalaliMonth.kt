@@ -1,7 +1,6 @@
 package ir.jibik.app
 
 import android.icu.util.Calendar
-import android.icu.util.PersianCalendar
 import android.icu.util.TimeZone
 import android.icu.util.ULocale
 import java.text.NumberFormat
@@ -29,8 +28,12 @@ private val JALALI_MONTH_NAMES = listOf(
 private fun persianNumber(value: Int): String =
     NumberFormat.getIntegerInstance(Locale("fa", "IR")).format(value)
 
-private fun persianCalendar(timestampMillis: Long): PersianCalendar =
-    PersianCalendar(TimeZone.getTimeZone("Asia/Tehran"), ULocale("fa_IR")).apply {
+private fun persianCalendar(timestampMillis: Long): Calendar =
+    Calendar.getInstance(
+        TimeZone.getTimeZone("Asia/Tehran"),
+        ULocale("fa_IR@calendar=persian"),
+    ).apply {
+        check(type == "persian") { "The system did not load the Persian calendar" }
         timeInMillis = timestampMillis
     }
 
