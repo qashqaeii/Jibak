@@ -121,12 +121,19 @@ def validate_result(raw):
 
 
 def analyze(user, feature, scope="personal", household_id=None):
+    """Analyze a user's authorized, server-stored ledger."""
     if feature not in FEATURES:
         raise AiError("invalid_input")
     if not available():
         raise AiError("disabled")
-
     scope_key, context = financial_context(user, scope, household_id)
+    return analyze_for_context(user, feature, scope_key, context)
+
+
+def analyze_for_context(user, feature, scope_key, context):
+    """Shared quotas/cache for server-owned data and opt-in mobile summaries."""
+    if feature not in FEATURES or not available():
+        raise AiError("disabled")
     payload = {"feature": feature, "guidance": FEATURE_GUIDANCE[feature], "data": context}
     encoded = json.dumps(
         [settings.ARVAN_AI_MODEL, scope_key, payload], ensure_ascii=False,
