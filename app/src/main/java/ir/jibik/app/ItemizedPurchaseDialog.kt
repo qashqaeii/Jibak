@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -14,7 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -83,10 +83,12 @@ internal fun ItemizedPurchaseDialog(
     }.getOrNull() else null
     val valid = !isSaving && total != null && total > 0L &&
         drafts.size in 1..20 && accounts.any { it.id == accountId }
+    val completeCount = lines.size
+    val incompleteCount = drafts.size - completeCount
     var selectingCategoryIndex by rememberSaveable { mutableStateOf(-1) }
 
     AlertDialog(
-        modifier = Modifier.liquidGlass(tone = GlassTone.FROSTED, radius = 28.dp, elevation = 15.dp),
+        modifier = Modifier.imePadding().liquidGlass(tone = GlassTone.FROSTED, radius = 28.dp, elevation = 15.dp),
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
         tonalElevation = 0.dp,
@@ -100,7 +102,7 @@ internal fun ItemizedPurchaseDialog(
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text("خرید چندقلمی", color = JibikStyle.ink,
                         fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-                    Text("هر رسید، فقط یک پرداخت", color = JibikStyle.muted, fontSize = 11.sp)
+                    Text("هر رسید، فقط یک پرداخت • حداکثر ۲۰ قلم", color = JibikStyle.muted, fontSize = 11.sp)
                 }
             }
         },
@@ -109,12 +111,14 @@ internal fun ItemizedPurchaseDialog(
                 modifier = Modifier.heightIn(max = 425.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(13.dp),
             ) {
+                JibikFormHint("جمع نهایی از تعداد × قیمت واحد محاسبه می‌شود؛ ثبت ناقص موجودی را تغییر نمی‌دهد.")
                 JibikAccountChoice(
                     title = "پرداخت از حساب",
                     accounts = accounts,
                     selectedId = accountId,
                     onSelect = { accountId = it },
                 )
+                JibikSectionTitle("اقلام خرید", "$completeCount قلم کامل از ${drafts.size}")
                 drafts.forEachIndexed { index, draft ->
                     val line = draft.asPurchaseLine(customCategories)
                     val lineTotal = line?.let {
@@ -237,9 +241,17 @@ internal fun ItemizedPurchaseDialog(
                                     Text("‹ انتخاب", color = JibikStyle.forest, fontSize = 11.sp)
                                 }
                             }
-                            if (!isSelectableCategory(draft.category, false, customCategories)) {
+                            if (draft.name.isBlank()) {
+                                JibikFormHint("نام کالا را وارد کن.", isWarning = true)
+                            } else if (parseTomanDraft(draft.quantity)?.let { it in 1..10_000L } != true) {
+                                JibikFormHint("تعداد باید بین ۱ تا ۱۰٬۰۰۰ باشد.", isWarning = true)
+                            } else if (parseTomanDraft(draft.unitPrice) == null) {
+                                JibikFormHint("قیمت واحد را وارد کن.", isWarning = true)
+                            } else if (!isSelectableCategory(draft.category, false, customCategories)) {
                                 JibikFormHint("دسته معتبر برای این قلم انتخاب کن.", isWarning = true)
-                            } else if (lineTotal != null) {
+                            } else if (lineTotal == null) {
+                                JibikFormHint("جمع قلم از محدوده مجاز بیشتر است.", isWarning = true)
+                            } else {
                                 Text(
                                     "جمع قلم: " + money(lineTotal),
                                     fontSize = 12.sp,
@@ -256,7 +268,7 @@ internal fun ItemizedPurchaseDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(15.dp),
                 ) {
-                    Text("＋ افزودن قلم دیگر")
+                    Text(if (drafts.size == 20) "حداکثر ۲۰ قلم" else "＋ افزودن قلم دیگر (${drafts.size}/۲۰)")
                 }
                 OutlinedTextField(
                     value = note,
@@ -280,18 +292,21 @@ internal fun ItemizedPurchaseDialog(
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                         JibikFormHint(
-                            "${lines.size} قلم کامل از ${drafts.size} · مبلغ فقط یک‌بار از حساب کم می‌شه.",
+                            if (incompleteCount > 0) "$incompleteCount قلم نیاز به تکمیل دارد؛ ثبت غیرفعال است."
+                            else "$completeCount قلم آماده ثبت · مبلغ فقط یک‌بار از حساب کم می‌شود.",
+                            isWarning = incompleteCount > 0,
                         )
                     }
                 }
             }
         },
         confirmButton = {
-            Button(
+            LiquidGlassButton(
+                text = if (isSaving) "در حال ثبت..." else if (valid) "ثبت خرید • " + money(total!!) else "تکمیل اقلام برای ثبت",
                 enabled = valid,
-                shape = RoundedCornerShape(15.dp),
+                tone = GlassTone.EMERALD,
                 onClick = {
-                    val sum = total ?: return@Button
+                    val sum = total ?: return@LiquidGlassButton
                     onSave(
                         LedgerRecord(
                             id = UUID.randomUUID().toString(),
@@ -305,7 +320,7 @@ internal fun ItemizedPurchaseDialog(
                         lines,
                     )
                 },
-            ) { Text(if (isSaving) "در حال ثبت..." else "ثبت خرید") }
+            )
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !isSaving) { Text("انصراف") }
