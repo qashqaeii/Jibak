@@ -265,8 +265,13 @@ private fun JibikApp(store: LocalLedgerStore) {
         containerColor = Cream,
         snackbarHost = { SnackbarHost(hostState = notifications) },
         bottomBar = {
-            NavigationBar(containerColor = Paper, tonalElevation = 0.dp) {
-                Section.entries.forEach { destination ->
+            Box(
+                Modifier
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                    .liquidGlass(GlassTone.CRYSTAL, radius = 26.dp, elevation = 9.dp),
+            ) {
+                NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp) {
+                    Section.entries.forEach { destination ->
                     NavigationBarItem(
                         selected = section == destination,
                         onClick = { section = destination },
@@ -275,24 +280,20 @@ private fun JibikApp(store: LocalLedgerStore) {
                         colors = NavigationBarItemDefaults.colors(
                             selectedTextColor = Forest,
                             unselectedTextColor = Quiet,
-                            indicatorColor = Color(0xFFE3F4EB),
+                            indicatorColor = Color(0xFFC6F2E4).copy(alpha = 0.72f),
                         ),
                     )
+                    }
                 }
             }
         },
         floatingActionButton = {
             if (section != Section.HOME) {
-                FloatingActionButton(
+                LiquidGlassButton(
+                    text = "＋  ثبت تراکنش",
                     onClick = { addKind = LedgerKind.EXPENSE; showAdd = true },
-                    modifier = Modifier.height(54.dp),
-                    containerColor = Orange,
-                    contentColor = Deep,
-                    shape = RoundedCornerShape(18.dp),
-                ) {
-                    Text("＋  ثبت تراکنش", modifier = Modifier.padding(horizontal = 14.dp),
-                        fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                }
+                    tone = GlassTone.HONEY,
+                )
             }
         },
     ) { insets ->
@@ -591,12 +592,9 @@ private fun Home(
                 modifier = Modifier.weight(1f),
             )
         }
-        Card(
+        LiquidGlassCard(
             onClick = onBudget,
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(containerColor = Paper),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         ) {
             Column(Modifier.fillMaxWidth().padding(17.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -771,13 +769,12 @@ private fun BalanceCard(summary: MoneySummary) {
 
 @Composable
 private fun MetricCard(title: String, amount: Long, accent: Color, modifier: Modifier = Modifier) {
-    Card(
+    LiquidGlassCard(
         modifier = modifier,
-        shape = RoundedCornerShape(19.dp),
-        colors = CardDefaults.cardColors(containerColor = Paper),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        tone = GlassTone.CRYSTAL,
+        padding = PaddingValues(14.dp),
     ) {
-        Column(Modifier.fillMaxWidth().padding(14.dp),
+        Column(Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
