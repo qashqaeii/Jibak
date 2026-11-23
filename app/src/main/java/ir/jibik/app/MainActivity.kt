@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.jibik.core.finance.Account
 import ir.jibik.core.finance.FinanceEngine
+import ir.jibik.core.finance.ExpenseCategoryCatalog
 import ir.jibik.core.finance.LedgerKind
 import ir.jibik.core.finance.LedgerRecord
 import ir.jibik.core.finance.MoneySummary
@@ -770,6 +771,24 @@ private fun AddTransactionDialog(
                                 label = { Text(option, fontSize = 12.sp) },
                                 shape = RoundedCornerShape(12.dp),
                             )
+                        }
+                    }
+                    if (kind == LedgerKind.EXPENSE) {
+                        Text("جزئیات خرید منزل", color = Quiet, fontSize = 12.sp)
+                        Row(
+                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            ExpenseCategoryCatalog.leaves()
+                                .filter { it.ids.size == 3 && it.ids.first() == "food" }
+                                .forEach { option ->
+                                    FilterChip(
+                                        selected = category == option.displayName,
+                                        onClick = { category = option.displayName },
+                                        label = { Text(option.labels.last(), fontSize = 12.sp) },
+                                        shape = RoundedCornerShape(12.dp),
+                                    )
+                                }
                         }
                     }
                     OutlinedTextField(
