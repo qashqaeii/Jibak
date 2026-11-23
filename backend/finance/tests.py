@@ -180,7 +180,9 @@ class JibikFinanceApiTests(APITestCase):
         )
         valid = self.client.get("/api/v1/sync/pull/").data["next_cursor"]
         self.assertTrue(valid)
-        forged = valid[:-1] + ("A" if valid[-1] != "A" else "B")
+        parts = valid.rsplit(".", 1)
+        self.assertEqual(len(parts), 2)
+        forged = parts[0] + "." + ("A" if parts[1][0] != "A" else "B") + parts[1][1:]
         self.assertEqual(
             self.client.get("/api/v1/sync/pull/", {"cursor": forged}).status_code,
             400,
