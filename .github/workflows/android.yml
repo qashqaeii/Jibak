@@ -25,6 +25,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Configure Android SDK command-line tools
+        uses: android-actions/setup-android@v3
       - name: Install Android SDK packages
         shell: bash
         run: |
