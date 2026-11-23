@@ -1,7 +1,6 @@
 """Security and financial invariants for the first Jibik API slice."""
 from django.contrib.auth import get_user_model
 from django.core import signing
-from django.test import override_settings
 from rest_framework.test import APITestCase
 from .models import FinancialAccount, Household, LedgerTransaction, Membership
 
