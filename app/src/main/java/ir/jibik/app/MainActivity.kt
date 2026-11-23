@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -114,6 +115,16 @@ private val colors = lightColorScheme(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Keep system bars visually continuous with the light liquid-glass canvas.
+        // Android 15 may manage the bar surfaces itself; icon contrast still applies.
+        @Suppress("DEPRECATION")
+        window.statusBarColor = android.graphics.Color.rgb(244, 248, 242)
+        @Suppress("DEPRECATION")
+        window.navigationBarColor = android.graphics.Color.rgb(248, 251, 247)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            isAppearanceLightStatusBars = true
+            isAppearanceLightNavigationBars = true
+        }
         val store = LocalLedgerStore(applicationContext)
         setContent {
             MaterialTheme(colorScheme = colors) {
