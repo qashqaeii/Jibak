@@ -81,7 +81,7 @@ REST_FRAMEWORK = {
 
 # ArvanCloud AIaaS. Server-only credentials; disabled until explicitly configured.
 ARVAN_AI_ENABLED = os.getenv("ARVAN_AI_ENABLED", "false").lower() == "true"
-ARVAN_AI_BASE_URL = os.getenv("ARVAN_AI_BASE_URL", "")
+ARVAN_AI_BASE_URL = os.getenv("ARVAN_AI_BASE_URL", "https://api.arvancloudai.ir/v1")
 ARVAN_AI_API_KEY = os.getenv("ARVAN_AI_API_KEY", "")
 ARVAN_AI_MODEL = os.getenv("ARVAN_AI_MODEL", "Gemini-2.5-Flash-lite")
 ARVAN_AI_TIMEOUT_SECONDS = int(os.getenv("ARVAN_AI_TIMEOUT_SECONDS", "10"))
