@@ -1330,5 +1330,4 @@ private fun parseMoney(raw: String): Long? {
     return normalized.toLongOrNull()
 }
 
-private fun money(amount: Long): String =
-    NumberFormat.getNumberInstance(Locale("fa", "IR")).format(amount) + " تومان"
+private fun money(amount: Long): String = formatToman(amount)
