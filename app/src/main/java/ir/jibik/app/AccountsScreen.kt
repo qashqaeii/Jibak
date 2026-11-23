@@ -72,6 +72,7 @@ internal fun AccountsScreen(
     onTransfer: () -> Unit,
     onGoals: () -> Unit,
     onCategories: () -> Unit,
+    onObligations: () -> Unit,
 ) {
     val totalBalance = balances.values.fold(0L) { total, value ->
         Math.addExact(total, value)
@@ -139,6 +140,20 @@ internal fun AccountsScreen(
                     Text("پس‌انداز واقعی، بر پایه حساب‌های تو", color = Subtle, fontSize = 12.sp)
                 }
                 Text("←", fontSize = 23.sp, color = Green)
+            }
+        }
+        LiquidGlassCard(onClick = onObligations, tone = GlassTone.CRYSTAL) {
+            Row(Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("تعهدات، بدهی‌ها و اقساط", color = Green,
+                        fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("وام، قبض، طلب و تسویه‌های واقعی با سررسید شمسی",
+                        color = Subtle, fontSize = 12.sp)
+                }
+                Text("‹", fontSize = 23.sp, color = Green)
             }
         }
         LiquidGlassCard(onClick = onCategories, tone = GlassTone.CRYSTAL) {
