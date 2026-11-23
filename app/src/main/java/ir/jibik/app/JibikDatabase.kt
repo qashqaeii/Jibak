@@ -98,6 +98,9 @@ internal interface PurchaseLineDao {
 
     @Query("SELECT * FROM purchase_lines WHERE transactionId = :transactionId ORDER BY lineIndex")
     suspend fun forTransaction(transactionId: String): List<PurchaseLineEntity>
+
+    @Query("SELECT * FROM purchase_lines ORDER BY transactionId, lineIndex")
+    suspend fun all(): List<PurchaseLineEntity>
 }
 
 /** A goal points to one real savings account; it cannot mint imaginary savings. */
