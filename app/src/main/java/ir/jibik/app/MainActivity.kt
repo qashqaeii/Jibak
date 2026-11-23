@@ -68,6 +68,8 @@ import ir.jibik.core.finance.LedgerKind
 import ir.jibik.core.finance.LedgerRecord
 import ir.jibik.core.finance.MoneySummary
 import ir.jibik.core.finance.PeriodTotals
+import ir.jibik.core.finance.CategoryExpense
+import ir.jibik.core.finance.categoryExpenses
 import ir.jibik.core.finance.periodTotals
 import java.text.NumberFormat
 import java.util.Locale
@@ -142,6 +144,9 @@ private fun JibikApp(store: LocalLedgerStore) {
     val monthTotals = periodTotals(
         records.toList(), currentMonth.startMillis, currentMonth.endExclusiveMillis
     )
+    val categorySpending = categoryExpenses(
+        records.toList(), currentMonth.startMillis, currentMonth.endExclusiveMillis
+    )
     var section by rememberSaveable { mutableStateOf(Section.HOME) }
     var showAdd by remember { mutableStateOf(false) }
     var budget by remember { mutableStateOf(store.budgetToman()) }
@@ -214,6 +219,7 @@ private fun JibikApp(store: LocalLedgerStore) {
                 budget = budget,
                 monthTotals = monthTotals,
                 monthTitle = currentMonth.title,
+                categorySpending = categorySpending,
                 modifier = Modifier.padding(insets),
                 onAllTransactions = { section = Section.TRANSACTIONS },
                 onBudget = { section = Section.BUDGET },
@@ -316,6 +322,7 @@ private fun Home(
     budget: Long,
     monthTotals: PeriodTotals,
     monthTitle: String,
+    categorySpending: List<CategoryExpense>,
     modifier: Modifier,
     onAllTransactions: () -> Unit,
     onBudget: () -> Unit,
@@ -352,6 +359,12 @@ private fun Home(
                 Text("هزینه این ماه: " + money(monthTotals.expenseToman), color = Quiet, fontSize = 12.sp)
             }
         }
+        SpendingByCategory(
+            categories = categorySpending,
+            total = monthTotals.expenseToman,
+            monthTitle = monthTitle,
+            onClick = onAllTransactions,
+        )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("تراکنش‌های اخیر", fontWeight = FontWeight.ExtraBold, fontSize = 19.sp)
             TextButton(onClick = onAllTransactions) { Text("مشاهده همه") }
@@ -365,6 +378,54 @@ private fun Home(
     }
 }
 
+
+@Composable
+private fun SpendingByCategory(
+    categories: List<CategoryExpense>,
+    total: Long,
+    monthTitle: String,
+    onClick: () -> Unit,
+) {
+    val palette = listOf(Forest, Orange, Mint, Coral)
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Paper),
+        shape = RoundedCornerShape(22.dp),
+    ) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("خرج‌ها کجا رفتن؟", color = Deep, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+                Text(monthTitle, color = Quiet, fontSize = 12.sp)
+            }
+            if (categories.isEmpty()) {
+                Text("هنوز هزینه‌ای در این ماه ثبت نشده.", color = Quiet, fontSize = 13.sp)
+            } else {
+                categories.take(3).forEachIndexed { index, entry ->
+                    val progress = (entry.amountToman.toDouble() / total.coerceAtLeast(1L)).toFloat().coerceIn(0f, 1f)
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(entry.category, fontSize = 13.sp, color = Deep, fontWeight = FontWeight.Medium)
+                            Text(money(entry.amountToman), fontSize = 12.sp, color = Quiet)
+                        }
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier.fillMaxWidth().height(8.dp),
+                            color = palette[index % palette.size],
+                            trackColor = Cream,
+                        )
+                    }
+                }
+                if (categories.size > 3) {
+                    Text(
+                        "${categories.size - 3} دسته دیگر هم در این ماه هزینه داشته‌اند.",
+                        fontSize = 12.sp, color = Quiet,
+                    )
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun BrandHeader() {
