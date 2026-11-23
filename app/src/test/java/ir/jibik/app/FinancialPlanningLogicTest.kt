@@ -57,6 +57,24 @@ class FinancialPlanningLogicTest {
         assertEquals("پرداخت تعهد و اقساط", record.category)
     }
 
+    @Test fun installmentScheduleAllocatesEveryTomanWithoutRoundingErrors() {
+        val item = obligation.copy(totalToman = 10L, installmentCount = 3)
+        val first = nextUnpaidInstallment(item, emptyList())!!
+        assertEquals(0, first.index)
+        assertEquals(4L, first.amountToman)
+        val paidFirst = listOf(ObligationPaymentEntity(
+            "first", item.id, 4L, 1_700_000_010_000L))
+        val second = nextUnpaidInstallment(item, paidFirst)!!
+        assertEquals(1, second.index)
+        assertEquals(3L, second.amountToman)
+        val paidPartial = paidFirst + ObligationPaymentEntity(
+            "half-second", item.id, 2L, 1_700_000_011_000L)
+        assertEquals(2L, nextUnpaidInstallment(item, paidPartial)!!.paidTowardToman)
+        val settled = paidPartial + ObligationPaymentEntity(
+            "rest", item.id, 4L, 1_700_000_012_000L)
+        assertEquals(null, nextUnpaidInstallment(item, settled))
+    }
+
     @Test fun incomingReceivableIsAnIncomeNotATransferOrExtraExpense() {
         val incoming = settlementRecord(obligation.copy(kind = "RECEIVABLE"),
             "wallet", 100_000L, "collect", 1_700_000_010_000L)
