@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.sp
 import ir.jibik.core.finance.CategoryExpense
 import ir.jibik.core.finance.LedgerRecord
 import ir.jibik.core.finance.PeriodTotals
-import ir.jibik.core.finance.categoryExpenses
 import ir.jibik.core.finance.periodTotals
 import java.text.NumberFormat
 import java.util.Locale
@@ -50,10 +49,14 @@ private fun moneyReport(value: Long): String =
 
 /** Always uses real local ledger rows. Offline, private, and free of fabricated trends. */
 @Composable
-internal fun ReportsScreen(records: List<LedgerRecord>, modifier: Modifier = Modifier) {
+internal fun ReportsScreen(
+    records: List<LedgerRecord>,
+    categorySpending: List<CategoryExpense>,
+    modifier: Modifier = Modifier,
+) {
     val month = currentJalaliMonth()
     val totals = periodTotals(records, month.startMillis, month.endExclusiveMillis)
-    val categories = categoryExpenses(records, month.startMillis, month.endExclusiveMillis)
+    val categories = categorySpending
     val cashFlow = totals.incomeToman - totals.expenseToman
     Column(
         modifier = modifier.fillMaxSize().background(Ivory).verticalScroll(rememberScrollState())
