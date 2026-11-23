@@ -28,6 +28,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -42,9 +43,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -66,6 +70,7 @@ import ir.jibik.core.finance.MoneySummary
 import java.text.NumberFormat
 import java.util.Locale
 import java.util.UUID
+import kotlinx.coroutines.launch
 
 private val Forest = Color(0xFF07574C)
 private val Deep = Color(0xFF102D31)
@@ -110,7 +115,25 @@ private enum class Section(val title: String) {
 @Composable
 private fun JibikApp(store: LocalLedgerStore) {
     var welcomed by remember { mutableStateOf(store.hasFinishedWelcome()) }
-    val records = remember { mutableStateListOf<LedgerRecord>().also { it.addAll(store.load()) } }
+    val records = remember { mutableStateListOf<LedgerRecord>() }
+    val scope = rememberCoroutineScope()
+    var isLoaded by remember { mutableStateOf(false) }
+    var loadingFailed by remember { mutableStateOf(false) }
+    var retryLoad by remember { mutableIntStateOf(0) }
+    var storageError by remember { mutableStateOf<String?>(null) }
+    var isSaving by remember { mutableStateOf(false) }
+    LaunchedEffect(store, retryLoad) {
+        try {
+            val persisted = store.load()
+            records.clear()
+            records.addAll(persisted)
+            loadingFailed = false
+        } catch (_: Exception) {
+            loadingFailed = true
+        } finally {
+            isLoaded = true
+        }
+    }
     val accounts = remember { listOf(Account("wallet", "کیف پول جیبیک")) }
     val summary = FinanceEngine.summary(accounts, records.toList())
     var section by rememberSaveable { mutableStateOf(Section.HOME) }
@@ -123,6 +146,27 @@ private fun JibikApp(store: LocalLedgerStore) {
             store.finishWelcome()
             welcomed = true
         })
+        return
+    }
+
+    if (!isLoaded) {
+        Box(Modifier.fillMaxSize().background(Cream), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = Forest)
+        }
+        return
+    }
+    if (loadingFailed) {
+        Column(
+            Modifier.fillMaxSize().background(Cream).padding(28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            ) {
+            Text("امکان خواندن اطلاعات مالی وجود ندارد", fontWeight = FontWeight.Bold, color = Deep)
+            Spacer(Modifier.height(12.dp))
+            Text("برای حفظ اطلاعات قبلی، ثبت تراکنش جدید متوقف شده است.", color = Quiet, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(18.dp))
+            Button(onClick = { isLoaded = false; retryLoad++ }) { Text("تلاش دوباره") }
+        }
         return
     }
 
@@ -182,11 +226,30 @@ private fun JibikApp(store: LocalLedgerStore) {
         AddTransactionDialog(
             onDismiss = { showAdd = false },
             onSave = { record ->
-                // Persist first so UI never presents an uncommitted financial entry.
-                store.append(record)
-                records.add(0, record)
-                showAdd = false
+                if (!isSaving) {
+                    isSaving = true
+                    scope.launch {
+                        try {
+                            // Store on background dispatcher, then update the visible ledger.
+                            store.append(record)
+                            records.add(0, record)
+                            showAdd = false
+                        } catch (_: Exception) {
+                            storageError = "تراکنش ذخیره نشد؛ اطلاعات قبلی شما محفوظ است."
+                        } finally {
+                            isSaving = false
+                        }
+                    }
+                }
             },
+        )
+    }
+    if (storageError != null) {
+        AlertDialog(
+            onDismissRequest = { storageError = null },
+            title = { Text("خطا در ثبت اطلاعات") },
+            text = { Text(storageError ?: "") },
+            confirmButton = { TextButton(onClick = { storageError = null }) { Text("متوجه شدم") } },
         )
     }
     if (showEditBudget) {
