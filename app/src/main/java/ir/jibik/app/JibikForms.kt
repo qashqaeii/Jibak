@@ -94,7 +94,9 @@ internal class TomanGroupingTransformation : VisualTransformation {
 
             override fun transformedToOriginal(offset: Int): Int {
                 val bounded = offset.coerceIn(0, output.length)
-                return sourceToDisplay.indexOfLast { it <= bounded }.coerceAtLeast(0)
+                // Cursor positions immediately before a comma still follow the
+                // preceding digit; tapping there must not jump back a character.
+                return (0 until bounded).count { output[it] != ',' }
             }
         }
         return TransformedText(AnnotatedString(output.toString()), mapping)
