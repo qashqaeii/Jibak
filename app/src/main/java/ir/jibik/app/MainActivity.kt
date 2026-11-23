@@ -1542,7 +1542,7 @@ private fun AddTransactionDialog(
         },
         text = {
             Column(
-                modifier = Modifier.heightIn(max = 420.dp)
+                modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(13.dp),
             ) {
@@ -1645,15 +1645,18 @@ private fun AddTransactionDialog(
             }
         },
         confirmButton = {
-            Button(
+            LiquidGlassButton(
+                text = if (isSaving) "در حال ثبت..."
+                    else if (kind == LedgerKind.TRANSFER) "ثبت انتقال"
+                    else "ثبت تراکنش",
                 enabled = canSave,
-                shape = RoundedCornerShape(15.dp),
+                tone = GlassTone.EMERALD,
                 onClick = {
-                    val value = numericAmount ?: return@Button
+                    val value = numericAmount ?: return@LiquidGlassButton
                     val destination = if (kind == LedgerKind.TRANSFER) {
                         accounts.firstOrNull {
                             it.id == targetId && it.id != sourceId
-                        }?.id ?: return@Button
+                        }?.id ?: return@LiquidGlassButton
                     } else sourceId
                     onSave(
                         LedgerRecord(
@@ -1668,13 +1671,7 @@ private fun AddTransactionDialog(
                         ),
                     )
                 },
-            ) {
-                Text(
-                    if (isSaving) "در حال ثبت..."
-                    else if (kind == LedgerKind.TRANSFER) "ثبت انتقال"
-                    else "ثبت تراکنش",
-                )
-            }
+            )
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !isSaving) {
@@ -1730,11 +1727,12 @@ private fun BudgetDialog(
             }
         },
         confirmButton = {
-            Button(
+            LiquidGlassButton(
+                text = "ذخیره بودجه",
                 enabled = parsed != null && parsed > 0L,
                 onClick = { parsed?.let(onSave) },
-                shape = RoundedCornerShape(15.dp),
-            ) { Text("ذخیره بودجه") }
+                tone = GlassTone.EMERALD,
+            )
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("انصراف") }
