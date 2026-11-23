@@ -48,7 +48,7 @@ internal fun BankSmsReviewDialog(
     val amount = candidate.amountRial.takeIf { it > 0L && it % 10L == 0L }
         ?.div(10L)
     val looksDuplicate = amount != null && existingRecords.any {
-        it.kind == if (income) LedgerKind.INCOME else LedgerKind.EXPENSE &&
+        it.kind == (if (income) LedgerKind.INCOME else LedgerKind.EXPENSE) &&
             it.amountToman == amount &&
             kotlin.math.abs(it.timestampMillis - candidate.receivedAtMillis) < 900_000L
     }
