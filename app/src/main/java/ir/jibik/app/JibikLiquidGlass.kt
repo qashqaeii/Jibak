@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
@@ -78,6 +79,45 @@ private fun glassShadow(tone: GlassTone): Color = when (tone) {
     GlassTone.LILAC -> Color(0x6C8A70B5)
     GlassTone.ROSE -> Color(0x678F665B)
     GlassTone.CRYSTAL -> Color(0x69617D74)
+}
+
+/** A light mesh wash that brings out glass depth without a giant bitmap. */
+internal fun Modifier.liquidBackdrop(): Modifier = this.drawBehind {
+    drawRect(
+        brush = Brush.verticalGradient(
+            listOf(
+                GlassPalette.backgroundTop,
+                GlassPalette.backgroundMid,
+                GlassPalette.backgroundBottom,
+            )
+        )
+    )
+    val cornerGlow = size.width * 0.9f
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(
+                Color(0xFFC5FFDB).copy(alpha = 0.43f),
+                Color.Transparent,
+            ),
+            center = Offset(size.width * .03f, size.height * .12f),
+            radius = cornerGlow,
+        ),
+        center = Offset(size.width * .03f, size.height * .12f),
+        radius = cornerGlow,
+    )
+    val warmGlow = size.width * 0.82f
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(
+                Color(0xFFFFE0B6).copy(alpha = 0.42f),
+                Color.Transparent,
+            ),
+            center = Offset(size.width * .95f, size.height * .74f),
+            radius = warmGlow,
+        ),
+        center = Offset(size.width * .95f, size.height * .74f),
+        radius = warmGlow,
+    )
 }
 
 /**
