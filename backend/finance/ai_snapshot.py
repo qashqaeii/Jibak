@@ -25,7 +25,7 @@ class StrictSummarySerializer(serializers.Serializer):
     """Never silently accept note/record fields on the mobile AI boundary."""
     def to_internal_value(self, data):
         if isinstance(data, dict) and set(data) - set(self.fields):
-            raise serializers.ValidationError("Only aggregate summary fields are permitted")
+            raise serializers.ValidationError({"non_field_errors": ["Only aggregate summary fields are permitted"]})
         return super().to_internal_value(data)
 
 
