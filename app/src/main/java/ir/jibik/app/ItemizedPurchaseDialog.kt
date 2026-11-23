@@ -120,14 +120,12 @@ internal fun ItemizedPurchaseDialog(
                         runCatching { Math.multiplyExact(it.quantity.toLong(), it.unitPriceToman) }
                             .getOrNull()
                     }
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = JibikStyle.cream,
-                        ),
-                        shape = RoundedCornerShape(18.dp),
+                    LiquidGlassCard(
+                        tone = GlassTone.CRYSTAL,
+                        padding = androidx.compose.foundation.layout.PaddingValues(13.dp),
                     ) {
                         Column(
-                            Modifier.fillMaxWidth().padding(13.dp),
+                            Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             Row(
@@ -239,13 +237,11 @@ internal fun ItemizedPurchaseDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                 )
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = JibikStyle.greenSurface,
-                    ),
-                    shape = RoundedCornerShape(16.dp),
+                LiquidGlassCard(
+                    tone = GlassTone.HONEY,
+                    padding = androidx.compose.foundation.layout.PaddingValues(14.dp),
                 ) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp),
+                    Column(Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text("جمع نهایی رسید", color = JibikStyle.muted, fontSize = 12.sp)
                         Text(
