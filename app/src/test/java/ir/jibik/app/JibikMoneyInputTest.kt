@@ -1,6 +1,7 @@
 package ir.jibik.app
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -24,6 +25,13 @@ class JibikMoneyInputTest {
         assertEquals("۱٬۲۳۴٬۵۶۷", groupDigits("۱۲۳۴۵۶۷"))
         assertEquals("12", groupDigits("12"))
         assertEquals("1٬000", groupDigits("1000"))
+    }
+
+    @Test fun rejectsNegativeFractionalOrAlphabeticUserInput() {
+        assertFalse(isAllowedTomanDraft("-1200"))
+        assertFalse(isAllowedTomanDraft("1.5"))
+        assertFalse(isAllowedTomanDraft("تومان"))
+        assertTrue(isAllowedTomanDraft("۱٬۲۳۴,٥٦٧"))
     }
 
     @Test fun asciiDraftHasNineteenDigitMaximum() {
