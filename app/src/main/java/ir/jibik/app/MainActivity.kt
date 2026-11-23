@@ -1277,69 +1277,85 @@ private fun TransactionCard(record: LedgerRecord, onClick: () -> Unit) {
         transfer -> Color(0xFFFFF0DD)
         else -> Color(0xFFE9F6EF)
     }
+    val amountLabel = (when (record.kind) {
+        LedgerKind.EXPENSE -> "− "
+        LedgerKind.INCOME -> "+ "
+        LedgerKind.TRANSFER -> "⇄ "
+    }) + money(record.amountToman)
+    val title = record.note.ifBlank {
+        record.category.substringAfterLast(" / ")
+            .ifBlank { if (transfer) "انتقال بین حساب‌ها" else "تراکنش" }
+    }
+    val context = when (record.kind) {
+        LedgerKind.EXPENSE -> "هزینه · " +
+            record.category.substringBeforeLast(" / ", record.category)
+        LedgerKind.INCOME -> "درآمد · " +
+            record.category.substringBeforeLast(" / ", record.category)
+        LedgerKind.TRANSFER -> "انتقال بین حساب‌ها"
+    }
     LiquidGlassCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         tone = GlassTone.CRYSTAL,
         padding = PaddingValues(horizontal = 13.dp, vertical = 13.dp),
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                Modifier.size(40.dp).background(tint, RoundedCornerShape(13.dp)),
-                contentAlignment = Alignment.Center,
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val compact = maxWidth < 340.dp
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(11.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    when {
-                        expense -> "−"
-                        transfer -> "⇄"
-                        else -> "+"
-                    },
-                    color = highlight, fontWeight = FontWeight.Bold, fontSize = 20.sp,
-                )
+                Box(
+                    Modifier.size(42.dp).background(tint, RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        when {
+                            expense -> "−"
+                            transfer -> "⇄"
+                            else -> "+"
+                        },
+                        color = highlight, fontWeight = FontWeight.Bold, fontSize = 20.sp,
+                    )
+                }
+                Column(
+                    Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    Text(
+                        title, fontWeight = FontWeight.Bold, color = Deep,
+                        fontSize = 13.sp, maxLines = 2,
+                        lineHeight = 19.sp,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        context, color = Quiet, fontSize = 11.sp,
+                        lineHeight = 17.sp, maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (compact) {
+                        Text(
+                            amountLabel,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = highlight,
+                            fontSize = 14.sp,
+                            maxLines = 2, lineHeight = 20.sp,
+                        )
+                    }
+                }
+                if (!compact) {
+                    Text(
+                        amountLabel,
+                        modifier = Modifier.weight(0.9f),
+                        fontWeight = FontWeight.ExtraBold,
+                        color = highlight, fontSize = 13.sp,
+                        maxLines = 2, lineHeight = 19.sp,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.End,
+                    )
+                }
             }
-            Column(
-                Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(5.dp),
-            ) {
-                Text(
-                    record.note.ifBlank {
-                        record.category.substringAfterLast(" / ")
-                            .ifBlank { if (transfer) "انتقال بین حساب‌ها" else "تراکنش" }
-                    },
-                    fontWeight = FontWeight.Bold, color = Deep,
-                    fontSize = 13.sp, maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    when (record.kind) {
-                        LedgerKind.EXPENSE -> "هزینه · " +
-                            record.category.substringBeforeLast(" / ", record.category)
-                        LedgerKind.INCOME -> "درآمد · " +
-                            record.category.substringBeforeLast(" / ", record.category)
-                        LedgerKind.TRANSFER -> "انتقال بین حساب‌ها"
-                    },
-                    color = Quiet, fontSize = 11.sp,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Text(
-                (when (record.kind) {
-                    LedgerKind.EXPENSE -> "− "
-                    LedgerKind.INCOME -> "+ "
-                    LedgerKind.TRANSFER -> "⇄ "
-                }) + money(record.amountToman),
-                fontWeight = FontWeight.ExtraBold,
-                color = highlight,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(0.88f),
-                textAlign = TextAlign.End,
-            )
         }
     }
 }
