@@ -640,7 +640,7 @@ private fun Home(
                 }
             },
         )
-        if (records.isEmpty()) EmptyTransactions()
+        if (records.isEmpty()) EmptyTransactions(onNewExpense)
         else records.take(3).forEach { record ->
             TransactionCard(record, onClick = { onTransactionClick(record) })
         }
@@ -856,7 +856,7 @@ private fun Transactions(
         }
         if (filtered.isEmpty()) {
             item {
-                if (records.isEmpty()) EmptyTransactions()
+                if (records.isEmpty()) EmptyTransactions(onCreateTransaction)
                 else JibikSurfaceCard {
                     Row(
                         Modifier.fillMaxWidth(),
@@ -961,10 +961,12 @@ private fun TransactionCard(record: LedgerRecord, onClick: () -> Unit) {
 }
 
 @Composable
-private fun EmptyTransactions() {
+private fun EmptyTransactions(onCreateTransaction: () -> Unit) {
     JibikStatePanel(
         title = "هنوز تراکنشی ثبت نکردی",
-        description = "اولین درآمد یا هزینه‌ت رو ثبت کن تا گزارش مالی‌ت شکل بگیره.",
+        description = "با ثبت اولین درآمد یا هزینه، گزارش مالی‌ات ساخته می‌شه.",
+        actionLabel = "＋ ثبت اولین تراکنش",
+        onAction = onCreateTransaction,
     )
 }
 
