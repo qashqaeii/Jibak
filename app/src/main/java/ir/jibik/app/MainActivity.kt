@@ -214,6 +214,41 @@ private fun JibikApp(
         }
     }
     var isExporting by remember { mutableStateOf(false) }
+    var showEncryptedCsvDialog by remember { mutableStateOf(false) }
+    // Ephemeral only: never saved to Bundle, preferences or Room.
+    var pendingExportPassphrase by remember { mutableStateOf<CharArray?>(null) }
+    val encryptedExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream"),
+    ) { uri ->
+        val secret = pendingExportPassphrase
+        pendingExportPassphrase = null
+        if (uri != null && secret != null && !isExporting) {
+            isExporting = true
+            scope.launch {
+                try {
+                    val snapshot = store.load()
+                    val snapshotAccounts = store.loadAccounts()
+                    withContext(Dispatchers.IO) {
+                        val output = context.contentResolver.openOutputStream(uri, "w")
+                            ?: error("Unable to create protected export file")
+                        output.use {
+                            EncryptedLedgerCsvExport.write(it, secret, snapshotAccounts, snapshot)
+                        }
+                    }
+                    notifications.showSnackbar("فایل رمزدار گردش مالی ذخیره شد.")
+                } catch (_: Exception) {
+                    notifications.showSnackbar(
+                        "خروجی رمزدار کامل نشد؛ فایل ناقص را حذف کن و دوباره تلاش کن."
+                    )
+                } finally {
+                    secret.fill(Char.MIN_VALUE)
+                    isExporting = false
+                }
+            }
+        } else {
+            secret?.fill(Char.MIN_VALUE)
+        }
+    }
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv"),
     ) { uri ->
@@ -487,6 +522,11 @@ private fun JibikApp(
                 onExportCsv = {
                     if (!isExporting) {
                         exportLauncher.launch("jibik-ledger.csv")
+                    }
+                },
+                onExportEncryptedCsv = {
+                    if (!isExporting && pendingExportPassphrase == null) {
+                        showEncryptedCsvDialog = true
                     }
                 },
                 onAi = { jiboAiFeature = JiboAiFeature.SPENDING },
@@ -773,6 +813,29 @@ private fun JibikApp(
                             isSaving = false
                         }
                     }
+                }
+            },
+        )
+    }
+    if (showEncryptedCsvDialog) {
+        EncryptedCsvExportDialog(
+            onDismiss = { showEncryptedCsvDialog = false },
+            onConfirm = { passphrase ->
+                showEncryptedCsvDialog = false
+                if (!isExporting) {
+                    pendingExportPassphrase?.fill(Char.MIN_VALUE)
+                    pendingExportPassphrase = passphrase
+                    try {
+                        encryptedExportLauncher.launch("jibik-ledger-encrypted.jbc")
+                    } catch (_: Exception) {
+                        pendingExportPassphrase = null
+                        passphrase.fill(Char.MIN_VALUE)
+                        scope.launch {
+                            notifications.showSnackbar("انتخاب محل ذخیره‌سازی ممکن نشد.")
+                        }
+                    }
+                } else {
+                    passphrase.fill(Char.MIN_VALUE)
                 }
             },
         )

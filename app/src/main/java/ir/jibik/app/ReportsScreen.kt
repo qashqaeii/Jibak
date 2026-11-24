@@ -61,6 +61,7 @@ internal fun ReportsScreen(
     receiptLines: Map<String, List<PurchaseLine>> = emptyMap(),
     modifier: Modifier = Modifier,
     onExportCsv: () -> Unit = {},
+    onExportEncryptedCsv: () -> Unit = {},
     onAi: () -> Unit = {},
     onTransactionClick: (LedgerRecord) -> Unit = {},
 ) {
@@ -342,9 +343,15 @@ internal fun ReportsScreen(
                 modifier = Modifier.fillMaxWidth().height(49.dp),
                 tone = GlassTone.EMERALD,
             )
+            LiquidGlassButton(
+                text = "CSV رمزدار با گذرواژه",
+                onClick = onExportEncryptedCsv,
+                modifier = Modifier.fillMaxWidth(),
+                tone = GlassTone.CRYSTAL,
+            )
             JibikFormHint(
                 "این فایل اطلاعات مالی شخصی داره؛ فقط در جای امن ذخیره یا ارسالش کن. " +
-                    "CSV نسخه پشتیبان قابل بازیابی نیست.",
+                    "CSV معمولی و رمزدار نسخه پشتیبان قابل بازیابی نیستند.",
             )
         }
         Text(
