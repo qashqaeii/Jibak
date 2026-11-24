@@ -6,6 +6,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -174,7 +175,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Section(val title: String) {
+internal enum class Section(val title: String) {
     HOME("خانه"),
     TRANSACTIONS("تراکنش‌ها"),
     BUDGET("بودجه"),
@@ -396,6 +397,23 @@ private fun JibikApp(
     var showNewObligation by remember { mutableStateOf(false) }
     var settlingObligationId by remember { mutableStateOf<String?>(null) }
     var jiboAiFeature by remember { mutableStateOf<JiboAiFeature?>(null) }
+
+    // System gesture/Back button follows the same nested route hierarchy as
+    // the visible back controls. No invisible subpage in another tab hijacks Back.
+    val backRoute = resolveJibikBackRoute(
+        section, showObligations, showCategoryManager, showGoals, showBankSms,
+    )
+    BackHandler(enabled = welcomed && isLoaded && !loadingFailed &&
+        backRoute != JibikBackRoute.NONE) {
+        when (backRoute) {
+            JibikBackRoute.OBLIGATIONS -> showObligations = false
+            JibikBackRoute.CATEGORIES -> showCategoryManager = false
+            JibikBackRoute.GOALS -> showGoals = false
+            JibikBackRoute.BANK_SMS -> showBankSms = false
+            JibikBackRoute.HOME -> section = Section.HOME
+            JibikBackRoute.NONE -> Unit
+        }
+    }
 
     if (!welcomed) {
         WelcomeScreen(onStart = {
