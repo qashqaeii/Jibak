@@ -34,6 +34,37 @@ for filename in (
 if "JibikDialogHeading(" not in (APP / "JibikPremiumUi.kt").read_text(encoding="utf-8"):
     errors.append("Shared dialog title is missing")
 
+# Shared progress language makes financial trends consistent in every workspace.
+for filename in (
+    "MainActivity.kt",
+    "ReportsScreen.kt",
+    "GoalsScreen.kt",
+    "CategoryBudgetsUi.kt",
+    "ObligationsUi.kt",
+):
+    if "JibikProgressTrack(" not in (APP / filename).read_text(encoding="utf-8"):
+        errors.append(f"{filename}: missing shared finance progress track")
+
+# Interactive affordances should never revert to font-dependent chevrons.
+for filename in (
+    "JibikPremiumUi.kt",
+    "AccountsScreen.kt",
+    "MainActivity.kt",
+    "ReportsScreen.kt",
+):
+    if "JibikChevronIcon(" not in (APP / filename).read_text(encoding="utf-8"):
+        errors.append(f"{filename}: missing frameless RTL navigation chevron")
+
+for filename in (
+    "MainActivity.kt",
+    "ReportsScreen.kt",
+    "GoalsScreen.kt",
+    "CategoryBudgetsUi.kt",
+    "ObligationsUi.kt",
+):
+    if "JibikStatePanel(" not in (APP / filename).read_text(encoding="utf-8"):
+        errors.append(f"{filename}: empty/recovery state not using shared UI")
+
 manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
 if "android.permission.READ_SMS" in manifest or "android.permission.RECEIVE_SMS" in manifest:
     errors.append("Restricted SMS permission leaked into test manifest")
