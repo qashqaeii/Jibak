@@ -76,3 +76,7 @@ internal fun JibikFinancialDetail(
         }
     }
 }
+
+/** Never put a real amount in the composable text when the user hides it. */
+internal fun jibikPrivateAmount(formatted: String, visible: Boolean): String =
+    if (visible) formatted else "••••••"

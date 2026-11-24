@@ -36,6 +36,16 @@ internal class LocalLedgerStore(context: Context) {
         }
     }
 
+    /** Home-screen privacy is user-controlled and survives app restarts. */
+    fun areHomeAmountsVisible(): Boolean =
+        preferences.getBoolean("home_amounts_visible", true)
+
+    fun setHomeAmountsVisible(visible: Boolean) {
+        check(preferences.edit().putBoolean("home_amounts_visible", visible).commit()) {
+            "Unable to save home privacy preference"
+        }
+    }
+
     fun budgetToman(): Long = preferences.getLong("budget_toman", 0L)
 
     fun updateBudgetToman(value: Long) {

@@ -79,6 +79,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -195,6 +198,9 @@ private fun JibikApp(
     val obligationPayments = remember { mutableStateListOf<ObligationPaymentEntity>() }
     val scope = rememberCoroutineScope()
     val notifications = remember { SnackbarHostState() }
+    var homeAmountsVisible by rememberSaveable {
+        mutableStateOf(store.areHomeAmountsVisible())
+    }
     val context = LocalContext.current
     var dueRemindersOptedIn by remember {
         mutableStateOf(LocalDueReminders.isEnabled(context))
@@ -490,6 +496,17 @@ private fun JibikApp(
                 monthTotals = monthTotals,
                 monthTitle = currentMonth.title,
                 categorySpending = categorySpending,
+                amountsVisible = homeAmountsVisible,
+                onToggleAmounts = {
+                    val next = !homeAmountsVisible
+                    runCatching { store.setHomeAmountsVisible(next) }
+                        .onSuccess { homeAmountsVisible = next }
+                        .onFailure {
+                            scope.launch {
+                                notifications.showSnackbar("ترجیح نمایش مبالغ ذخیره نشد.")
+                            }
+                        }
+                },
                 modifier = Modifier.padding(insets),
                 onAllTransactions = { section = Section.TRANSACTIONS },
                 onBudget = { section = Section.BUDGET },
@@ -1065,6 +1082,8 @@ private fun Home(
     monthTotals: PeriodTotals,
     monthTitle: String,
     categorySpending: List<CategoryExpense>,
+    amountsVisible: Boolean,
+    onToggleAmounts: () -> Unit,
     modifier: Modifier,
     onAllTransactions: () -> Unit,
     onBudget: () -> Unit,
@@ -1080,11 +1099,11 @@ private fun Home(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         BrandHeader()
-        BalanceCard(summary)
+        BalanceCard(summary, amountsVisible, onToggleAmounts)
         JibikSectionTitle("خلاصه " + monthTitle, "درآمد و هزینه همین ماه")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MetricCard("درآمد", monthTotals.incomeToman, Mint, Modifier.weight(1f))
-            MetricCard("هزینه", monthTotals.expenseToman, Coral, Modifier.weight(1f))
+            MetricCard("درآمد", monthTotals.incomeToman, Mint, Modifier.weight(1f), amountsVisible)
+            MetricCard("هزینه", monthTotals.expenseToman, Coral, Modifier.weight(1f), amountsVisible)
         }
         JibikSectionTitle("ثبت سریع", "کارهای روزمره، بدون فرم‌های طولانی")
         BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -1174,7 +1193,8 @@ private fun Home(
                         Text("مدیریت سقف هزینه", color = Quiet, fontSize = 11.sp)
                     }
                     Text(
-                        if (budget > 0L) money(budget) else "بدون سقف",
+                        if (budget > 0L) jibikPrivateAmount(money(budget), amountsVisible)
+                        else "بدون سقف",
                         modifier = Modifier.weight(1f),
                         color = Forest, fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
@@ -1191,10 +1211,12 @@ private fun Home(
                 } else {
                     val used = (monthTotals.expenseToman.toDouble() /
                         budget.toDouble()).toFloat().coerceIn(0f, 1f)
-                    JibikProgressTrack(
-                        progress = used,
-                        color = if (monthTotals.expenseToman > budget) Coral else Mint,
-                    )
+                    if (amountsVisible) {
+                        JibikProgressTrack(
+                            progress = used,
+                            color = if (monthTotals.expenseToman > budget) Coral else Mint,
+                        )
+                    }
                     val remaining = budget - monthTotals.expenseToman
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(
@@ -1202,7 +1224,10 @@ private fun Home(
                             color = Quiet, fontSize = 12.sp,
                         )
                         Text(
-                            money(if (remaining >= 0) remaining else -remaining),
+                            jibikPrivateAmount(
+                                money(if (remaining >= 0) remaining else -remaining),
+                                amountsVisible,
+                            ),
                             color = if (remaining >= 0) Forest else Coral,
                             fontWeight = FontWeight.Bold, fontSize = 12.sp,
                             maxLines = 2, lineHeight = 19.sp,
@@ -1216,6 +1241,7 @@ private fun Home(
             categories = categorySpending,
             total = monthTotals.expenseToman,
             monthTitle = monthTitle,
+            amountsVisible = amountsVisible,
             onClick = onAllTransactions,
         )
         JibikSectionTitle(
@@ -1229,7 +1255,11 @@ private fun Home(
         )
         if (records.isEmpty()) EmptyTransactions(onNewExpense)
         else records.take(3).forEach { record ->
-            TransactionCard(record, onClick = { onTransactionClick(record) })
+            TransactionCard(
+                record,
+                onClick = { onTransactionClick(record) },
+                amountsVisible = amountsVisible,
+            )
         }
         Spacer(Modifier.height(12.dp))
     }
@@ -1240,6 +1270,7 @@ private fun SpendingByCategory(
     categories: List<CategoryExpense>,
     total: Long,
     monthTitle: String,
+    amountsVisible: Boolean,
     onClick: () -> Unit,
 ) {
     val palette = listOf(Forest, Orange, Mint, Coral)
@@ -1257,7 +1288,12 @@ private fun SpendingByCategory(
                 Text("خرج‌ها کجا رفتن؟", modifier = Modifier.weight(1f), color = Deep, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
                 Text(monthTitle, modifier = Modifier.weight(0.7f), textAlign = TextAlign.End, color = Quiet, fontSize = 12.sp)
             }
-            if (categories.isEmpty()) {
+            if (!amountsVisible) {
+                Text(
+                    "مبلغ‌ها و سهم دسته‌ها پنهان‌اند. برای دیدن آن‌ها از کارت موجودی استفاده کن.",
+                    color = Quiet, fontSize = 13.sp, lineHeight = 20.sp,
+                )
+            } else if (categories.isEmpty()) {
                 Text("هنوز هزینه‌ای در این ماه ثبت نشده.", color = Quiet, fontSize = 13.sp)
             } else {
                 categories.take(3).forEachIndexed { index, entry ->
@@ -1316,8 +1352,11 @@ private fun BrandHeader() {
 
 
 @Composable
-private fun BalanceCard(summary: MoneySummary) {
-    var balanceVisible by rememberSaveable { mutableStateOf(true) }
+private fun BalanceCard(
+    summary: MoneySummary,
+    amountsVisible: Boolean,
+    onToggleAmounts: () -> Unit,
+) {
     JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.HOME) {
         Row(
             Modifier.fillMaxWidth(),
@@ -1331,15 +1370,25 @@ private fun BalanceCard(summary: MoneySummary) {
                 Text("مجموع موجودی حساب‌ها", color = Color(0xFFDCF3EA), fontSize = 13.sp)
                 Text("دارایی ثبت‌شده تا امروز", color = Color(0xFFB9DDD1), fontSize = 11.sp)
             }
-            TextButton(onClick = { balanceVisible = !balanceVisible }) {
+            TextButton(
+                onClick = onToggleAmounts,
+                modifier = Modifier.semantics {
+                    stateDescription = if (amountsVisible) "مبالغ نمایان‌اند"
+                        else "مبالغ پنهان‌اند"
+                    contentDescription = if (amountsVisible)
+                        "مخفی‌کردن مبالغ صفحه خانه" else "نمایش مبالغ صفحه خانه"
+                },
+            ) {
                 Text(
-                    if (balanceVisible) "مخفی‌کردن" else "نمایش",
+                    if (amountsVisible) "مخفی‌کردن" else "نمایش",
                     color = Color.White, fontSize = 12.sp,
                 )
             }
         }
         JibikHeroAmount(
-            amount = if (balanceVisible) money(summary.balanceToman) else "••••••",
+            amount = jibikPrivateAmount(money(summary.balanceToman), amountsVisible),
+            accessibilityLabel = if (amountsVisible) money(summary.balanceToman)
+                else "مجموع موجودی حساب‌ها پنهان است",
         )
         HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
         Row(
@@ -1354,7 +1403,13 @@ private fun BalanceCard(summary: MoneySummary) {
 }
 
 @Composable
-private fun MetricCard(title: String, amount: Long, accent: Color, modifier: Modifier = Modifier) {
+private fun MetricCard(
+    title: String,
+    amount: Long,
+    accent: Color,
+    modifier: Modifier = Modifier,
+    amountsVisible: Boolean = true,
+) {
     LiquidGlassCard(
         modifier = modifier,
         tone = GlassTone.CRYSTAL,
@@ -1367,7 +1422,7 @@ private fun MetricCard(title: String, amount: Long, accent: Color, modifier: Mod
                 Box(Modifier.size(9.dp).background(accent, RoundedCornerShape(5.dp)))
                 Text(title + " ماه", color = Quiet, fontSize = 12.sp)
             }
-            val formatted = money(amount)
+            val formatted = jibikPrivateAmount(money(amount), amountsVisible)
             Text(
                 formatted,
                 fontFamily = JibikFontFamily,
@@ -1549,7 +1604,11 @@ private fun Transactions(
 }
 
 @Composable
-private fun TransactionCard(record: LedgerRecord, onClick: () -> Unit) {
+private fun TransactionCard(
+    record: LedgerRecord,
+    onClick: () -> Unit,
+    amountsVisible: Boolean = true,
+) {
     val expense = record.kind == LedgerKind.EXPENSE
     val transfer = record.kind == LedgerKind.TRANSFER
     val highlight = when {
@@ -1561,7 +1620,7 @@ private fun TransactionCard(record: LedgerRecord, onClick: () -> Unit) {
         LedgerKind.EXPENSE -> "− "
         LedgerKind.INCOME -> "+ "
         LedgerKind.TRANSFER -> "⇄ "
-    }) + money(record.amountToman)
+    }) + jibikPrivateAmount(money(record.amountToman), amountsVisible)
     val title = record.note.ifBlank {
         record.category.substringAfterLast(" / ")
             .ifBlank { if (transfer) "انتقال بین حساب‌ها" else "تراکنش" }

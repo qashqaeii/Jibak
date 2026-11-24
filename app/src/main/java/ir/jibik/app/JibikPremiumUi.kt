@@ -64,6 +64,7 @@ internal object JibikStyle {
 internal fun JibikHeroAmount(
     amount: String,
     modifier: Modifier = Modifier,
+    accessibilityLabel: String = amount,
 ) {
     val textSize = when {
         amount.length >= 27 -> 19.sp
@@ -73,7 +74,7 @@ internal fun JibikHeroAmount(
     }
     Text(
         text = amount,
-        modifier = modifier.fillMaxWidth().semantics { contentDescription = amount },
+        modifier = modifier.fillMaxWidth().semantics { contentDescription = accessibilityLabel },
         color = Color.White,
         fontFamily = JibikFontFamily,
         fontWeight = FontWeight.ExtraBold,
