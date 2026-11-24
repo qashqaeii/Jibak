@@ -1559,7 +1559,7 @@ private fun Budget(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(15.dp),
     ) {
-        JibikSectionTitle(
+        JibikPageHeader(
             title = "بودجه‌بندی",
             subtitle = "سقف هزینه در " + monthTitle,
         )

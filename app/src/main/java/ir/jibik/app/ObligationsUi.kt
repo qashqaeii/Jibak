@@ -69,10 +69,11 @@ internal fun ObligationsScreen(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        JibikSectionTitle("تعهدات و اقساط", "بدهی، طلب، وام و قبوض ثبت‌شده",
-            trailing = { TextButton(onClick = onBack) {
-                Text("بازگشت", color = JibikStyle.forest)
-            } })
+        JibikPageHeader(
+            title = "تعهدات و اقساط",
+            subtitle = "بدهی، طلب، وام و قبوض ثبت‌شده",
+            onBack = onBack,
+        )
         JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.OBLIGATIONS) {
             Text("تعهدات تسویه‌نشده", fontSize = 13.sp,
                 color = Color(0xFFD8F2EA))

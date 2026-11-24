@@ -55,14 +55,10 @@ internal fun CategoryManagementScreen(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        JibikSectionTitle(
+        JibikPageHeader(
             title = "مدیریت دسته‌ها",
             subtitle = "دسته اصلی، زیر‌دسته و جزئیات هزینه و درآمد",
-            trailing = {
-                TextButton(onClick = onBack) {
-                    Text("بازگشت", color = JibikStyle.forest)
-                }
-            },
+            onBack = onBack,
         )
         JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.CATEGORIES) {
             Text("طبقه‌بندی شخصی خودت", color = Color(0xFFD5F2E8),

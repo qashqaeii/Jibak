@@ -65,26 +65,11 @@ internal fun GoalsScreen(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    "هدف‌های پس‌انداز", fontSize = 23.sp,
-                    fontWeight = FontWeight.ExtraBold, color = JibikStyle.ink,
-                )
-                Text(
-                    "برای آینده، قدم‌های کوچک اما واقعی", fontSize = 12.sp,
-                    color = JibikStyle.muted,
-                )
-            }
-            JiboMascot(Modifier.size(62.dp))
-        }
+        JibikPageHeader(
+            title = "هدف‌های پس‌انداز",
+            subtitle = "برای آینده، قدم‌های کوچک اما واقعی",
+            onBack = onBack,
+        )
         LiquidGlassCard(onClick = onAi, tone = GlassTone.CRYSTAL) {
             Text("✦ جیبو و ایده‌های پس‌انداز", color = JibikStyle.forest,
                 fontSize = 15.sp, fontWeight = FontWeight.Bold)

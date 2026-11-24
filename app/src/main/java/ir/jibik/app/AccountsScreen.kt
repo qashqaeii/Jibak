@@ -83,17 +83,10 @@ internal fun AccountsScreen(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("حساب‌های من", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
-                Text("هر حساب، یک تصویر شفاف از پولت", fontSize = 12.sp, color = Subtle)
-            }
-            JibikBrandLogo(Modifier.size(44.dp))
-        }
+        JibikPageHeader(
+            title = "حساب‌های من",
+            subtitle = "هر حساب، یک تصویر شفاف از پولت",
+        )
         JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.ACCOUNTS) {
             Text("موجودی کل حساب‌ها", fontSize = 13.sp, color = Color(0xFFDAF1E7))
             JibikHeroAmount(accountMoney(totalBalance))

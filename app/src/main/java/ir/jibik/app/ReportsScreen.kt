@@ -94,14 +94,10 @@ internal fun ReportsScreen(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("گزارش مالی", fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
-                Text("آنچه واقعاً در ${month.title} اتفاق افتاده", fontSize = 13.sp, color = Muted)
-            }
-            JibikBrandLogo(Modifier.size(44.dp))
-        }
+        JibikPageHeader(
+            title = "گزارش مالی",
+            subtitle = "آنچه واقعاً در ${month.title} اتفاق افتاده",
+        )
         JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.REPORTS) {
             Text("خالص جریان پول این ماه", fontSize = 13.sp, color = Color(0xFFDAF1E9))
             JibikHeroAmount(moneyReport(cashFlow))
