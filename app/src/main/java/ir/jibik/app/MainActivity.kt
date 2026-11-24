@@ -904,7 +904,13 @@ private fun JibikApp(
                             showAdd = false
                             addTargetAccountId = null
                             repeatRecord = null
-                            scope.launch { notifications.showSnackbar("تراکنش ثبت شد.") }
+                            notifications.showSnackbar(
+                                when (record.kind) {
+                                    LedgerKind.EXPENSE -> "هزینه ثبت شد."
+                                    LedgerKind.INCOME -> "درآمد ثبت شد."
+                                    LedgerKind.TRANSFER -> "انتقال بین حساب‌ها انجام شد."
+                                },
+                            )
                         } catch (_: Exception) {
                             storageError = "تراکنش ذخیره نشد؛ اطلاعات قبلی شما محفوظ است."
                         } finally {
@@ -1799,7 +1805,14 @@ private fun AddTransactionDialog(
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
         title = {
-            JibikDialogHeading(if (kind == LedgerKind.TRANSFER) "انتقال بین حساب‌ها" else "تراکنش جدید", "ثبت ساده و مطمئن")
+            JibikDialogHeading(
+                title = when (kind) {
+                    LedgerKind.EXPENSE -> "ثبت هزینه"
+                    LedgerKind.INCOME -> "ثبت درآمد"
+                    LedgerKind.TRANSFER -> "انتقال بین حساب‌ها"
+                },
+                subtitle = "مبلغ و حساب را مشخص کن؛ قبل از ذخیره قابل اصلاح است.",
+            )
         },
         text = {
             Column(
@@ -1816,8 +1829,9 @@ private fun AddTransactionDialog(
                         LedgerKind.INCOME to "درآمد",
                         LedgerKind.TRANSFER to "انتقال",
                     ).forEach { (option, label) ->
-                        LiquidGlassButton(
+                        JibikGlassChip(
                             text = label,
+                            selected = kind == option,
                             onClick = {
                                 kind = option
                                 category = if (option == LedgerKind.INCOME) "حقوق و دستمزد" else "خوراک"
@@ -1830,14 +1844,21 @@ private fun AddTransactionDialog(
                             modifier = Modifier.weight(1f),
                             enabled = !isSaving &&
                                 (option != LedgerKind.TRANSFER || accounts.size > 1),
-                            tone = if (kind == option) GlassTone.EMERALD else GlassTone.CRYSTAL,
                         )
                     }
+                }
+                if (accounts.size < 2) {
+                    JibikFormHint("برای انتقال پول بین حساب‌ها باید حداقل دو حساب داشته باشی.")
                 }
                 JibikTomanField(
                     value = amount,
                     onValueChange = { amount = it },
-                    label = "مبلغ تراکنش",
+                    label = when (kind) {
+                        LedgerKind.EXPENSE -> "مبلغ هزینه"
+                        LedgerKind.INCOME -> "مبلغ درآمد"
+                        LedgerKind.TRANSFER -> "مبلغ انتقال"
+                    },
+                    enabled = !isSaving,
                 )
                 JibikAccountChoice(
                     title = if (kind == LedgerKind.INCOME)
@@ -1852,6 +1873,7 @@ private fun AddTransactionDialog(
                             }?.id.orEmpty()
                         }
                     },
+                    enabled = !isSaving,
                 )
                 if (kind == LedgerKind.TRANSFER) {
                     JibikAccountChoice(
@@ -1859,6 +1881,7 @@ private fun AddTransactionDialog(
                         accounts = accounts.filter { it.id != sourceId },
                         selectedId = targetId,
                         onSelect = { targetId = it },
+                        enabled = !isSaving,
                         emptyHint = "برای انتقال ابتدا حساب دوم بساز.",
                     )
                     JibikFormHint("انتقال بین حساب‌ها درآمد یا هزینه محسوب نمی‌شه.")
@@ -1868,7 +1891,7 @@ private fun AddTransactionDialog(
                         subtitle = "برای گزارش دقیق‌تر، جزئیات رو انتخاب کن",
                     )
                     LiquidGlassCard(
-                        onClick = { if (!isSaving) showCategoryPicker = true },
+                        onClick = if (isSaving) null else ({ showCategoryPicker = true }),
                         tone = GlassTone.CRYSTAL,
                         padding = PaddingValues(horizontal = 14.dp, vertical = 13.dp),
                     ) {
@@ -1884,7 +1907,7 @@ private fun AddTransactionDialog(
                                 fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                                 maxLines = 3,
                             )
-                            Text("‹ تغییر", color = Forest, fontSize = 12.sp)
+                            Text("تغییر", color = Forest, fontSize = 12.sp)
                         }
                     }
                     if (!categoryValid) {
@@ -1900,16 +1923,25 @@ private fun AddTransactionDialog(
                     enabled = !isSaving,
                     shape = RoundedCornerShape(15.dp),
                 )
-                if (!canSave && numericAmount == null && amount.isNotBlank()) {
-                    JibikFormHint("مبلغ معتبر وارد کن.", isWarning = true)
+                if (amount.isNotBlank() && (numericAmount == null || numericAmount <= 0L)) {
+                    JibikFormHint("مبلغ باید عددی بزرگ‌تر از صفر باشد.", isWarning = true)
+                }
+                if (!sourceValid) {
+                    JibikFormHint("ابتدا در بخش حساب‌ها یک حساب بساز.", isWarning = true)
+                }
+                if (kind == LedgerKind.TRANSFER && sourceValid && !targetValid) {
+                    JibikFormHint("حساب مقصد را انتخاب کن.", isWarning = true)
                 }
             }
         },
         confirmButton = {
             LiquidGlassButton(
-                text = if (isSaving) "در حال ثبت..."
-                    else if (kind == LedgerKind.TRANSFER) "ثبت انتقال"
-                    else "ثبت تراکنش",
+                text = if (isSaving) "در حال ذخیره..."
+                    else when (kind) {
+                        LedgerKind.EXPENSE -> "ثبت هزینه"
+                        LedgerKind.INCOME -> "ثبت درآمد"
+                        LedgerKind.TRANSFER -> "ثبت انتقال"
+                    },
                 enabled = canSave,
                 tone = GlassTone.EMERALD,
                 onClick = {

@@ -8,12 +8,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
@@ -21,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
@@ -110,7 +113,9 @@ internal fun JibikTomanField(
     label: String,
     modifier: Modifier = Modifier,
     allowZero: Boolean = false,
+    enabled: Boolean = true,
 ) {
+    val focusManager = LocalFocusManager.current
     val number = parseTomanDraft(value)
     val formattedPreview = remember(number) {
         number?.let(::formatToman)
@@ -123,7 +128,11 @@ internal fun JibikTomanField(
             },
             label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number, imeAction = ImeAction.Done,
+            ),
+            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+            enabled = enabled,
             textStyle = TextStyle(
                 fontFamily = JibikFontFamily,
                 fontSize = 19.sp,
@@ -155,6 +164,7 @@ internal fun JibikAccountChoice(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
     emptyHint: String = "حساب قابل انتخابی وجود ندارد",
+    enabled: Boolean = true,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Text(title, color = JibikStyle.muted, fontSize = 12.sp)
@@ -170,6 +180,7 @@ internal fun JibikAccountChoice(
                         text = account.title,
                         selected = selectedId == account.id,
                         onClick = { onSelect(account.id) },
+                        enabled = enabled,
                     )
                 }
             }
