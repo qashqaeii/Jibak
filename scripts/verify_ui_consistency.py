@@ -119,6 +119,18 @@ reports_source = (APP / "ReportsScreen.kt").read_text(encoding="utf-8")
 forms_source = (APP / "JibikForms.kt").read_text(encoding="utf-8")
 navigation_source = (APP / "JibikBackNavigation.kt").read_text(encoding="utf-8")
 
+home_block = main_source.split("private fun Home(", 1)[-1].split(
+    "private fun SpendingByCategory(", 1
+)[0]
+if not (
+    home_block.find('JibikSectionTitle("ثبت سریع"') >= 0
+    and home_block.find('JibikSectionTitle("ثبت سریع"') <
+        home_block.find('JibikSectionTitle("خلاصه "')
+    and home_block.find("LiquidGlassCard(onClick = onAi") >
+        home_block.find("onClick = onBudget")
+):
+    errors.append("Home hierarchy must prioritize fast actions and financial insights over AI")
+
 if 'preferences.getLong("budget_toman", 0L)' not in store_source:
     errors.append("A default budget must never be invented for a new user")
 if "require(value >= 0L)" not in store_source:

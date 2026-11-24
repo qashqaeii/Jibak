@@ -1168,11 +1168,6 @@ private fun Home(
     ) {
         BrandHeader()
         BalanceCard(summary, amountsVisible, onToggleAmounts)
-        JibikSectionTitle("خلاصه " + monthTitle, "درآمد و هزینه همین ماه")
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MetricCard("درآمد", monthTotals.incomeToman, Mint, Modifier.weight(1f), amountsVisible)
-            MetricCard("هزینه", monthTotals.expenseToman, Coral, Modifier.weight(1f), amountsVisible)
-        }
         JibikSectionTitle("ثبت سریع", "کارهای روزمره، بدون فرم‌های طولانی")
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val fontScale = LocalDensity.current.fontScale
@@ -1225,22 +1220,10 @@ private fun Home(
                 }
             }
         }
-        LiquidGlassCard(onClick = onAi, tone = GlassTone.CRYSTAL) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                JiboArt(JiboArtwork.ASSISTANT, Modifier.size(48.dp))
-                Column(Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("جیبو، همراه مالی هوشمند", color = Forest,
-                        fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-                    Text("بررسی خرج‌ها بدون تغییر اطلاعات مالی",
-                        color = Quiet, fontSize = 12.sp, lineHeight = 18.sp)
-                }
-                JibikChevronIcon(color = Forest)
-            }
+        JibikSectionTitle("خلاصه " + monthTitle, "درآمد و هزینه همین ماه")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MetricCard("درآمد", monthTotals.incomeToman, Mint, Modifier.weight(1f), amountsVisible)
+            MetricCard("هزینه", monthTotals.expenseToman, Coral, Modifier.weight(1f), amountsVisible)
         }
         LiquidGlassCard(
             onClick = onBudget,
@@ -1312,6 +1295,23 @@ private fun Home(
             amountsVisible = amountsVisible,
             onClick = onAllTransactions,
         )
+        LiquidGlassCard(onClick = onAi, tone = GlassTone.CRYSTAL) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                JiboArt(JiboArtwork.ASSISTANT, Modifier.size(48.dp))
+                Column(Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("جیبو، همراه مالی هوشمند", color = Forest,
+                        fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                    Text("بررسی خرج‌ها بدون تغییر اطلاعات مالی",
+                        color = Quiet, fontSize = 12.sp, lineHeight = 18.sp)
+                }
+                JibikChevronIcon(color = Forest)
+            }
+        }
         JibikSectionTitle(
             title = "آخرین تراکنش‌ها",
             subtitle = "مرور سریع فعالیت‌های مالی",
