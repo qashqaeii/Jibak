@@ -238,9 +238,7 @@ internal fun NewCustomCategoryDialog(
     )
     val error = customCategoryValidation(candidate, existing)
     AlertDialog(
-        modifier = Modifier.liquidGlass(
-            tone = GlassTone.FROSTED, radius = 26.dp, elevation = 15.dp,
-        ),
+        modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
         title = {

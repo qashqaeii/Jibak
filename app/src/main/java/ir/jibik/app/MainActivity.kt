@@ -909,7 +909,7 @@ private fun JibikApp(
     }
     if (storageError != null) {
         AlertDialog(
-            modifier = Modifier.liquidGlass(tone = GlassTone.FROSTED, radius = 28.dp, elevation = 15.dp),
+            modifier = Modifier.jibikDialogSurface(),
             onDismissRequest = { storageError = null },
             title = { Text("خطا در ثبت اطلاعات") },
             text = { Text(storageError ?: "") },
@@ -1719,7 +1719,7 @@ private fun AddTransactionDialog(
             (accounts.size > 1 && targetValid && sourceId != targetId)) &&
         categoryValid
     AlertDialog(
-        modifier = Modifier.liquidGlass(tone = GlassTone.FROSTED, radius = 28.dp, elevation = 15.dp),
+        modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
         title = {
             JibikDialogHeading(if (kind == LedgerKind.TRANSFER) "انتقال بین حساب‌ها" else "تراکنش جدید", "ثبت ساده و مطمئن")
@@ -1889,7 +1889,7 @@ private fun BudgetDialog(
     var value by rememberSaveable { mutableStateOf(current.toString()) }
     val parsed = parseTomanDraft(value)
     AlertDialog(
-        modifier = Modifier.liquidGlass(tone = GlassTone.FROSTED, radius = 28.dp, elevation = 15.dp),
+        modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = onDismiss,
         containerColor = Color.Transparent,
         tonalElevation = 0.dp,

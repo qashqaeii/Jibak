@@ -250,7 +250,7 @@ internal fun CreateAccountDialog(
         cleanTitle.length <= 48 && !duplicated &&
         amount != null && amount >= 0L
     AlertDialog(
-        modifier = Modifier.liquidGlass(tone = GlassTone.FROSTED, radius = 28.dp, elevation = 15.dp),
+        modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
         tonalElevation = 0.dp,
