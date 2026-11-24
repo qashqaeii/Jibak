@@ -179,9 +179,7 @@ internal fun CategoryBudgetDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
         title = {
-            Text(if (previous == null) "بودجه دسته جدید" else "ویرایش بودجه دسته",
-                color = JibikStyle.ink, fontSize = 19.sp,
-                fontWeight = FontWeight.ExtraBold)
+            JibikDialogHeading(if (previous == null) "بودجه دسته جدید" else "ویرایش بودجه دسته", "سقف هزینه و هشدار ماهانه")
         },
         text = {
             Column(

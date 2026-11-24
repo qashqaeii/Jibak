@@ -63,11 +63,7 @@ internal fun BankSmsReviewDialog(
         containerColor = Color.Transparent,
         onDismissRequest = { if (!busy) onDismiss() },
         title = {
-            Text(
-                "بررسی پیام بانکی",
-                color = JibikStyle.ink, fontSize = 19.sp,
-                fontWeight = FontWeight.ExtraBold,
-            )
+            JibikDialogHeading("بررسی پیام بانکی", "تأیید مبلغ و حساب پیش از ثبت")
         },
         text = {
             Column(

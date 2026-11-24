@@ -58,18 +58,7 @@ internal fun JiboAiDialog(
         ),
         containerColor = Color.Transparent,
         title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                JiboMascot(Modifier.size(52.dp))
-                Column {
-                    Text("جیبو • " + feature.title, color = JibikStyle.ink,
-                        fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-                    Text("دستیار مالی، نه تصمیم‌گیرنده", color = JibikStyle.muted,
-                        fontSize = 11.sp)
-                }
-            }
+            JibikDialogHeading("جیبو • " + feature.title, "دستیار مالی، نه تصمیم‌گیرنده")
         },
         text = {
             Column(

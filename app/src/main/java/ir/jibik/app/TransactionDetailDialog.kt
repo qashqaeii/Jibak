@@ -97,18 +97,7 @@ internal fun TransactionDetailDialog(
         shape = RoundedCornerShape(26.dp),
         tonalElevation = 0.dp,
         title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                JibikBrandLogo(Modifier.size(40.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(title, color = JibikStyle.ink, fontWeight = FontWeight.ExtraBold,
-                        fontSize = 19.sp)
-                    Text("رسید مالی ثبت‌شده", color = JibikStyle.muted, fontSize = 11.sp)
-                }
-            }
+            JibikDialogHeading(title, "رسید مالی ثبت‌شده")
         },
         text = {
             Column(
