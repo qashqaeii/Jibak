@@ -52,18 +52,7 @@ internal fun CategoryPickerDialog(
         onDismissRequest = onDismiss,
         containerColor = Color.Transparent,
         title = {
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(
-                    if (parentOnly) "انتخاب دسته والد"
-                    else if (income) "دسته‌بندی درآمد" else "دسته‌بندی هزینه",
-                    color = JibikStyle.ink, fontSize = 20.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                )
-                Text(
-                    "دسته اصلی ← زیر‌دسته ← جزئیات",
-                    color = JibikStyle.muted, fontSize = 12.sp,
-                )
-            }
+            JibikDialogHeading(if (parentOnly) "انتخاب دسته والد" else if (income) "دسته‌بندی درآمد" else "دسته‌بندی هزینه", "دسته اصلی ← زیر‌دسته ← جزئیات")
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

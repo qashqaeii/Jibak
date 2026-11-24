@@ -1690,26 +1690,7 @@ private fun AddTransactionDialog(
         modifier = Modifier.liquidGlass(tone = GlassTone.FROSTED, radius = 28.dp, elevation = 15.dp),
         onDismissRequest = { if (!isSaving) onDismiss() },
         title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
-            ) {
-                JibikBrandLogo(Modifier.size(39.dp))
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(3.dp),
-                ) {
-                    Text(
-                        if (kind == LedgerKind.TRANSFER) "انتقال بین حساب‌ها" else "تراکنش جدید",
-                        color = Deep, fontWeight = FontWeight.ExtraBold,
-                        fontSize = 20.sp,
-                    )
-                    Text(
-                        "ثبت ساده و مطمئن",
-                        color = Quiet, fontSize = 11.sp,
-                    )
-                }
-            }
+            JibikDialogHeading(if (kind == LedgerKind.TRANSFER) "انتقال بین حساب‌ها" else "تراکنش جدید", "ثبت ساده و مطمئن")
         },
         text = {
             Column(
@@ -1882,11 +1863,12 @@ private fun BudgetDialog(
         tonalElevation = 0.dp,
         shape = RoundedCornerShape(26.dp),
         title = {
-            Text("ویرایش سقف بودجه", color = Deep, fontWeight = FontWeight.ExtraBold)
+            JibikDialogHeading("ویرایش سقف بودجه", "کنترل خرج‌های همین ماه شمسی")
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 JibikFormHint(

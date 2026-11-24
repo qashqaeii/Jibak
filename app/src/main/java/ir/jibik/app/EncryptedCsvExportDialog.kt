@@ -3,6 +3,9 @@ package ir.jibik.app
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -39,11 +42,14 @@ internal fun EncryptedCsvExportDialog(
         onDismissRequest = onDismiss,
         containerColor = Color.Transparent,
         title = {
-            Text("خروجی مالی رمزدار", color = JibikStyle.ink,
-                fontWeight = FontWeight.ExtraBold, fontSize = 19.sp)
+            JibikDialogHeading("خروجی مالی رمزدار", "اطلاعات خروجی را با گذرواژه محافظت کن")
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                Modifier.fillMaxWidth().heightIn(max = 380.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 JibikFormHint(
                     "یک رمز حداقل ۱۲ کاراکتری بساز. فایل بدون این رمز باز نمی‌شود " +
                         "و جیبیک آن را ذخیره یا بازیابی نمی‌کند."

@@ -94,17 +94,7 @@ internal fun ItemizedPurchaseDialog(
         tonalElevation = 0.dp,
         shape = RoundedCornerShape(26.dp),
         title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
-            ) {
-                JibikBrandLogo(Modifier.size(40.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("خرید چندقلمی", color = JibikStyle.ink,
-                        fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-                    Text("هر رسید، فقط یک پرداخت • حداکثر ۲۰ قلم", color = JibikStyle.muted, fontSize = 11.sp)
-                }
-            }
+            JibikDialogHeading("خرید چندقلمی", "یک پرداخت، با جزئیات هر کالا")
         },
         text = {
             Column(
