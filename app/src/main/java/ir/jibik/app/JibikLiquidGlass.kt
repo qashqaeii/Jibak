@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -219,6 +220,15 @@ internal fun Modifier.liquidGlass(
             )
         }
 }
+
+/**
+ * Unified, opaque modal chrome for all finance forms.
+ * max width keeps tablets readable; the host Dialog still handles screen edges.
+ * Do not use translucent CRYSTAL for sensitive form content.
+ */
+internal fun Modifier.jibikDialogSurface(): Modifier =
+    this.widthIn(max = 520.dp)
+        .liquidGlass(tone = GlassTone.FROSTED, radius = 26.dp, elevation = 11.dp)
 
 /** Shared surface used for structural content cards on all finance screens. */
 @Composable
