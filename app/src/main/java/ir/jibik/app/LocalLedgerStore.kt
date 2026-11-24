@@ -36,10 +36,10 @@ internal class LocalLedgerStore(context: Context) {
         }
     }
 
-    fun budgetToman(): Long = preferences.getLong("budget_toman", 5_000_000L)
+    fun budgetToman(): Long = preferences.getLong("budget_toman", 0L)
 
     fun updateBudgetToman(value: Long) {
-        require(value > 0)
+        require(value >= 0L) { "Budget cap cannot be negative" }
         check(preferences.edit().putLong("budget_toman", value).commit()) {
             "Unable to persist budget"
         }

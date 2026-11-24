@@ -951,7 +951,12 @@ private fun JibikApp(
                     .onSuccess {
                         budget = newValue
                         showEditBudget = false
-                        scope.launch { notifications.showSnackbar("بودجه ماهانه ذخیره شد.") }
+                        scope.launch {
+                            notifications.showSnackbar(
+                                if (newValue == 0L) "سقف بودجه برداشته شد؛ تراکنش‌ها محفوظ‌اند."
+                                else "سقف بودجه ماهانه ذخیره شد.",
+                            )
+                        }
                     }
                     .onFailure {
                         storageError = "بودجه ذخیره نشد؛ مقدار قبلی محفوظ است."
@@ -1951,7 +1956,9 @@ private fun BudgetDialog(
     onDismiss: () -> Unit,
     onSave: (Long) -> Unit,
 ) {
-    var value by rememberSaveable { mutableStateOf(current.toString()) }
+    var value by rememberSaveable(current) {
+        mutableStateOf(if (current > 0L) current.toString() else "")
+    }
     val parsed = parseTomanDraft(value)
     AlertDialog(
         modifier = Modifier.jibikDialogSurface(),
@@ -1969,14 +1976,27 @@ private fun BudgetDialog(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 JibikFormHint(
-                    "این سقف برای هر ماه شمسی تکرار می‌شه. " +
-                        "تراکنش‌های گذشته حذف یا ویرایش نمی‌شن.",
+                    "سقف را خودت تعیین می‌کنی. برای هر ماه شمسی تکرار می‌شه " +
+                        "و روی تراکنش‌های قبلی تأثیری نداره.",
                 )
                 JibikTomanField(
                     value = value,
                     onValueChange = { value = it },
                     label = "سقف ماهانه",
                 )
+                if (current > 0L) {
+                    TextButton(
+                        onClick = { onSave(0L) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            "برداشتن سقف ماهانه",
+                            color = JibikStyle.muted,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    JibikFormHint("برداشتن سقف فقط هشدار بودجه را غیرفعال می‌کند.")
+                }
             }
         },
         confirmButton = {

@@ -4,6 +4,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class JibikBudgetVisualStatusTest {
+    @Test fun unconfiguredLimitUsesExplicitUnconfiguredStatus() {
+        assertTrue(jibikBudgetGuidance(spent = 0L, limit = 0L).contains("سقف ماهانه"))
+        assertTrue(jibikBudgetGuidance(spent = 7_000_000L, limit = 0L).contains("سقف ماهانه"))
+    }
+
     @Test fun noMonthlyLimitIsNotPresentedAsOverspending() {
         val status = jibikBudgetGuidance(spent = 50_000L, limit = 0L)
         assertTrue(status.contains("سقف ماهانه"))
