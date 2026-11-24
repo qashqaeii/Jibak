@@ -247,10 +247,24 @@ internal fun LiquidGlassCard(
     padding: PaddingValues = PaddingValues(17.dp),
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val surface = modifier.fillMaxWidth().liquidGlass(tone)
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val cardScale by animateFloatAsState(
+        targetValue = if (onClick != null && pressed) 0.993f else 1f,
+        animationSpec = tween(durationMillis = 140),
+        label = "jibik-card-press",
+    )
+    val surface = modifier.fillMaxWidth()
+        .graphicsLayer { scaleX = cardScale; scaleY = cardScale }
+        .liquidGlass(tone)
     val active = if (onClick == null) surface else surface
-        .heightIn(min = 48.dp)
-        .clickable(role = Role.Button, onClick = onClick)
+        .heightIn(min = 52.dp)
+        .clickable(
+            interactionSource = interaction,
+            indication = LocalIndication.current,
+            role = Role.Button,
+            onClick = onClick,
+        )
     Column(
         modifier = active.padding(padding),
         verticalArrangement = Arrangement.spacedBy(12.dp),
