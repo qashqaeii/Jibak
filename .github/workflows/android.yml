@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Verify shared Jibik UI consistency
+        run: python3 scripts/verify_ui_consistency.py
       - name: Java 17
         uses: actions/setup-java@v4
         with:
