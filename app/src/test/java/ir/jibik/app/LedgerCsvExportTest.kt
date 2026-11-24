@@ -50,6 +50,26 @@ class LedgerCsvExportTest {
         assertTrue(withLeadingSpace.contains("\"'  +SUM(1,2)\""))
     }
 
+    @Test fun invisibleUnicodeMarkersCannotMaskSpreadsheetFormula() {
+        val cases = listOf(
+            "\u200F=2+2", // Right-to-left mark
+            "\u200B@SUM(1,2)", // Zero-width space
+            "\uFEFF+2", // Hidden byte-order mark
+            "\u202E-1", // Bidi override
+        )
+        cases.forEachIndexed { index, note ->
+            val csv = export(listOf(record("unicode-$index", note)))
+            assertTrue("Unescaped formula with invisible prefix: $index",
+                csv.contains("\"'${note}\""))
+        }
+    }
+
+    @Test fun controlCharacterCannotHideFormulaPrefix() {
+        val note = "\t\n=1+1"
+        val csv = export(listOf(record("control", note)))
+        assertTrue(csv.contains("\"'\t\n=1+1\""))
+    }
+
     @Test fun transferIsExportedOnceNotAsExpenseAndIncome() {
         val csv = export(listOf(record("id-4", kind = LedgerKind.TRANSFER)))
         assertTrue(csv.contains("\"transfer\""))

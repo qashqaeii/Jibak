@@ -23,8 +23,14 @@ internal object LedgerCsvExport {
 
     private fun csvCell(value: String): String {
         // Spreadsheet formula injection must not execute on opening a CSV.
-        // Leading spaces and control chars cannot hide a formula prefix.
-        val dangerous = value.trimStart().firstOrNull() in setOf('=', '+', '-', '@')
+        // Treat invisible Unicode format characters (including bidi controls
+        // and zero-width marks), whitespace and ISO controls as possible masks
+        // before the first formula character. Preserve the original cell text.
+        val prefix = value.firstOrNull { char ->
+            !char.isWhitespace() && !Character.isISOControl(char) &&
+                Character.getType(char) != Character.FORMAT.toInt()
+        }
+        val dangerous = prefix in setOf('=', '+', '-', '@')
         val escaped = if (dangerous) "'" + value else value
         return "\"" + escaped.replace("\"", "\"\"")
             .replace("\r\n", "\n").replace('\r', '\n') + "\""
