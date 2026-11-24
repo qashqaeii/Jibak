@@ -961,49 +961,80 @@ private fun JibikApp(
 }
 
 
+/** Keep the primary onboarding CTA visible on compact screens and large fonts. */
+internal fun compactJibikWelcome(widthDp: Float, heightDp: Float, fontScale: Float): Boolean =
+    widthDp < 360f || heightDp < 720f || fontScale >= 1.3f
+
 @Composable
 private fun WelcomeScreen(onStart: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().liquidBackdrop()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(26.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            JibikBrandLogo(Modifier.size(52.dp))
-            Spacer(Modifier.size(8.dp))
-            Text("جیبیک", fontSize = 29.sp, color = Forest, fontWeight = FontWeight.ExtraBold)
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Box(
-                modifier = Modifier.size(214.dp)
-                    .liquidGlass(GlassTone.CRYSTAL, radius = 40.dp, elevation = 7.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                JiboMascot(Modifier.size(200.dp))
-            }
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "سلام! من جیبو هستم", fontSize = 25.sp, fontWeight = FontWeight.ExtraBold,
-                color = Deep, textAlign = TextAlign.Center, lineHeight = 34.sp,
-            )
-            Text(
-                "حساب‌وکتاب خونه و زندگی رو با هم ساده‌تر می‌کنیم.",
-                textAlign = TextAlign.Center, color = Quiet, lineHeight = 27.sp, fontSize = 15.sp,
-            )
-            Text("ثبت سریع  •  بودجه‌بندی  •  آرامش بیشتر", color = Forest, fontSize = 12.sp)
-        }
-        LiquidGlassButton(
-            text = "شروع با جیبیک",
-            onClick = onStart,
-            modifier = Modifier.fillMaxWidth().height(58.dp),
-            tone = GlassTone.EMERALD,
+    BoxWithConstraints(Modifier.fillMaxSize().liquidBackdrop()) {
+        val compact = compactJibikWelcome(
+            maxWidth.value, maxHeight.value, LocalDensity.current.fontScale,
         )
+        Column(
+            modifier = Modifier.fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(
+                    horizontal = if (compact) 18.dp else 24.dp,
+                    vertical = if (compact) 16.dp else 24.dp,
+                ),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(if (compact) 14.dp else 26.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                JibikBrandLogo(Modifier.size(if (compact) 44.dp else 52.dp))
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    "جیبیک", fontSize = if (compact) 26.sp else 29.sp,
+                    color = Forest, fontWeight = FontWeight.ExtraBold,
+                )
+            }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 14.dp),
+            ) {
+                Box(
+                    modifier = Modifier.size(if (compact) 148.dp else 214.dp)
+                        .liquidGlass(
+                            GlassTone.CRYSTAL,
+                            radius = if (compact) 32.dp else 40.dp,
+                            elevation = 7.dp,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    JiboMascot(Modifier.size(if (compact) 138.dp else 200.dp))
+                }
+                if (!compact) Spacer(Modifier.height(8.dp))
+                Text(
+                    "سلام! من جیبو هستم",
+                    fontSize = if (compact) 22.sp else 25.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Deep, textAlign = TextAlign.Center,
+                    lineHeight = if (compact) 30.sp else 34.sp,
+                )
+                Text(
+                    "حساب‌وکتاب خونه و زندگی رو با هم ساده‌تر می‌کنیم.",
+                    textAlign = TextAlign.Center, color = Quiet,
+                    lineHeight = 25.sp, fontSize = 15.sp,
+                )
+                Text(
+                    "ثبت سریع  •  بودجه‌بندی  •  آرامش بیشتر",
+                    color = Forest, fontSize = 12.sp,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                )
+            }
+            LiquidGlassButton(
+                text = "شروع با جیبیک",
+                onClick = onStart,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                tone = GlassTone.EMERALD,
+            )
+        }
     }
 }
 
