@@ -279,15 +279,30 @@ private fun JibikApp(
             isLoaded = true
         }
     }
-    val summary = FinanceEngine.summary(accounts, records.toList())
+    // Snapshot-derived finance summaries are recomputed only when ledger/account
+    // data changes, not for every click, search query, or modal state update.
+    // Reading SnapshotStateList/Map inside derivedStateOf preserves live updates.
+    val summary by remember {
+        androidx.compose.runtime.derivedStateOf {
+            FinanceEngine.summary(accounts, records.toList())
+        }
+    }
     val currentMonth = currentJalaliMonth()
-    val monthTotals = periodTotals(
-        records.toList(), currentMonth.startMillis, currentMonth.endExclusiveMillis
-    )
-    val categorySpending = detailedCategoryExpenses(
-        records.toList(), savedReceiptLines.toMap(),
-        currentMonth.startMillis, currentMonth.endExclusiveMillis,
-    )
+    val monthTotals by remember(currentMonth.startMillis, currentMonth.endExclusiveMillis) {
+        androidx.compose.runtime.derivedStateOf {
+            periodTotals(
+                records.toList(), currentMonth.startMillis, currentMonth.endExclusiveMillis,
+            )
+        }
+    }
+    val categorySpending by remember(currentMonth.startMillis, currentMonth.endExclusiveMillis) {
+        androidx.compose.runtime.derivedStateOf {
+            detailedCategoryExpenses(
+                records.toList(), savedReceiptLines.toMap(),
+                currentMonth.startMillis, currentMonth.endExclusiveMillis,
+            )
+        }
+    }
     var section by rememberSaveable { mutableStateOf(Section.HOME) }
     var showBankSms by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(bankSmsOpenSignal) {
