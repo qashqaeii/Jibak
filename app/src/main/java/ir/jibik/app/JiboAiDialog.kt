@@ -53,9 +53,7 @@ internal fun JiboAiDialog(
 
     AlertDialog(
         onDismissRequest = { if (!working) onDismiss() },
-        modifier = Modifier.liquidGlass(
-            tone = GlassTone.FROSTED, radius = 28.dp, elevation = 15.dp,
-        ),
+        modifier = Modifier.jibikDialogSurface(),
         containerColor = Color.Transparent,
         title = {
             JibikDialogHeading("جیبو • " + feature.title, "دستیار مالی، نه تصمیم‌گیرنده")

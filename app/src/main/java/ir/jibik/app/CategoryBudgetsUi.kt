@@ -118,9 +118,7 @@ internal fun CategoryBudgetsPanel(
     }
     pendingDelete?.let { path ->
         AlertDialog(
-            modifier = Modifier.liquidGlass(
-                tone = GlassTone.FROSTED, radius = 24.dp, elevation = 12.dp,
-            ),
+            modifier = Modifier.jibikDialogSurface(),
             containerColor = Color.Transparent,
             onDismissRequest = { if (!isSaving) pendingDelete = null },
             title = { Text("حذف سقف دسته", color = JibikStyle.ink,
@@ -174,8 +172,7 @@ internal fun CategoryBudgetDialog(
     val duplicates = previous == null &&
         existingBudgets.any { it.categoryPath == category }
     AlertDialog(
-        modifier = Modifier.liquidGlass(tone = GlassTone.FROSTED,
-            radius = 26.dp, elevation = 15.dp),
+        modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
         title = {

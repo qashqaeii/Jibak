@@ -91,7 +91,7 @@ internal fun TransactionDetailDialog(
         }.getOrNull()
     }
     AlertDialog(
-        modifier = Modifier.liquidGlass(tone = GlassTone.FROSTED, radius = 28.dp, elevation = 15.dp),
+        modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = onDismiss,
         containerColor = Color.Transparent,
         shape = RoundedCornerShape(26.dp),
