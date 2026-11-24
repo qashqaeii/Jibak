@@ -131,42 +131,66 @@ internal fun JibikHero(
  * embedded in decorative text. Natural text wrapping supports font scaling.
  */
 @Composable
+private fun JibikPageTitleCopy(title: String, subtitle: String, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            title, color = JibikStyle.ink,
+            fontSize = 24.sp, lineHeight = 32.sp,
+            fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.semantics { heading() },
+        )
+        Text(
+            subtitle, color = JibikStyle.muted,
+            fontSize = 13.sp, lineHeight = 20.sp,
+            maxLines = 3, overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun JibikPageBackButton(onClick: () -> Unit) {
+    TextButton(onClick = onClick) {
+        Text("بازگشت", color = JibikStyle.forest,
+            fontWeight = FontWeight.Bold, fontSize = 13.sp)
+    }
+}
+
+@Composable
 internal fun JibikPageHeader(
     title: String,
     subtitle: String,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
+    action: @Composable (() -> Unit)? = null,
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                title, color = JibikStyle.ink,
-                fontSize = 24.sp, lineHeight = 32.sp,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.semantics { heading() },
-            )
-            Text(
-                subtitle, color = JibikStyle.muted,
-                fontSize = 13.sp, lineHeight = 20.sp,
-                maxLines = 3, overflow = TextOverflow.Ellipsis,
-            )
-        }
-        if (onBack != null) {
-            TextButton(onClick = onBack) {
-                Text(
-                    "بازگشت", color = JibikStyle.forest,
-                    fontWeight = FontWeight.Bold, fontSize = 13.sp,
-                )
+    val fontScale = LocalDensity.current.fontScale
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        if (action != null && stackJibikSectionAction(maxWidth.value, fontScale)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    JibikPageTitleCopy(title, subtitle, Modifier.weight(1f))
+                    if (onBack != null) JibikPageBackButton(onBack)
+                    else JibikBrandLogo(Modifier.size(44.dp))
+                }
+                Box(Modifier.align(Alignment.End)) { action() }
             }
         } else {
-            JibikBrandLogo(Modifier.size(44.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                JibikPageTitleCopy(title, subtitle, Modifier.weight(1f))
+                when {
+                    action != null -> action()
+                    onBack != null -> JibikPageBackButton(onBack)
+                    else -> JibikBrandLogo(Modifier.size(44.dp))
+                }
+            }
         }
     }
 }

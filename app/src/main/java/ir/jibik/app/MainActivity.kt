@@ -1329,10 +1329,10 @@ private fun Transactions(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            JibikSectionTitle(
-                "تراکنش‌ها",
-                "تمام درآمدها، هزینه‌ها و انتقال‌های ثبت‌شده",
-                trailing = {
+            JibikPageHeader(
+                title = "تراکنش‌ها",
+                subtitle = "تمام درآمدها، هزینه‌ها و انتقال‌های ثبت‌شده",
+                action = {
                     LiquidGlassButton(
                         text = "＋ ثبت جدید",
                         onClick = onCreateTransaction,
