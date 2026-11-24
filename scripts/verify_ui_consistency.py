@@ -105,6 +105,32 @@ if "cream" in token_values:
                     f"JibikStyle.{token} fails 4.5:1 contrast over {background}"
                 )
 
+# Trust-critical UX regression guards. Logic has corresponding JVM unit tests.
+main_source = (APP / "MainActivity.kt").read_text(encoding="utf-8")
+store_source = (APP / "LocalLedgerStore.kt").read_text(encoding="utf-8")
+reports_source = (APP / "ReportsScreen.kt").read_text(encoding="utf-8")
+forms_source = (APP / "JibikForms.kt").read_text(encoding="utf-8")
+navigation_source = (APP / "JibikBackNavigation.kt").read_text(encoding="utf-8")
+
+if 'preferences.getLong("budget_toman", 0L)' not in store_source:
+    errors.append("A default budget must never be invented for a new user")
+if "require(value >= 0L)" not in store_source:
+    errors.append("The user must be able to remove a monthly budget cap")
+if "home_amounts_visible" not in store_source:
+    errors.append("Dashboard amount visibility preference is not persisted")
+if "BackHandler(" not in main_source or "resolveJibikBackRoute(" not in main_source:
+    errors.append("System back navigation is not hooked to the route hierarchy")
+if "section == Section.ACCOUNTS" not in navigation_source:
+    errors.append("Account nested routes are missing in Back navigation")
+if "WindowInsets.ime.getBottom" not in main_source:
+    errors.append("Navigation must adapt to the software keyboard")
+if "jibikPrivateAmount(" not in main_source:
+    errors.append("Home amount masking is missing")
+if "clearAndSetSemantics" not in reports_source:
+    errors.append("Category ring is not accessible to screen readers")
+if "KeyboardActions(onDone =" not in forms_source:
+    errors.append("Money fields need a keyboard completion action")
+
 manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
 if "android.permission.READ_SMS" in manifest or "android.permission.RECEIVE_SMS" in manifest:
     errors.append("Restricted SMS permission leaked into test manifest")
