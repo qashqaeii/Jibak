@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -20,6 +21,9 @@ import androidx.compose.ui.unit.sp
  * At narrow sizes we deliberately stack the amount instead of clipping
  * significant Persian digits, negative signs or units.
  */
+internal fun stackJibikFinancialDetail(widthDp: Float, fontScale: Float, valueLength: Int): Boolean =
+    widthDp < 300f || fontScale >= 1.35f || valueLength > 26
+
 @Composable
 internal fun JibikFinancialDetail(
     label: String,
@@ -28,8 +32,9 @@ internal fun JibikFinancialDetail(
     emphasis: Boolean = false,
     valueColor: Color = JibikStyle.ink,
 ) {
+    val fontScale = LocalDensity.current.fontScale
     BoxWithConstraints(modifier.fillMaxWidth()) {
-        if (maxWidth < 286.dp) {
+        if (stackJibikFinancialDetail(maxWidth.value, fontScale, value.length)) {
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(
                     text = label, color = JibikStyle.muted, fontSize = 12.sp,

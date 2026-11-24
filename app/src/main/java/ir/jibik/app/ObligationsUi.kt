@@ -173,16 +173,21 @@ internal fun ObligationsScreen(
                         fontSize = 12.sp, fontWeight = FontWeight.Bold,
                     )
                 }
-                Text("باقی‌مانده: " + formatToman(remaining),
-                    color = JibikStyle.ink, fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold)
-                Row(Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("کل: " + formatToman(item.totalToman),
-                        color = JibikStyle.muted, fontSize = 12.sp)
-                    Text("پرداخت/دریافت: " + formatToman(progress.paidToman),
-                        color = JibikStyle.forest, fontSize = 12.sp)
-                }
+                JibikFinancialDetail(
+                    label = "مانده تعهد",
+                    value = formatToman(remaining),
+                    emphasis = true,
+                    valueColor = if (overdue) JibikStyle.coral else JibikStyle.ink,
+                )
+                JibikFinancialDetail(
+                    label = "کل تعهد",
+                    value = formatToman(item.totalToman),
+                )
+                JibikFinancialDetail(
+                    label = "پرداخت یا دریافت شده",
+                    value = formatToman(progress.paidToman),
+                    valueColor = JibikStyle.forest,
+                )
                 JibikProgressTrack(
                     progress = (progress.paidToman.toDouble() /
                         item.totalToman.coerceAtLeast(1L).toDouble()).toFloat(),

@@ -1636,23 +1636,15 @@ private fun Budget(
         }
         JibikSurfaceCard {
             JibikSectionTitle("وضعیت مصرف بودجه")
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("سقف تعیین‌شده", color = Quiet, fontSize = 13.sp)
-                Text(
-                    if (hasLimit) money(budget) else "تعیین نشده",
-                    color = Deep, fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold, maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("هزینه‌های این ماه", color = Quiet, fontSize = 13.sp)
-                Text(
-                    money(spent), color = Deep, fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold, maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+            JibikFinancialDetail(
+                label = "سقف تعیین‌شده",
+                value = if (hasLimit) money(budget) else "تعیین نشده",
+            )
+            JibikFinancialDetail(
+                label = "هزینه‌های این ماه",
+                value = money(spent),
+                emphasis = true,
+            )
             if (hasLimit) {
                 JibikProgressTrack(
                     progress = usage,
