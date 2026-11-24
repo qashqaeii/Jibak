@@ -1375,6 +1375,14 @@ private fun Transactions(
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("جستجو در تراکنش‌ها") },
                 placeholder = { Text("نام، دسته‌بندی یا مبلغ") },
+                leadingIcon = { JibikSearchIcon() },
+                trailingIcon = {
+                    if (search.isNotBlank()) {
+                        IconButton(onClick = { search = "" }) {
+                            Text("×", color = Forest, fontSize = 22.sp)
+                        }
+                    }
+                },
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
             )

@@ -24,6 +24,29 @@ internal fun JiboMascot(modifier: Modifier = Modifier) {
     )
 }
 
+/** Crisp, typography-independent search icon used by all search fields. */
+@Composable
+internal fun JibikSearchIcon(modifier: Modifier = Modifier.size(20.dp)) {
+    Canvas(modifier = modifier) {
+        val unit = size.minDimension / 24f
+        val stroke = unit * 2f
+        val green = Color(0xFF07574C)
+        drawCircle(
+            color = green,
+            radius = 6.7f * unit,
+            center = Offset(10f * unit, 10f * unit),
+            style = Stroke(width = stroke),
+        )
+        drawLine(
+            color = green,
+            start = Offset(15f * unit, 15f * unit),
+            end = Offset(21f * unit, 21f * unit),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round,
+        )
+    }
+}
+
 /** Consistent, outline-only navigation glyphs; no font icons or Unicode shapes. */
 @Composable
 internal fun JibikNavigationIcon(position: Int, selected: Boolean) {

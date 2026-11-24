@@ -11,8 +11,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,7 +63,14 @@ internal fun CategoryPickerDialog(
                     value = search,
                     onValueChange = { search = it.take(70) },
                     placeholder = { Text("جستجوی دسته یا زیر‌دسته...") },
-                    leadingIcon = { Text("⌕", fontSize = 23.sp, color = JibikStyle.forest) },
+                    leadingIcon = { JibikSearchIcon() },
+                    trailingIcon = {
+                        if (search.isNotEmpty()) {
+                            IconButton(onClick = { search = "" }) {
+                                Text("×", color = JibikStyle.forest, fontSize = 23.sp)
+                            }
+                        }
+                    },
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
@@ -105,7 +117,14 @@ internal fun CategoryPickerDialog(
                             Row(
                                 modifier = Modifier.fillMaxWidth()
                                     .background(colour, RoundedCornerShape(15.dp))
-                                    .clickable {
+                                    .heightIn(min = 54.dp)
+                                    .semantics {
+                                        selected = selectedNow
+                                        stateDescription = if (selectedNow) "انتخاب‌شده"
+                                            else if (item.hasChildren && search.isBlank()) "دارای زیر‌دسته"
+                                            else "قابل انتخاب"
+                                    }
+                                    .clickable(role = Role.Button) {
                                         if (item.hasChildren && search.isBlank()) {
                                             path = item.path
                                         } else {
