@@ -119,7 +119,7 @@ internal fun CategoryPickerDialog(
                                     .background(colour, RoundedCornerShape(15.dp))
                                     .heightIn(min = 54.dp)
                                     .semantics {
-                                        selected = selectedNow
+                                        this.selected = selectedNow
                                         stateDescription = if (selectedNow) "انتخاب‌شده"
                                             else if (item.hasChildren && search.isBlank()) "دارای زیر‌دسته"
                                             else "قابل انتخاب"
