@@ -1038,32 +1038,47 @@ private fun Home(
         }
         JibikSectionTitle("ثبت سریع", "کارهای روزمره، بدون فرم‌های طولانی")
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val compact = maxWidth < 390.dp
+            val fontScale = LocalDensity.current.fontScale
+            val stacked = maxWidth < 315.dp || fontScale >= 1.65f
+            val compact = maxWidth < 430.dp || fontScale >= 1.25f
             Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(9.dp),
-                ) {
-                    JibikQuickAction(
+                if (stacked) {
+                    JibikWideQuickAction(
                         title = "ثبت هزینه", subtitle = "مخارج روزانه",
                         artwork = JiboArtwork.TRANSACTIONS,
-                        onClick = onNewExpense, modifier = Modifier.weight(1f),
+                        onClick = onNewExpense,
                     )
-                    JibikQuickAction(
+                    JibikWideQuickAction(
                         title = "ثبت درآمد", subtitle = "دریافتی‌ها",
                         artwork = JiboArtwork.ACCOUNTS,
-                        onClick = onNewIncome, modifier = Modifier.weight(1f),
+                        onClick = onNewIncome,
                     )
-                    if (!compact) {
+                } else {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(9.dp),
+                    ) {
                         JibikQuickAction(
-                            title = "خرید منزل", subtitle = "چند قلم کالا",
-                            artwork = JiboArtwork.PURCHASE,
-                            onClick = onItemizedPurchase,
-                            modifier = Modifier.weight(1f),
+                            title = "ثبت هزینه", subtitle = "مخارج روزانه",
+                            artwork = JiboArtwork.TRANSACTIONS,
+                            onClick = onNewExpense, modifier = Modifier.weight(1f),
                         )
+                        JibikQuickAction(
+                            title = "ثبت درآمد", subtitle = "دریافتی‌ها",
+                            artwork = JiboArtwork.ACCOUNTS,
+                            onClick = onNewIncome, modifier = Modifier.weight(1f),
+                        )
+                        if (!compact) {
+                            JibikQuickAction(
+                                title = "خرید منزل", subtitle = "چند قلم کالا",
+                                artwork = JiboArtwork.PURCHASE,
+                                onClick = onItemizedPurchase,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
-                if (compact) {
+                if (compact || stacked) {
                     JibikWideQuickAction(
                         title = "ثبت خرید چندقلمی",
                         subtitle = "برای هر کالا، مبلغ و دسته جداگانه",
@@ -1119,11 +1134,9 @@ private fun Home(
                 } else {
                     val used = (monthTotals.expenseToman.toDouble() /
                         budget.toDouble()).toFloat().coerceIn(0f, 1f)
-                    LinearProgressIndicator(
-                        progress = { used },
-                        modifier = Modifier.fillMaxWidth().height(9.dp),
+                    JibikProgressTrack(
+                        progress = used,
                         color = if (monthTotals.expenseToman > budget) Coral else Mint,
-                        trackColor = Color(0xFFEAF2EC),
                     )
                     val remaining = budget - monthTotals.expenseToman
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -1206,9 +1219,8 @@ private fun SpendingByCategory(
                                 textAlign = TextAlign.End,
                             )
                         }
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier.fillMaxWidth().height(8.dp),
+                        JibikProgressTrack(
+                            progress = progress,
                             color = palette[index % palette.size],
                             trackColor = Cream,
                         )

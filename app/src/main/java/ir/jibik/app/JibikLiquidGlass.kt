@@ -16,10 +16,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -302,6 +304,34 @@ internal fun LiquidGlassButton(
             fontSize = 14.sp,
         )
     }
+}
+
+/**
+ * Shared, gently animated progress track for budgets, goals, reporting and
+ * installments. Non-finite data must never reach the drawing layer.
+ */
+internal fun normalizedJibikProgress(value: Float): Float =
+    if (value.isFinite()) value.coerceIn(0f, 1f) else 0f
+
+@Composable
+internal fun JibikProgressTrack(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    color: Color = JibikStyle.forest,
+    trackColor: Color = Color(0xFFE6F0E9),
+) {
+    val target = normalizedJibikProgress(progress)
+    val animated by animateFloatAsState(
+        targetValue = target,
+        animationSpec = tween(durationMillis = 420),
+        label = "jibik-financial-progress",
+    )
+    LinearProgressIndicator(
+        progress = { animated },
+        modifier = modifier.fillMaxWidth().height(8.dp),
+        color = color,
+        trackColor = trackColor,
+    )
 }
 
 /** Low-profile glass chips with a clear selected state and an accessible target. */
