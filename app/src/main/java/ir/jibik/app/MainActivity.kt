@@ -60,6 +60,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -1381,10 +1382,16 @@ private fun Transactions(
     var kindFilter by rememberSaveable { mutableStateOf("همه") }
     var categoryPath by rememberSaveable { mutableStateOf("") }
     var showCategoryPicker by rememberSaveable { mutableStateOf(false) }
-    val filtered = filterLocalTransactions(
-        records = records, receiptLines = receiptLines,
-        kindFilter = kindFilter, categoryPath = categoryPath, query = search,
-    )
+    // One derived snapshot per active filter. Unrelated modal/navigation state
+    // should not re-run the full ledger search on every Compose recomposition.
+    val filtered by remember(records, receiptLines, kindFilter, categoryPath, search) {
+        derivedStateOf {
+            filterLocalTransactions(
+                records = records, receiptLines = receiptLines,
+                kindFilter = kindFilter, categoryPath = categoryPath, query = search,
+            )
+        }
+    }
     LazyColumn(
         modifier = modifier.fillMaxSize().liquidBackdrop(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 22.dp),
