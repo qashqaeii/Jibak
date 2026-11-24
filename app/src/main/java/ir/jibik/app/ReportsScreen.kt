@@ -1,5 +1,7 @@
 package ir.jibik.app
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,6 +27,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -368,6 +372,11 @@ internal fun ReportsScreen(
 @Composable
 private fun CategoryRing(categories: List<CategoryExpense>, total: Long) {
     val palette = listOf(Emerald, Amber, Mint, Coral)
+    val reveal = remember { Animatable(0f) }
+    LaunchedEffect(categories, total) {
+        reveal.snapTo(0f)
+        reveal.animateTo(1f, animationSpec = tween(durationMillis = 560))
+    }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.size(124.dp), contentAlignment = Alignment.Center) {
@@ -380,7 +389,7 @@ private fun CategoryRing(categories: List<CategoryExpense>, total: Long) {
                     drawArc(
                         color = palette[index % palette.size],
                         startAngle = angle,
-                        sweepAngle = sweep,
+                        sweepAngle = sweep * reveal.value,
                         useCenter = false,
                         style = Stroke(stroke),
                     )
