@@ -132,6 +132,28 @@ internal fun JibikAccountIcon(
     }
 }
 
+/** A frameless RTL navigation chevron; independent from installed glyph fonts. */
+@Composable
+internal fun JibikChevronIcon(
+    modifier: Modifier = Modifier.size(20.dp),
+    color: Color = Color(0xFF07574C),
+) {
+    Canvas(modifier) {
+        val unit = size.minDimension / 24f
+        val stroke = 2.3f * unit
+        drawLine(
+            color, Offset(16f * unit, 5f * unit),
+            Offset(8f * unit, 12f * unit),
+            stroke, cap = StrokeCap.Round,
+        )
+        drawLine(
+            color, Offset(8f * unit, 12f * unit),
+            Offset(16f * unit, 19f * unit),
+            stroke, cap = StrokeCap.Round,
+        )
+    }
+}
+
 /** Consistent, outline-only navigation glyphs; no font icons or Unicode shapes. */
 @Composable
 internal fun JibikNavigationIcon(position: Int, selected: Boolean) {

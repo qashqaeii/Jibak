@@ -389,7 +389,7 @@ internal fun JibikWideQuickAction(
                     maxLines = 2, lineHeight = 18.sp,
                 )
             }
-            Text("‹", color = JibikStyle.forest, fontSize = 21.sp)
+            JibikChevronIcon(color = JibikStyle.forest)
         }
     }
 }

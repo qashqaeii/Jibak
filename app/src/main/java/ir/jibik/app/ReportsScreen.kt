@@ -313,7 +313,7 @@ internal fun ReportsScreen(
                                     textAlign = TextAlign.End,
                                     fontWeight = FontWeight.Bold, maxLines = 2,
                                 )
-                                Text("‹", color = Emerald, fontSize = 18.sp)
+                                JibikChevronIcon(color = Emerald)
                             }
                             JibikProgressTrack(
                                 progress = (row.amountToman.toDouble() /

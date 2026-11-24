@@ -1134,7 +1134,7 @@ private fun Home(
                     Text("بررسی خرج‌ها بدون تغییر اطلاعات مالی",
                         color = Quiet, fontSize = 12.sp, lineHeight = 18.sp)
                 }
-                Text("‹", color = Forest, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                JibikChevronIcon(color = Forest)
             }
         }
         LiquidGlassCard(
@@ -1433,7 +1433,7 @@ private fun Transactions(
                             maxLines = 2, overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    Text("‹", color = Forest, fontSize = 19.sp)
+                    JibikChevronIcon(color = Forest)
                 }
             }
         }

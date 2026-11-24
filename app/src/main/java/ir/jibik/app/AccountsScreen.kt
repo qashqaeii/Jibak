@@ -131,7 +131,7 @@ internal fun AccountsScreen(
                     )
                     Text("پس‌انداز واقعی، بر پایه حساب‌های تو", color = Subtle, fontSize = 12.sp)
                 }
-                Text("←", fontSize = 23.sp, color = Green)
+                JibikChevronIcon(color = Green)
             }
         }
         LiquidGlassCard(onClick = onObligations, tone = GlassTone.CRYSTAL) {
@@ -145,7 +145,7 @@ internal fun AccountsScreen(
                     Text("وام، قبض، طلب و تسویه‌های واقعی با سررسید شمسی",
                         color = Subtle, fontSize = 12.sp)
                 }
-                Text("‹", fontSize = 23.sp, color = Green)
+                JibikChevronIcon(color = Green)
             }
         }
         LiquidGlassCard(onClick = onCategories, tone = GlassTone.CRYSTAL) {
@@ -163,7 +163,7 @@ internal fun AccountsScreen(
                         color = Subtle, fontSize = 12.sp,
                     )
                 }
-                Text("‹", fontSize = 23.sp, color = Green)
+                JibikChevronIcon(color = Green)
             }
         }
         JibikSectionTitle(
