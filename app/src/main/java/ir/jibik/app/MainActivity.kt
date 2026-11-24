@@ -1069,9 +1069,13 @@ private fun SpendingByCategory(
         tone = GlassTone.CRYSTAL,
     ) {
         Column(Modifier.padding(0.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("خرج‌ها کجا رفتن؟", color = Deep, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
-                Text(monthTitle, color = Quiet, fontSize = 12.sp)
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Text("خرج‌ها کجا رفتن؟", modifier = Modifier.weight(1f), color = Deep, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+                Text(monthTitle, modifier = Modifier.weight(0.7f), textAlign = TextAlign.End, color = Quiet, fontSize = 12.sp)
             }
             if (categories.isEmpty()) {
                 Text("هنوز هزینه‌ای در این ماه ثبت نشده.", color = Quiet, fontSize = 13.sp)
@@ -1088,7 +1092,6 @@ private fun SpendingByCategory(
                             )
                             Text(
                                 money(entry.amountToman), fontSize = 12.sp, color = Quiet,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(0.9f),
                                 textAlign = TextAlign.End,
                             )
