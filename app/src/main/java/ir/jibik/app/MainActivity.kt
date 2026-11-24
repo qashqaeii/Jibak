@@ -1115,15 +1115,22 @@ private fun Home(
             ) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Column(
+                        Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
                         Text("بودجه " + monthTitle, fontWeight = FontWeight.ExtraBold,
-                            color = Deep, fontSize = 16.sp)
+                            color = Deep, fontSize = 16.sp, maxLines = 2)
                         Text("مدیریت سقف هزینه", color = Quiet, fontSize = 11.sp)
                     }
                     Text(
                         if (budget > 0L) money(budget) else "بدون سقف",
+                        modifier = Modifier.weight(1f),
                         color = Forest, fontSize = 13.sp,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.End,
+                        maxLines = 2, lineHeight = 19.sp,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 if (budget <= 0L) {
@@ -1211,12 +1218,15 @@ private fun SpendingByCategory(
                                 entry.category, fontSize = 13.sp, color = Deep,
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier.weight(1f),
-                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                maxLines = 2, lineHeight = 19.sp,
+                                overflow = TextOverflow.Ellipsis,
                             )
                             Text(
                                 money(entry.amountToman), fontSize = 12.sp, color = Quiet,
                                 modifier = Modifier.weight(0.9f),
                                 textAlign = TextAlign.End,
+                                maxLines = 2, lineHeight = 19.sp,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                         JibikProgressTrack(
@@ -1307,11 +1317,20 @@ private fun MetricCard(title: String, amount: Long, accent: Color, modifier: Mod
                 Box(Modifier.size(9.dp).background(accent, RoundedCornerShape(5.dp)))
                 Text(title + " ماه", color = Quiet, fontSize = 12.sp)
             }
+            val formatted = money(amount)
             Text(
-                money(amount),
-                fontSize = if (money(amount).length >= 19) 13.sp else 15.sp,
-                fontWeight = FontWeight.ExtraBold, color = Deep,
-                maxLines = 2, lineHeight = 21.sp, overflow = TextOverflow.Ellipsis,
+                formatted,
+                fontFamily = JibikFontFamily,
+                fontSize = when {
+                    formatted.length >= 27 -> 12.sp
+                    formatted.length >= 19 -> 13.sp
+                    else -> 15.sp
+                },
+                fontWeight = FontWeight.ExtraBold,
+                color = Deep,
+                maxLines = 3,
+                lineHeight = 21.sp,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
