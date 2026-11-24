@@ -104,14 +104,14 @@ internal fun AccountsScreen(
                 text = "＋ حساب جدید",
                 onClick = onAdd,
                 tone = GlassTone.HONEY,
-                modifier = Modifier.weight(1f).height(50.dp),
+                modifier = Modifier.weight(1f).heightIn(min = 54.dp),
             )
             LiquidGlassButton(
                 text = "انتقال پول",
                 onClick = onTransfer,
                 enabled = accounts.size > 1,
                 tone = GlassTone.CRYSTAL,
-                modifier = Modifier.weight(1f).height(50.dp),
+                modifier = Modifier.weight(1f).heightIn(min = 54.dp),
             )
         }
         LiquidGlassCard(

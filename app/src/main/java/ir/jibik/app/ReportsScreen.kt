@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -30,9 +31,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -275,7 +278,7 @@ internal fun ReportsScreen(
                         val tint = listOf(Emerald, Amber, Mint, Coral)[index % 4]
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Row(
-                                Modifier.fillMaxWidth().clickable {
+                                Modifier.fillMaxWidth().heightIn(min = 54.dp).clickable(role = Role.Button) {
                                     if (row.drillable) {
                                         selectedCategoryPath = row.path
                                     } else {
@@ -297,9 +300,14 @@ internal fun ReportsScreen(
                                         else "مشاهده تراکنش‌ها",
                                         color = Muted, fontSize = 11.sp)
                                 }
-                                Text(moneyReport(row.amountToman),
+                                Text(
+                                    moneyReport(row.amountToman),
+                                    modifier = Modifier.weight(0.8f),
                                     color = Emerald, fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold, maxLines = 1)
+                                    lineHeight = 18.sp,
+                                    textAlign = TextAlign.End,
+                                    fontWeight = FontWeight.Bold, maxLines = 2,
+                                )
                                 Text("‹", color = Emerald, fontSize = 18.sp)
                             }
                             LinearProgressIndicator(
@@ -336,7 +344,7 @@ internal fun ReportsScreen(
             LiquidGlassButton(
                 text = "ذخیره فایل CSV",
                 onClick = onExportCsv,
-                modifier = Modifier.fillMaxWidth().height(49.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                 tone = GlassTone.EMERALD,
             )
             LiquidGlassButton(
