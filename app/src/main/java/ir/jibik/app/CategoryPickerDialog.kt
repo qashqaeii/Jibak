@@ -46,9 +46,7 @@ internal fun CategoryPickerDialog(
         .filter { !parentOnly || it.depth < 3 }
 
     AlertDialog(
-        modifier = Modifier.liquidGlass(
-            tone = GlassTone.FROSTED, radius = 26.dp, elevation = 15.dp,
-        ),
+        modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = onDismiss,
         containerColor = Color.Transparent,
         title = {

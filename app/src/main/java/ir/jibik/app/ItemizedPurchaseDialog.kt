@@ -88,7 +88,7 @@ internal fun ItemizedPurchaseDialog(
     var selectingCategoryIndex by rememberSaveable { mutableStateOf(-1) }
 
     AlertDialog(
-        modifier = Modifier.imePadding().liquidGlass(tone = GlassTone.FROSTED, radius = 28.dp, elevation = 15.dp),
+        modifier = Modifier.imePadding().jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
         tonalElevation = 0.dp,
