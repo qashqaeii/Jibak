@@ -179,9 +179,8 @@ internal fun GoalsScreen(
                         emphasis = true,
                         valueColor = JibikStyle.forest,
                     )
-                    LinearProgressIndicator(
-                        progress = { fraction },
-                        modifier = Modifier.fillMaxWidth().height(9.dp),
+                    JibikProgressTrack(
+                        progress = fraction,
                         color = if (fraction >= 1f) JibikStyle.forest else JibikStyle.orange,
                         trackColor = JibikStyle.cream,
                     )

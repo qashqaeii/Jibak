@@ -183,14 +183,10 @@ internal fun ObligationsScreen(
                     Text("پرداخت/دریافت: " + formatToman(progress.paidToman),
                         color = JibikStyle.forest, fontSize = 12.sp)
                 }
-                LinearProgressIndicator(
-                    progress = {
-                        (progress.paidToman.toDouble() / item.totalToman.toDouble())
-                            .toFloat().coerceIn(0f, 1f)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
+                JibikProgressTrack(
+                    progress = (progress.paidToman.toDouble() /
+                        item.totalToman.coerceAtLeast(1L).toDouble()).toFloat(),
                     color = JibikStyle.forest,
-                    trackColor = Color(0xFFE6F1E9),
                 )
                 Text(
                     if (nextDate == null) "تمام اقساط تسویه شده‌اند"

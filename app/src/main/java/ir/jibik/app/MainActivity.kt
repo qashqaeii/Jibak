@@ -1636,11 +1636,9 @@ private fun Budget(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            LinearProgressIndicator(
-                progress = { usage.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(10.dp),
+            JibikProgressTrack(
+                progress = usage,
                 color = if (usage > 1f) Coral else if (usage >= 0.85f) Orange else Mint,
-                trackColor = Color(0xFFE9F2EC),
             )
             Text(
                 when {

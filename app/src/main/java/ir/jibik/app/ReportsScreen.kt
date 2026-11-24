@@ -310,14 +310,11 @@ internal fun ReportsScreen(
                                 )
                                 Text("‹", color = Emerald, fontSize = 18.sp)
                             }
-                            LinearProgressIndicator(
-                                progress = {
-                                    (row.amountToman.toDouble() /
-                                        levelTotal.coerceAtLeast(1L).toDouble())
-                                        .toFloat().coerceIn(0f, 1f)
-                                },
-                                modifier = Modifier.fillMaxWidth().height(7.dp),
-                                color = tint, trackColor = Ivory,
+                            JibikProgressTrack(
+                                progress = (row.amountToman.toDouble() /
+                                    levelTotal.coerceAtLeast(1L).toDouble()).toFloat(),
+                                color = tint,
+                                trackColor = Ivory,
                             )
                         }
                     }

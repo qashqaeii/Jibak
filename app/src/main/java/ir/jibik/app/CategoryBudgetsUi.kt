@@ -78,12 +78,13 @@ internal fun CategoryBudgetsPanel(
                     label = "سقف ماهانه",
                     value = formatToman(line.limitToman),
                 )
-                LinearProgressIndicator(
-                    progress = { line.usageRatio.toFloat().coerceIn(0f, 1f) },
-                    color = if (line.alert == "over") JibikStyle.coral
-                        else JibikStyle.forest,
-                    trackColor = Color(0xFFE7F0E9),
-                    modifier = Modifier.fillMaxWidth(),
+                JibikProgressTrack(
+                    progress = line.usageRatio.toFloat(),
+                    color = when (line.alert) {
+                        "over" -> JibikStyle.coral
+                        "warning" -> JibikStyle.orange
+                        else -> JibikStyle.forest
+                    },
                 )
                 Text(
                     when (line.alert) {
