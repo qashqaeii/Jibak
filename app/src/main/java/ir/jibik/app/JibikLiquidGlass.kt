@@ -254,9 +254,14 @@ internal fun LiquidGlassCard(
         animationSpec = tween(durationMillis = 140),
         label = "jibik-card-press",
     )
+    // Elevation communicates hierarchy: most content cards stay close to
+    // the page; the primary financial hero and dialogs retain more depth.
     val surface = modifier.fillMaxWidth()
         .graphicsLayer { scaleX = cardScale; scaleY = cardScale }
-        .liquidGlass(tone)
+        .liquidGlass(
+            tone = tone,
+            elevation = if (tone == GlassTone.CRYSTAL) 4.dp else 6.dp,
+        )
     val active = if (onClick == null) surface else surface
         .heightIn(min = 52.dp)
         .clickable(
