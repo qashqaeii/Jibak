@@ -1584,9 +1584,15 @@ private fun TransactionCard(record: LedgerRecord, onClick: () -> Unit) {
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        context, color = Quiet, fontSize = 11.sp,
-                        lineHeight = 17.sp, maxLines = 2,
+                        context, color = Quiet, fontSize = 12.sp,
+                        lineHeight = 18.sp, maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        formatJalaliDueDate(record.timestampMillis),
+                        color = Quiet.copy(alpha = 0.90f),
+                        fontSize = 11.sp, lineHeight = 17.sp,
+                        maxLines = 1,
                     )
                     if (compact) {
                         Text(
