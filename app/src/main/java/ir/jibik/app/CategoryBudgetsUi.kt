@@ -47,13 +47,10 @@ internal fun CategoryBudgetsPanel(
         enabled = !isSaving,
     )
     if (budgets.isEmpty()) {
-        JibikSurfaceCard {
-            Text(
-                "هنوز سقف جداگانه‌ای مشخص نکردی. دسته‌ای مثل «خوراک» انتخاب کن " +
-                    "تا مصرف همین ماه و هشدار نزدیک‌شدن به سقف را ببینی.",
-                color = JibikStyle.muted, fontSize = 13.sp, lineHeight = 22.sp,
-            )
-        }
+        JibikStatePanel(
+            title = "سقف دسته‌ای نداری",
+            description = "برای دسته‌ای مثل خوراک، یک سقف تعیین کن تا پیشرفت خرج و هشدار نزدیک‌شدن به سقف رو ببینی.",
+        )
     } else {
         usage.forEach { line ->
             LiquidGlassCard(tone = GlassTone.CRYSTAL) {

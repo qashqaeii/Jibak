@@ -136,10 +136,10 @@ internal fun ObligationsScreen(
                 "یک تراکنش واقعی به دفتر مالی اضافه می‌شود."
         )
         if (obligations.isEmpty()) {
-            JibikSurfaceCard {
-                Text("هنوز تعهدی ثبت نشده. اولین قبض، قسط، بدهی یا طلب خودت را ثبت کن.",
-                    fontSize = 13.sp, color = JibikStyle.muted, lineHeight = 21.sp)
-            }
+            JibikStatePanel(
+                title = "هنوز تعهدی ثبت نکردی",
+                description = "بدهی، طلب، قبض یا قسطت رو با سررسید شمسی اضافه کن؛ فقط پرداخت واقعی روی موجودی اثر می‌ذاره.",
+            )
         }
         obligations.sortedWith(
             compareBy<FinancialObligationEntity> {

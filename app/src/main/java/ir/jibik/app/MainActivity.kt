@@ -1491,26 +1491,16 @@ private fun Transactions(
         if (filtered.isEmpty()) {
             item {
                 if (records.isEmpty()) EmptyTransactions(onCreateTransaction)
-                else JibikSurfaceCard {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        JiboMascot(Modifier.size(58.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("چیزی پیدا نشد", fontWeight = FontWeight.Bold, color = Deep)
-                            Text("جستجو یا فیلترت رو تغییر بده.", fontSize = 12.sp, color = Quiet)
-                        }
-                    }
-                    TextButton(onClick = {
+                else JibikStatePanel(
+                    title = "تراکنشی با این فیلترها پیدا نشد",
+                    description = "جستجو یا فیلترها رو پاک کن تا همه تراکنش‌های ثبت‌شده رو ببینی.",
+                    actionLabel = "پاک‌کردن همه فیلترها",
+                    onAction = {
                         search = ""
                         kindFilter = "همه"
                         categoryPath = ""
-                    }) {
-                        Text("پاک‌کردن فیلترها")
-                    }
-                }
+                    },
+                )
             }
         } else {
             items(items = filtered, key = { it.id }) { record ->
