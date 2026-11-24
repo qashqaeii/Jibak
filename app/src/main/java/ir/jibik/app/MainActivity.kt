@@ -1577,6 +1577,21 @@ private fun EmptyTransactions(onCreateTransaction: () -> Unit) {
     )
 }
 
+/**
+ * Presentation-only budget guidance. A missing limit is not an overspend.
+ * No ledger value or user budget is ever changed here.
+ */
+internal fun jibikBudgetGuidance(spent: Long, limit: Long): String {
+    if (limit <= 0L) return "هنوز سقف ماهانه مشخص نکردی. برای شروع، یک سقف مناسب تعیین کن."
+    val used = spent.toDouble() / limit.toDouble()
+    return when {
+        used > 1.0 -> "از سقف تعیین‌شده عبور کردی؛ می‌تونی بودجه رو بازبینی کنی."
+        used >= 0.85 -> "به سقف بودجه نزدیک شدی. خرج‌های پیش‌رو رو بررسی کن."
+        spent == 0L -> "با اولین هزینه، پیشرفت بودجه اینجا نمایش داده می‌شه."
+        else -> "تا اینجا هزینه‌ها در محدوده بودجه‌ات هستند."
+    }
+}
+
 @Composable
 private fun Budget(
     spent: Long,
@@ -1591,8 +1606,9 @@ private fun Budget(
     onEdit: () -> Unit,
     onAi: () -> Unit,
 ) {
-    val remaining = budget - spent
-    val usage = (spent.toDouble() / budget.coerceAtLeast(1L).toDouble()).toFloat()
+    val hasLimit = budget > 0L
+    val remaining = if (hasLimit) budget - spent else 0L
+    val usage = if (hasLimit) (spent.toDouble() / budget.toDouble()).toFloat() else 0f
     Column(
         modifier = modifier.fillMaxSize().liquidBackdrop().verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 14.dp),
@@ -1604,13 +1620,13 @@ private fun Budget(
         )
         JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.BUDGET) {
             Text(
-                if (remaining >= 0L) "باقی‌مانده بودجه" else "میزان عبور از بودجه",
+                if (!hasLimit) "بودجه این ماه" else if (remaining >= 0L)
+                    "باقی‌مانده بودجه" else "میزان عبور از بودجه",
                 color = Color(0xFFDCF3EA), fontSize = 13.sp,
             )
-            Text(
-                money(if (remaining >= 0L) remaining else -remaining),
-                fontSize = 28.sp, color = Paper, fontWeight = FontWeight.ExtraBold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            JibikHeroAmount(
+                amount = if (!hasLimit) "بدون سقف"
+                    else money(if (remaining >= 0L) remaining else -remaining),
             )
             HorizontalDivider(color = Paper.copy(alpha = 0.18f))
             Text(
@@ -1623,8 +1639,9 @@ private fun Budget(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("سقف تعیین‌شده", color = Quiet, fontSize = 13.sp)
                 Text(
-                    money(budget), color = Deep, fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold, maxLines = 1,
+                    if (hasLimit) money(budget) else "تعیین نشده",
+                    color = Deep, fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold, maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -1632,22 +1649,20 @@ private fun Budget(
                 Text("هزینه‌های این ماه", color = Quiet, fontSize = 13.sp)
                 Text(
                     money(spent), color = Deep, fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold, maxLines = 1,
+                    fontWeight = FontWeight.Bold, maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            JibikProgressTrack(
-                progress = usage,
-                color = if (usage > 1f) Coral else if (usage >= 0.85f) Orange else Mint,
-            )
+            if (hasLimit) {
+                JibikProgressTrack(
+                    progress = usage,
+                    color = if (usage > 1f) Coral else if (usage >= 0.85f) Orange else Mint,
+                )
+            }
             Text(
-                when {
-                    usage > 1f -> "بودجه این ماه تمام شده؛ می‌تونی سقف رو بازبینی کنی."
-                    usage >= 0.85f -> "به سقف بودجه نزدیک شدی. خرج‌های پیش رو رو بررسی کن."
-                    spent == 0L -> "با اولین هزینه، پیشرفت بودجه اینجا نمایش داده می‌شه."
-                    else -> "تا اینجا هزینه‌ها در محدوده بودجه‌ات هستند."
-                },
-                fontSize = 12.sp, color = Quiet, lineHeight = 20.sp,
+                jibikBudgetGuidance(spent, budget),
+                fontSize = 12.sp, color = if (hasLimit && usage > 1f) Coral else Quiet,
+                lineHeight = 20.sp,
             )
             LiquidGlassButton(
                 text = "ویرایش سقف بودجه",
