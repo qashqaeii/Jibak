@@ -55,6 +55,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -405,9 +406,7 @@ private fun JibikApp(
     }
 
     if (!isLoaded) {
-        Box(Modifier.fillMaxSize().background(Cream), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = Forest)
-        }
+        JibikLoadingScreen()
         return
     }
     if (loadingFailed) {
@@ -428,7 +427,20 @@ private fun JibikApp(
     val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     Scaffold(
         containerColor = GlassPalette.backgroundTop,
-        snackbarHost = { SnackbarHost(hostState = notifications) },
+        snackbarHost = {
+            SnackbarHost(
+                hostState = notifications,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                snackbar = { data ->
+                    Snackbar(
+                        snackbarData = data,
+                        shape = RoundedCornerShape(18.dp),
+                        containerColor = Forest,
+                        contentColor = Color.White,
+                    )
+                },
+            )
+        },
         bottomBar = {
             // Navigation never competes with a text editor for the screen.
             if (!keyboardVisible) {
@@ -996,6 +1008,44 @@ private fun JibikApp(
     }
 }
 
+
+/** Honest loading state: no fake balances or placeholder financial figures. */
+@Composable
+private fun JibikLoadingScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize().liquidBackdrop()
+            .padding(horizontal = 24.dp, vertical = 24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            JiboArt(JiboArtwork.ASSISTANT, Modifier.size(112.dp))
+            Text(
+                "در حال آماده‌کردن اطلاعات مالی",
+                color = JibikStyle.ink,
+                fontSize = 19.sp,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = TextAlign.Center,
+                lineHeight = 28.sp,
+            )
+            Text(
+                "اطلاعات ثبت‌شده از حافظه همین گوشی خوانده می‌شوند.",
+                color = JibikStyle.muted,
+                fontSize = 13.sp,
+                lineHeight = 21.sp,
+                textAlign = TextAlign.Center,
+            )
+            CircularProgressIndicator(
+                color = Forest,
+                strokeWidth = 3.dp,
+                modifier = Modifier.size(26.dp),
+            )
+        }
+    }
+}
 
 /** Keep the primary onboarding CTA visible on compact screens and large fonts. */
 internal fun compactJibikWelcome(widthDp: Float, heightDp: Float, fontScale: Float): Boolean =
