@@ -18,6 +18,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -416,22 +419,25 @@ private fun JibikApp(
         return
     }
 
+    val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     Scaffold(
         containerColor = GlassPalette.backgroundTop,
         snackbarHost = { SnackbarHost(hostState = notifications) },
         bottomBar = {
-            // One calm floating navigation surface, shared by every top-level page.
-            // Material3 keeps accessible touch targets, selection and transitions.
-            Box(
-                Modifier.fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                    .liquidGlass(GlassTone.CRYSTAL, radius = 24.dp, elevation = 5.dp),
-            ) {
-                NavigationBar(
-                    modifier = Modifier.fillMaxWidth(),
-                    containerColor = Color.Transparent,
-                    tonalElevation = 0.dp,
+            // Navigation never competes with a text editor for the screen.
+            if (!keyboardVisible) {
+                Box(
+                    Modifier.fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .liquidGlass(GlassTone.CRYSTAL, radius = 24.dp, elevation = 5.dp),
                 ) {
+                    NavigationBar(
+                        modifier = Modifier.fillMaxWidth().height(70.dp),
+                        windowInsets = WindowInsets(0, 0, 0, 0),
+                        containerColor = Color.Transparent,
+                        tonalElevation = 0.dp,
+                    ) {
                     Section.entries.forEach { destination ->
                         val active = section == destination
                         NavigationBarItem(
@@ -470,6 +476,7 @@ private fun JibikApp(
                                 indicatorColor = Color(0xFFDDF1E8),
                             ),
                         )
+                    }
                     }
                 }
             }
