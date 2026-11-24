@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import ir.jibik.core.finance.LedgerKind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -44,6 +47,88 @@ internal fun JibikSearchIcon(modifier: Modifier = Modifier.size(20.dp)) {
             strokeWidth = stroke,
             cap = StrokeCap.Round,
         )
+    }
+}
+
+/**
+ * Small money-direction symbols are real Compose geometry, not font glyphs
+ * and not mascot artwork. The card itself owns the interaction target.
+ */
+@Composable
+internal fun JibikMoneyDirectionIcon(
+    kind: LedgerKind,
+    tint: Color,
+    modifier: Modifier = Modifier.size(42.dp),
+) {
+    Canvas(modifier) {
+        val unit = size.minDimension / 42f
+        val x = size.width / 2f
+        val y = size.height / 2f
+        val stroke = 2.7f * unit
+        fun point(dx: Float, dy: Float) = Offset(x + dx * unit, y + dy * unit)
+        when (kind) {
+            LedgerKind.EXPENSE -> {
+                drawLine(tint, point(-10f, -10f), point(9f, 9f), stroke, cap = StrokeCap.Round)
+                drawLine(tint, point(-1f, 9f), point(9f, 9f), stroke, cap = StrokeCap.Round)
+                drawLine(tint, point(9f, -1f), point(9f, 9f), stroke, cap = StrokeCap.Round)
+            }
+            LedgerKind.INCOME -> {
+                drawLine(tint, point(10f, 10f), point(-9f, -9f), stroke, cap = StrokeCap.Round)
+                drawLine(tint, point(1f, -9f), point(-9f, -9f), stroke, cap = StrokeCap.Round)
+                drawLine(tint, point(-9f, 1f), point(-9f, -9f), stroke, cap = StrokeCap.Round)
+            }
+            LedgerKind.TRANSFER -> {
+                drawLine(tint, point(-12f, -6f), point(11f, -6f), stroke, cap = StrokeCap.Round)
+                drawLine(tint, point(4f, -12f), point(11f, -6f), stroke, cap = StrokeCap.Round)
+                drawLine(tint, point(4f, 0f), point(11f, -6f), stroke, cap = StrokeCap.Round)
+                drawLine(tint, point(12f, 7f), point(-11f, 7f), stroke, cap = StrokeCap.Round)
+                drawLine(tint, point(-4f, 1f), point(-11f, 7f), stroke, cap = StrokeCap.Round)
+                drawLine(tint, point(-4f, 13f), point(-11f, 7f), stroke, cap = StrokeCap.Round)
+            }
+        }
+    }
+}
+
+/** A small frameless account icon, consistent with the navigation glyphs. */
+@Composable
+internal fun JibikAccountIcon(
+    wallet: Boolean,
+    modifier: Modifier = Modifier.size(42.dp),
+) {
+    Canvas(modifier = modifier) {
+        val unit = size.minDimension / 42f
+        val stroke = 2.2f * unit
+        val green = Color(0xFF07574C)
+        drawRoundRect(
+            color = green,
+            topLeft = Offset(7f * unit, 12f * unit),
+            size = Size(28f * unit, 20f * unit),
+            cornerRadius = CornerRadius(4f * unit),
+            style = Stroke(stroke),
+        )
+        if (wallet) {
+            drawLine(
+                color = green,
+                start = Offset(9f * unit, 12f * unit),
+                end = Offset(30f * unit, 8f * unit),
+                strokeWidth = stroke,
+                cap = StrokeCap.Round,
+            )
+            drawCircle(green, radius = 1.8f * unit,
+                center = Offset(29f * unit, 22f * unit))
+        } else {
+            drawLine(green,
+                start = Offset(9f * unit, 19f * unit),
+                end = Offset(33f * unit, 19f * unit),
+                strokeWidth = stroke,
+            )
+            drawLine(green,
+                start = Offset(12f * unit, 26f * unit),
+                end = Offset(21f * unit, 26f * unit),
+                strokeWidth = stroke,
+                cap = StrokeCap.Round,
+            )
+        }
     }
 }
 

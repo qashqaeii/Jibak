@@ -189,18 +189,10 @@ internal fun AccountsScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             modifier = Modifier.weight(1f),
                         ) {
-                            Box(
-                                Modifier.size(42.dp).background(
-                                    if (index % 2 == 0) Color(0xFFD0EBDD) else Color(0xFFFFEBD7),
-                                    RoundedCornerShape(14.dp),
-                                ),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    if (account.id == "wallet") "◉" else "▤",
-                                    fontSize = 20.sp, color = Green,
-                                )
-                            }
+                            JibikAccountIcon(
+                                wallet = account.id == "wallet",
+                                modifier = Modifier.size(42.dp),
+                            )
                             Column(
                                 verticalArrangement = Arrangement.spacedBy(3.dp),
                                 modifier = Modifier.weight(1f),

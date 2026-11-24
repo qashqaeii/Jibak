@@ -1480,11 +1480,6 @@ private fun TransactionCard(record: LedgerRecord, onClick: () -> Unit) {
         transfer -> Color(0xFFB26A12)
         else -> Forest
     }
-    val tint = when {
-        expense -> Color(0xFFFFEEEB)
-        transfer -> Color(0xFFFFF0DD)
-        else -> Color(0xFFE9F6EF)
-    }
     val amountLabel = (when (record.kind) {
         LedgerKind.EXPENSE -> "− "
         LedgerKind.INCOME -> "+ "
@@ -1514,19 +1509,11 @@ private fun TransactionCard(record: LedgerRecord, onClick: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(11.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    Modifier.size(42.dp).background(tint, RoundedCornerShape(14.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        when {
-                            expense -> "−"
-                            transfer -> "⇄"
-                            else -> "+"
-                        },
-                        color = highlight, fontWeight = FontWeight.Bold, fontSize = 20.sp,
-                    )
-                }
+                JibikMoneyDirectionIcon(
+                    kind = record.kind,
+                    tint = highlight,
+                    modifier = Modifier.size(42.dp),
+                )
                 Column(
                     Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(5.dp),
