@@ -419,24 +419,56 @@ private fun JibikApp(
         containerColor = GlassPalette.backgroundTop,
         snackbarHost = { SnackbarHost(hostState = notifications) },
         bottomBar = {
+            // One calm floating navigation surface, shared by every top-level page.
+            // Material3 keeps accessible touch targets, selection and transitions.
             Box(
-                Modifier
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                    .liquidGlass(GlassTone.CRYSTAL, radius = 26.dp, elevation = 9.dp),
+                Modifier.fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .liquidGlass(GlassTone.CRYSTAL, radius = 24.dp, elevation = 5.dp),
             ) {
-                NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp) {
+                NavigationBar(
+                    modifier = Modifier.fillMaxWidth(),
+                    containerColor = Color.Transparent,
+                    tonalElevation = 0.dp,
+                ) {
                     Section.entries.forEach { destination ->
-                    NavigationBarItem(
-                        selected = section == destination,
-                        onClick = { section = destination },
-                        icon = { JibikNavigationIcon(destination.ordinal, section == destination) },
-                        label = { Text(destination.title, fontSize = 12.sp) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedTextColor = Forest,
-                            unselectedTextColor = Quiet,
-                            indicatorColor = Color(0xFFC6F2E4).copy(alpha = 0.72f),
-                        ),
-                    )
+                        val active = section == destination
+                        NavigationBarItem(
+                            selected = active,
+                            onClick = {
+                                // Re-selecting a tab goes back to its main screen.
+                                // This avoids trapping users in nested pages.
+                                if (active) {
+                                    when (destination) {
+                                        Section.TRANSACTIONS -> showBankSms = false
+                                        Section.ACCOUNTS -> {
+                                            showGoals = false
+                                            showCategoryManager = false
+                                            showObligations = false
+                                        }
+                                        else -> Unit
+                                    }
+                                }
+                                section = destination
+                            },
+                            icon = { JibikNavigationIcon(destination.ordinal, active) },
+                            label = {
+                                Text(
+                                    destination.title,
+                                    fontFamily = JibikFontFamily,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (active) FontWeight.ExtraBold else FontWeight.Medium,
+                                    lineHeight = 16.sp,
+                                    maxLines = 1,
+                                )
+                            },
+                            alwaysShowLabel = true,
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedTextColor = Forest,
+                                unselectedTextColor = Quiet,
+                                indicatorColor = Color(0xFFDDF1E8),
+                            ),
+                        )
                     }
                 }
             }
