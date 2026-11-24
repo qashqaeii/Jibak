@@ -17,6 +17,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.alpha
@@ -121,6 +122,84 @@ internal fun JibikHero(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             content = content,
         )
+    }
+}
+
+/**
+ * Shared top-level heading: same typography, spacing and brand placement on
+ * home-adjacent pages. Back navigation is an explicit touch target, not a glyph
+ * embedded in decorative text. Natural text wrapping supports font scaling.
+ */
+@Composable
+internal fun JibikPageHeader(
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                title, color = JibikStyle.ink,
+                fontSize = 24.sp, lineHeight = 32.sp,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.semantics { heading() },
+            )
+            Text(
+                subtitle, color = JibikStyle.muted,
+                fontSize = 13.sp, lineHeight = 20.sp,
+                maxLines = 3, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (onBack != null) {
+            TextButton(onClick = onBack) {
+                Text(
+                    "بازگشت", color = JibikStyle.forest,
+                    fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                )
+            }
+        } else {
+            JibikBrandLogo(Modifier.size(44.dp))
+        }
+    }
+}
+
+/** Shared readable title for all new and refactored finance dialogs. */
+@Composable
+internal fun JibikDialogHeading(
+    title: String,
+    subtitle: String? = null,
+) {
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        JibikBrandLogo(Modifier.size(38.dp))
+        Column(
+            Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Text(
+                title, color = JibikStyle.ink,
+                fontSize = 19.sp, lineHeight = 26.sp,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    subtitle, color = JibikStyle.muted,
+                    fontSize = 12.sp, lineHeight = 18.sp,
+                    maxLines = 3, overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 
