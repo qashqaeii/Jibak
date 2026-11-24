@@ -105,6 +105,13 @@ if "cream" in token_values:
                     f"JibikStyle.{token} fails 4.5:1 contrast over {background}"
                 )
 
+# Text aliases in the three largest workspaces must use the same accessible
+# tokens, not legacy low-contrast gray/red literals.
+for filename in ("MainActivity.kt", "ReportsScreen.kt", "AccountsScreen.kt"):
+    text_colors = (APP / filename).read_text(encoding="utf-8")
+    if "Color(0xFF677A78)" in text_colors or "Color(0xFFE95C50)" in text_colors:
+        errors.append(f"{filename}: low-contrast legacy text token has returned")
+
 # Trust-critical UX regression guards. Logic has corresponding JVM unit tests.
 main_source = (APP / "MainActivity.kt").read_text(encoding="utf-8")
 store_source = (APP / "LocalLedgerStore.kt").read_text(encoding="utf-8")

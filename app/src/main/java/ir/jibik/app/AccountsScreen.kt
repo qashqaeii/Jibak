@@ -47,7 +47,7 @@ import java.util.UUID
 
 private val Green = Color(0xFF07574C)
 private val Ink = Color(0xFF102D31)
-private val Subtle = Color(0xFF677A78)
+private val Subtle = JibikStyle.muted
 private val WarmBackground = Color(0xFFFFFAF5)
 private val White = Color.White
 

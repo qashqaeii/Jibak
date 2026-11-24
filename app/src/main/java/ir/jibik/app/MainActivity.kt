@@ -113,9 +113,9 @@ private val Deep = Color(0xFF102D31)
 private val Mint = Color(0xFF21C79B)
 private val Orange = Color(0xFFFF8A1F)
 private val Cream = Color(0xFFFFFAF5)
-private val Coral = Color(0xFFE95C50)
+private val Coral = JibikStyle.coral
 private val Paper = Color.White
-private val Quiet = Color(0xFF677A78)
+private val Quiet = JibikStyle.muted
 
 private val colors = lightColorScheme(
     primary = Forest, onPrimary = Paper,

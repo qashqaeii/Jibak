@@ -55,8 +55,8 @@ import java.util.Locale
 private val Emerald = Color(0xFF07574C)
 private val Ivory = Color(0xFFFFFAF5)
 private val Ink = Color(0xFF102D31)
-private val Muted = Color(0xFF677A78)
-private val Coral = Color(0xFFE95C50)
+private val Muted = JibikStyle.muted
+private val Coral = JibikStyle.coral
 private val Mint = Color(0xFF21C79B)
 private val Amber = Color(0xFFFF8A1F)
 
