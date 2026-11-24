@@ -35,6 +35,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -369,6 +371,26 @@ internal fun ReportsScreen(
     }
 }
 
+/**
+ * Screen-reader alternative to the visual doughnut chart.
+ * Percentages are descriptions only; raw financial totals remain unchanged.
+ */
+internal fun jibikCategoryRingDescription(
+    categories: List<CategoryExpense>,
+    total: Long,
+): String {
+    if (categories.isEmpty()) return "هنوز هزینه‌ای برای نمایش در نمودار نیست."
+    val summaries = categories.take(5).joinToString("، ") { category ->
+        val percentage = if (total > 0L)
+            (category.amountToman.toDouble() * 100.0 / total.toDouble())
+                .toInt().coerceIn(0, 100)
+        else 0
+        "${category.category}: $percentage درصد"
+    }
+    val extra = if (categories.size > 5) "، و ${categories.size - 5} دسته دیگر" else ""
+    return "توزیع هزینه بین ${categories.size} دسته؛ $summaries$extra"
+}
+
 @Composable
 private fun CategoryRing(categories: List<CategoryExpense>, total: Long) {
     val palette = listOf(Emerald, Amber, Mint, Coral)
@@ -379,7 +401,13 @@ private fun CategoryRing(categories: List<CategoryExpense>, total: Long) {
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(124.dp), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier.size(124.dp)
+                .clearAndSetSemantics {
+                    contentDescription = jibikCategoryRingDescription(categories, total)
+                },
+            contentAlignment = Alignment.Center,
+        ) {
             Canvas(Modifier.fillMaxSize()) {
                 val stroke = 17.dp.toPx()
                 var angle = -90f
