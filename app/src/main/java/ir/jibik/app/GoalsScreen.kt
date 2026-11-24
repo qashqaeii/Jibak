@@ -91,47 +91,29 @@ internal fun GoalsScreen(
                 color = Color(0xFFE1F4EC), fontSize = 12.sp,
             )
         }
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            LiquidGlassButton(
-                text = "بازگشت",
-                onClick = onBack,
-                tone = GlassTone.CRYSTAL,
-                modifier = Modifier.weight(0.35f).height(50.dp),
+        if (goals.isEmpty()) {
+            JibikStatePanel(
+                title = "اولین هدف پس‌اندازت رو بساز",
+                description = if (eligible)
+                    "حساب پس‌انداز آماده است؛ مبلغ و نام هدفت رو مشخص کن."
+                else
+                    "ابتدا در بخش حساب‌ها یک حساب پس‌انداز جدا بساز؛ بعد برای آن هدف تعیین کن.",
+                actionLabel = if (eligible) "＋ ساخت اولین هدف" else "رفتن به حساب‌ها",
+                onAction = if (eligible) onAdd else onBack,
             )
+        } else {
             LiquidGlassButton(
-                text = "＋ ساخت هدف",
+                text = "＋ ساخت هدف جدید",
                 onClick = onAdd,
                 enabled = eligible,
                 tone = GlassTone.HONEY,
-                modifier = Modifier.weight(0.65f).height(50.dp),
+                modifier = Modifier.fillMaxWidth(),
             )
-        }
-        if (goals.isEmpty()) {
-            JibikSurfaceCard {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    JiboMascot(Modifier.size(72.dp))
-                    Column(Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            "اولین هدف پس‌اندازت رو بساز",
-                            color = JibikStyle.ink, fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        JibikFormHint(
-                            "ابتدا یک حساب جدا برای پس‌انداز بساز؛ " +
-                                "بعد هدف رو به اون حساب وصل کن.",
-                        )
-                    }
-                }
+            if (!eligible) {
+                JibikFormHint(
+                    "برای هدف تازه، ابتدا یک حساب پس‌انداز دیگر در بخش حساب‌ها بساز.",
+                )
             }
-        } else {
             JibikSectionTitle(
                 "برنامه‌های مالی من",
                 "پیشرفت بر پایه موجودی واقعی حساب‌ها",
