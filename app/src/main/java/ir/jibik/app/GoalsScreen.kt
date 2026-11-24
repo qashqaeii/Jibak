@@ -235,22 +235,7 @@ internal fun NewGoalDialog(
         tonalElevation = 0.dp,
         shape = RoundedCornerShape(26.dp),
         title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
-            ) {
-                JibikBrandLogo(Modifier.size(39.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(
-                        "هدف مالی جدید", color = JibikStyle.ink,
-                        fontSize = 20.sp, fontWeight = FontWeight.ExtraBold,
-                    )
-                    Text(
-                        "پس‌انداز با مسیر مشخص", fontSize = 11.sp,
-                        color = JibikStyle.muted,
-                    )
-                }
-            }
+            JibikDialogHeading("هدف مالی جدید", "پس‌انداز با مسیر مشخص")
         },
         text = {
             Column(

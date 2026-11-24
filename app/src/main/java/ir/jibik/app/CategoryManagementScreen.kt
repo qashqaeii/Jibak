@@ -244,8 +244,7 @@ internal fun NewCustomCategoryDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
         title = {
-            Text("دسته‌بندی شخصی جدید", fontSize = 20.sp,
-                fontWeight = FontWeight.ExtraBold, color = JibikStyle.ink)
+            JibikDialogHeading("دسته‌بندی شخصی جدید", "دسته‌ها را به شیوه خودت مرتب کن")
         },
         text = {
             Column(

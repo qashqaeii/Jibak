@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -255,26 +256,14 @@ internal fun CreateAccountDialog(
         tonalElevation = 0.dp,
         shape = RoundedCornerShape(26.dp),
         title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
-            ) {
-                JibikBrandLogo(Modifier.size(38.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(
-                        "حساب مالی جدید",
-                        color = Ink, fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                    )
-                    Text(
-                        "برای هر کارت یا پس‌انداز، یک حساب",
-                        color = Subtle, fontSize = 11.sp,
-                    )
-                }
-            }
+            JibikDialogHeading("حساب مالی جدید", "برای هر کارت یا پس‌انداز، یک حساب")
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(
+                Modifier.fillMaxWidth().heightIn(max = 410.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
                 JibikFormHint(
                     "موجودی حساب‌هات جدا ثبت می‌شه تا انتقال پول دوباره‌شماری نشه.",
                 )

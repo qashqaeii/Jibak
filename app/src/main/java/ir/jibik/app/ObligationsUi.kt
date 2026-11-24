@@ -311,8 +311,7 @@ internal fun NewObligationDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
         title = {
-            Text("تعهد مالی جدید", color = JibikStyle.ink,
-                fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
+            JibikDialogHeading("تعهد مالی جدید", "ثبت بدهی، طلب، وام یا قبض")
         },
         text = {
             Column(
@@ -425,15 +424,14 @@ internal fun SettleObligationDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
         title = {
-            Text(
-                if (obligation.kind == "RECEIVABLE")
-                    "دریافت از طلب" else "پرداخت تعهد",
-                color = JibikStyle.ink, fontWeight = FontWeight.ExtraBold,
-                fontSize = 19.sp,
-            )
+            JibikDialogHeading(if (obligation.kind == "RECEIVABLE") "دریافت از طلب" else "پرداخت تعهد", "ثبت گردش پول واقعی")
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(13.dp)) {
+            Column(
+                Modifier.fillMaxWidth().heightIn(max = 400.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(13.dp),
+            ) {
                 Text(obligation.title, color = JibikStyle.ink,
                     fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text("مانده تعهد: " + formatToman(outstanding),
