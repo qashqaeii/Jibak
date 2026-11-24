@@ -164,13 +164,11 @@ internal fun ObligationsScreen(
                         Text(obligationKindName(item.kind),
                             color = JibikStyle.muted, fontSize = 12.sp)
                     }
-                    Text(
-                        if (progress.settled) "تسویه شد"
-                        else if (overdue) "سررسید گذشته"
-                        else "در جریان",
-                        color = if (overdue) JibikStyle.coral
+                    JibikStatusText(
+                        text = if (progress.settled) "تسویه شد"
+                            else if (overdue) "سررسید گذشته" else "در جریان",
+                        color = if (overdue && !progress.settled) JibikStyle.coral
                             else JibikStyle.forest,
-                        fontSize = 12.sp, fontWeight = FontWeight.Bold,
                     )
                 }
                 JibikFinancialDetail(

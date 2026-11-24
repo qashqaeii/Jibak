@@ -163,9 +163,10 @@ internal fun GoalsScreen(
                             lineHeight = 23.sp,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Text(
-                            if (fraction >= 1f) "تکمیل" else "در حال پیشرفت",
-                            color = JibikStyle.forest, fontSize = 11.sp,
+                        JibikStatusText(
+                            text = if (fraction >= 1f) "هدف تکمیل شد" else "در حال پیشرفت",
+                            color = if (fraction >= 1f) JibikStyle.forest
+                                else JibikStyle.orange,
                         )
                     }
                     Text(

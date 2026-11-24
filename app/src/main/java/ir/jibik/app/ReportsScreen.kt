@@ -241,10 +241,15 @@ internal fun ReportsScreen(
                                 Text("مشاهده رسید تراکنش",
                                     color = Muted, fontSize = 11.sp)
                             }
-                            Text(moneyReport(part.amountToman),
+                            Text(
+                                moneyReport(part.amountToman),
+                                modifier = Modifier.weight(0.85f),
                                 color = Emerald, fontSize = 12.sp,
+                                lineHeight = 19.sp,
                                 fontWeight = FontWeight.Bold,
-                                maxLines = 1)
+                                textAlign = TextAlign.End,
+                                maxLines = 2,
+                            )
                         }
                     }
                 }
@@ -257,14 +262,10 @@ internal fun ReportsScreen(
                     )
                 }
             } else if (displayed.isEmpty()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    JiboMascot(Modifier.size(64.dp))
-                    Text("در این ماه هنوز داده‌ای برای این نوع گزارش وجود ندارد.",
-                        color = Muted, fontSize = 13.sp)
-                }
+                JibikStatePanel(
+                    title = "هنوز گزارشی برای این بخش نداریم",
+                    description = "وقتی درآمد یا هزینه‌ای ثبت کنی، دسته‌ها و روند همین ماه اینجا نمایش داده می‌شن.",
+                )
             } else {
                 val levelTotal = displayed.fold(0L) { sum, row ->
                     Math.addExact(sum, row.amountToman)

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -192,6 +193,27 @@ internal fun JibikPageHeader(
                 }
             }
         }
+    }
+}
+
+/** Quiet status marker with an accessible text label; no decorative badge frame. */
+@Composable
+internal fun JibikStatusText(
+    text: String,
+    color: Color = JibikStyle.forest,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(Modifier.size(7.dp).background(color, CircleShape))
+        Text(
+            text, color = color, fontSize = 12.sp,
+            lineHeight = 18.sp, fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+        )
     }
 }
 
