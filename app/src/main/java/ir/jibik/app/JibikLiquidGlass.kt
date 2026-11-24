@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -250,25 +251,25 @@ internal fun LiquidGlassButton(
 ) {
     Box(
         modifier = modifier
-            .heightIn(min = 48.dp)
+            .heightIn(min = 52.dp)
             .liquidGlass(tone = if (enabled) tone else GlassTone.CRYSTAL, radius = 18.dp, elevation = 5.dp)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .padding(horizontal = 15.dp, vertical = 11.dp),
+            .padding(horizontal = 15.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text,
-            maxLines = 2,
+            maxLines = 3,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
-            lineHeight = 18.sp,
+            lineHeight = 21.sp,
             color = when {
                 !enabled -> Color(0xFF667971)
                 tone == GlassTone.EMERALD -> Color.White
                 else -> Color(0xFF143E36)
             },
             fontWeight = FontWeight.Bold,
-            fontSize = 13.sp,
+            fontSize = 14.sp,
         )
     }
 }
@@ -284,22 +285,25 @@ internal fun JibikGlassChip(
 ) {
     Box(
         modifier = modifier
-            .heightIn(min = 48.dp)
+            .heightIn(min = 52.dp)
             .liquidGlass(
                 tone = if (selected && enabled) GlassTone.EMERALD else GlassTone.CRYSTAL,
                 radius = 15.dp,
                 elevation = 2.dp,
             )
-            .semantics { this.selected = selected }
-            .clickable(enabled = enabled, role = Role.RadioButton, onClick = onClick)
+            .semantics {
+                this.selected = selected
+                stateDescription = if (selected) "انتخاب‌شده" else "انتخاب‌نشده"
+            }
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 13.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
-            fontSize = 12.sp,
-            maxLines = 2,
-            lineHeight = 16.sp,
+            fontSize = 13.sp,
+            maxLines = 3,
+            lineHeight = 19.sp,
             textAlign = TextAlign.Center,
             overflow = TextOverflow.Ellipsis,
             color = when {

@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -28,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 
@@ -68,13 +71,13 @@ internal fun JibikHeroAmount(
     }
     Text(
         text = amount,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().semantics { contentDescription = amount },
         color = Color.White,
         fontFamily = JibikFontFamily,
         fontWeight = FontWeight.ExtraBold,
         fontSize = textSize,
         lineHeight = (textSize.value * 1.36f).sp,
-        maxLines = 2,
+        maxLines = 3,
         overflow = TextOverflow.Ellipsis,
     )
 }
@@ -121,6 +124,32 @@ internal fun JibikHero(
     }
 }
 
+/** Section actions move below the heading only when space or text scaling demands it. */
+internal fun stackJibikSectionAction(availableWidthDp: Float, fontScale: Float): Boolean =
+    availableWidthDp < 330f || fontScale >= 1.35f
+
+@Composable
+private fun JibikSectionCopy(
+    title: String,
+    subtitle: String?,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            title, color = JibikStyle.ink, fontSize = 17.sp,
+            fontWeight = FontWeight.ExtraBold, lineHeight = 25.sp,
+            modifier = Modifier.semantics { heading() },
+        )
+        if (subtitle != null) {
+            Text(
+                subtitle, color = JibikStyle.muted, fontSize = 12.sp,
+                maxLines = 3, lineHeight = 19.sp,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
 @Composable
 internal fun JibikSectionTitle(
     title: String,
@@ -128,27 +157,26 @@ internal fun JibikSectionTitle(
     modifier: Modifier = Modifier,
     trailing: @Composable (() -> Unit)? = null,
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(
-                title, color = JibikStyle.ink, fontSize = 17.sp,
-                fontWeight = FontWeight.ExtraBold,
-                lineHeight = 23.sp,
-                modifier = Modifier.semantics { heading() },
-            )
-            if (subtitle != null) {
-                Text(
-                    subtitle, color = JibikStyle.muted, fontSize = 12.sp,
-                    maxLines = 2, lineHeight = 18.sp,
-                    overflow = TextOverflow.Ellipsis,
-                )
+    val fontScale = LocalDensity.current.fontScale
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        if (trailing != null && stackJibikSectionAction(maxWidth.value, fontScale)) {
+            Column(
+                Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                JibikSectionCopy(title, subtitle)
+                Box(Modifier.align(Alignment.End)) { trailing() }
+            }
+        } else {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                JibikSectionCopy(title, subtitle, Modifier.weight(1f))
+                trailing?.invoke()
             }
         }
-        trailing?.invoke()
     }
 }
 
@@ -183,17 +211,18 @@ internal fun JibikQuickAction(
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
-            maxLines = 1,
+            maxLines = 2,
+            lineHeight = 20.sp,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
             subtitle,
             color = JibikStyle.muted,
-            fontSize = 11.sp,
+            fontSize = 12.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
-            maxLines = 2,
-            lineHeight = 16.sp,
+            maxLines = 3,
+            lineHeight = 19.sp,
             overflow = TextOverflow.Ellipsis,
         )
     }
