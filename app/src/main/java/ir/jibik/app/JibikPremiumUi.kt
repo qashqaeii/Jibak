@@ -46,11 +46,12 @@ internal object JibikStyle {
     val forestDeep = Color(0xFF02443B)
     val mint = Color(0xFF21C79B)
     val orange = Color(0xFFFF8A1F)
+    val warningText = Color(0xFFA75A09)
     val cream = Color(0xFFFFFAF5)
     val paper = Color.White
-    val muted = Color(0xFF677A78)
+    val muted = Color(0xFF5D716F)
     val line = Color(0xFFEFECE6)
-    val coral = Color(0xFFE95C50)
+    val coral = Color(0xFFC44238)
     val greenSurface = Color(0xFFE9F6EF)
     val orangeSurface = Color(0xFFFFF0DD)
 }

@@ -65,6 +65,46 @@ for filename in (
     if "JibikStatePanel(" not in (APP / filename).read_text(encoding="utf-8"):
         errors.append(f"{filename}: empty/recovery state not using shared UI")
 
+# Financial text tokens must pass WCAG AA normal-text contrast on both
+# main paper and warm cream backgrounds. Bright orange is an accent only.
+import re
+
+
+def _linear_channel(value: float) -> float:
+    return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+
+
+def _relative_luminance(hex_color: str) -> float:
+    values = [int(hex_color[index:index + 2], 16) / 255 for index in (0, 2, 4)]
+    return sum(_linear_channel(v) * w for v, w in zip(values, (0.2126, 0.7152, 0.0722)))
+
+
+def _contrast_ratio(first: str, second: str) -> float:
+    l1, l2 = sorted((_relative_luminance(first), _relative_luminance(second)),
+                    reverse=True)
+    return (l1 + 0.05) / (l2 + 0.05)
+
+
+tokens_source = (APP / "JibikPremiumUi.kt").read_text(encoding="utf-8")
+token_pattern = r"val\s+{}\s*=\s*Color\(0xFF([A-Fa-f0-9]{{6}})\)"
+token_values = {}
+for token in ("ink", "forest", "muted", "coral", "warningText", "cream"):
+    result = re.search(token_pattern.format(token), tokens_source)
+    if not result:
+        errors.append(f"Missing color token for accessibility: {token}")
+    else:
+        token_values[token] = result.group(1)
+
+if "cream" in token_values:
+    for token in ("ink", "forest", "muted", "coral", "warningText"):
+        if token not in token_values:
+            continue
+        for background in (token_values["cream"], "FFFFFF"):
+            if _contrast_ratio(token_values[token], background) < 4.5:
+                errors.append(
+                    f"JibikStyle.{token} fails 4.5:1 contrast over {background}"
+                )
+
 manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
 if "android.permission.READ_SMS" in manifest or "android.permission.RECEIVE_SMS" in manifest:
     errors.append("Restricted SMS permission leaked into test manifest")

@@ -148,7 +148,7 @@ internal fun GoalsScreen(
                         JibikStatusText(
                             text = if (fraction >= 1f) "هدف تکمیل شد" else "در حال پیشرفت",
                             color = if (fraction >= 1f) JibikStyle.forest
-                                else JibikStyle.orange,
+                                else JibikStyle.warningText,
                         )
                     }
                     Text(
