@@ -408,6 +408,10 @@ internal fun JibikSurfaceCard(
 }
 
 /** A consistent recovery/empty state with a real action, not a dead placeholder. */
+internal fun compactJibikStatePanel(widthDp: Float, fontScale: Float): Boolean =
+    widthDp < 320f || fontScale >= 1.4f
+
+/** The same accessible empty/recovery state across every financial workspace. */
 @Composable
 internal fun JibikStatePanel(
     title: String,
@@ -417,36 +421,57 @@ internal fun JibikStatePanel(
     onAction: (() -> Unit)? = null,
 ) {
     JibikSurfaceCard(modifier = modifier) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            JiboArt(JiboArtwork.EMPTY, Modifier.size(75.dp))
-            Column(
-                Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(7.dp),
-            ) {
-                Text(
-                    title,
-                    color = JibikStyle.ink,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                )
-                Text(
-                    description,
-                    color = JibikStyle.muted,
-                    fontSize = 12.sp,
-                    lineHeight = 20.sp,
-                )
+        val fontScale = LocalDensity.current.fontScale
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            if (compactJibikStatePanel(maxWidth.value, fontScale)) {
+                Column(
+                    Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(9.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    JiboArt(JiboArtwork.EMPTY, Modifier.size(64.dp))
+                    Text(
+                        title, color = JibikStyle.ink,
+                        fontSize = 16.sp, fontWeight = FontWeight.ExtraBold,
+                        textAlign = TextAlign.Center, lineHeight = 24.sp,
+                    )
+                    Text(
+                        description, color = JibikStyle.muted,
+                        fontSize = 13.sp, lineHeight = 21.sp,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            } else {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    JiboArt(JiboArtwork.EMPTY, Modifier.size(75.dp))
+                    Column(
+                        Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
+                        Text(
+                            title, color = JibikStyle.ink,
+                            fontSize = 16.sp, fontWeight = FontWeight.ExtraBold,
+                            lineHeight = 24.sp,
+                        )
+                        Text(
+                            description, color = JibikStyle.muted,
+                            fontSize = 13.sp, lineHeight = 21.sp,
+                        )
+                    }
+                }
             }
         }
         if (actionLabel != null && onAction != null) {
-            Button(
+            LiquidGlassButton(
+                text = actionLabel,
                 onClick = onAction,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(15.dp),
-            ) { Text(actionLabel) }
+                tone = GlassTone.EMERALD,
+            )
         }
     }
 }
