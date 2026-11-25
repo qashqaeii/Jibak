@@ -56,7 +56,7 @@ internal fun BankSmsReviewDialog(
         accounts.any { it.id == accountId } &&
         isSelectableCategory(category, income, customCategories)
 
-    AlertDialog(
+    JibikModalDialog(
         properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         containerColor = Color.Transparent,
