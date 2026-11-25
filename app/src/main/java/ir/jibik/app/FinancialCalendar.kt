@@ -9,17 +9,23 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ir.jibik.core.finance.Account
+import ir.jibik.core.finance.LedgerRecord
+import ir.jibik.core.finance.LedgerKind
+import androidx.compose.ui.text.font.FontWeight
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.UUID
 
 private data class CalendarRow(val day: Long, val title: String, val amount: Long,
-    val status: String, val rule: RecurringRule? = null, val pending: Boolean = false)
+    val status: String, val rule: RecurringRule? = null, val pending: Boolean = false,
+    val obligationId: String? = null, val receiving: Boolean = false)
 
 @Composable
 internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
     obligations: List<FinancialObligationEntity>, payments: List<ObligationPaymentEntity>,
     requestedDay: Long, onOpened: () -> Unit, source: ir.jibik.core.finance.LedgerRecord?,
-    onSourceUsed: () -> Unit, onLedgerChange: () -> Unit) {
+    onSourceUsed: () -> Unit, records: List<LedgerRecord>, allDecisions: List<RecurringDecision>,
+    onPayObligation: (String) -> Unit, onLedgerChange: () -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
     LiquidGlassCard(onClick = { open = true }, tone = GlassTone.CRYSTAL) {
         JibikSectionTitle("تقویم مالی", "سررسیدها، حقوق و پرداخت‌های ماهانه")
@@ -36,6 +42,7 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
     if (!open) return
     val month = remember(start) { currentJalaliMonth(start) }
     var mode by rememberSaveable { mutableStateOf("calendar") }
+    var filter by rememberSaveable { mutableStateOf("all") }
     var selected by rememberSaveable { mutableStateOf("") }
     var actual by rememberSaveable { mutableStateOf("") }
     var refresh by remember { mutableIntStateOf(0) }
@@ -58,6 +65,7 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
         busy = true
         scope.launch {
             try { action(); mode = "calendar"; error = ""; refresh++; onLedgerChange() }
+            catch (e: CancellationException) { throw e }
             catch (_: Exception) { error = "ذخیره انجام نشد. وضعیت نوبت را دوباره بررسی کن."; refresh++ }
             finally { busy = false }
         }
@@ -72,7 +80,7 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
                     decision.transactionId == null -> "رد شده"
                     else -> "ثبت شده"
                 }
-                add(CalendarRow(day, rule.title, decision?.actual ?: rule.amount, status, rule, decision == null))
+                add(CalendarRow(day, rule.title, decision?.actual ?: rule.amount, status, rule, decision == null, receiving = rule.income))
             }
             obligations.forEach { item ->
                 val first = currentJalaliMonth(item.dueAtMillis)
@@ -86,10 +94,12 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
                 val remaining = amount - (paid - before).coerceIn(0L, amount)
                 add(CalendarRow(jalaliInstallmentDueDate(item.dueAtMillis, index), item.title,
                     if (remaining == 0L) amount else remaining,
-                    if (remaining == 0L) "تسویه‌شده" else if (item.kind == "RECEIVABLE") "ماندهٔ طلب" else "ماندهٔ تعهد"))
+                    if (remaining == 0L) "تسویه‌شده" else if (item.kind == "RECEIVABLE") "ماندهٔ طلب" else "ماندهٔ تعهد",
+                    pending = remaining > 0, obligationId = item.id, receiving = item.kind == "RECEIVABLE"))
             }
         }.sortedBy { it.day }
     }
+    val usedIds = payments.map { it.transactionId }.toSet() + allDecisions.mapNotNull { it.transactionId } + decisions.mapNotNull { it.transactionId }
     val row = rows.firstOrNull { it.rule?.id == selected }
     var title by rememberSaveable { mutableStateOf("") }
     var income by rememberSaveable { mutableStateOf(false) }
@@ -132,6 +142,22 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
                     "review" -> if (row != null) {
                         Text(row.title + " · " + formatJalaliDueDate(row.day))
                         Text("حساب: " + accounts.firstOrNull { it.id == row.rule?.accountId }?.title.orEmpty())
+                        val rule = row.rule
+                        if (rule != null) {
+                            val matches = records.filter {
+                                it.id !in usedIds &&
+                                    it.kind == (if (rule.income) LedgerKind.INCOME else LedgerKind.EXPENSE) &&
+                                    (it.fromAccountId ?: it.toAccountId) == rule.accountId &&
+                                    kotlin.math.abs(it.timestampMillis - row.day) < 36L * 60 * 60 * 1000
+                            }.sortedBy { if (it.amountToman == rule.amount) 0 else 1 }
+                            if (matches.isNotEmpty()) JibikFormHint("اگر قبلاً پرداخت کرده‌ای، به تراکنش موجود وصل کن.")
+                            matches.forEach { match ->
+                                TextButton(enabled = loaded && !busy && row.pending, onClick = {
+                                    submit { store.linkRecurring(rule.id, row.day, match) }
+                                }) { Text(listOf("اتصال", formatToman(match.amountToman), formatJalaliDueDate(match.timestampMillis),
+                                    match.note, match.id.take(8)).filter { it.isNotBlank() }.joinToString(" · ")) }
+                            }
+                        }
                         JibikTomanField(actual, { actual = it }, "مبلغ واقعی")
                         JibikFormHint("تأیید، گردش مالی را به تاریخ امروز ثبت می‌کند. رد کردن فقط همین نوبت را رد می‌کند.")
                         TextButton(enabled = !busy && loaded && row.pending, onClick = {
@@ -159,14 +185,36 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
                             income = false; mode = "new" }) { Text("＋ تعریف ثبت ماهانه") }
                         TextButton(onClick = { mode = "manage" }) { Text("مدیریت تکرارها") }
                         if (!loaded && error.isEmpty()) Text("در حال بارگذاری…")
-                        if (loaded && rows.isEmpty()) Text("این ماه سررسیدی ثبت نشده است.")
-                        if (loaded) rows.forEach { entry ->
-                            HorizontalDivider()
-                            Text(formatJalaliDueDate(entry.day) + " · " + entry.title)
-                            Text(entry.status + " · " + formatToman(entry.amount))
-                            if (entry.pending && entry.day <= System.currentTimeMillis())
-                                TextButton(onClick = { selected = requireNotNull(entry.rule).id
-                                    actual = entry.amount.toString(); mode = "review" }) { Text("بررسی نوبت") }
+                        if (loaded) {
+                            val plannedIncome = rows.filter { it.pending && it.receiving }.fold(java.math.BigInteger.ZERO) { sum, r -> sum + r.amount.toBigInteger() }
+                            val plannedExpense = rows.filter { it.pending && !it.receiving }.fold(java.math.BigInteger.ZERO) { sum, r -> sum + r.amount.toBigInteger() }
+                            JibikSurfaceCard {
+                                JibikSectionTitle("خلاصه ماه", "${rows.count { it.pending }} نوبت باز · ${rows.count { !it.pending }} تعیین تکلیف‌شده")
+                                Text("دریافت برنامه‌ریزی‌شده: " + plannedIncome.toString() + " تومان", color = JibikStyle.forest)
+                                Text("پرداخت برنامه‌ریزی‌شده: " + plannedExpense.toString() + " تومان", color = JibikStyle.muted)
+                                JibikFormHint("این مبالغ پیش‌بینی‌اند، نه گردش ثبت‌شده حساب.")
+                            }
+                            JibikSegmentedControl(listOf("all" to "همه", "open" to "باز", "closed" to "بسته"),
+                                filter, onSelected = { filter = it })
+                            val visible = rows.filter { filter == "all" || (filter == "open" && it.pending) || (filter == "closed" && !it.pending) }
+                            if (visible.isEmpty()) Text("موردی در این بخش نیست.")
+                            visible.groupBy { formatJalaliDueDate(it.day) }.forEach { (dateLabel, entries) ->
+                                JibikSectionTitle(dateLabel, "${entries.size} نوبت")
+                                entries.forEach { entry ->
+                                    JibikSurfaceCard {
+                                        Text(entry.title, fontWeight = FontWeight.Bold)
+                                        Text(entry.status + " · " + formatToman(entry.amount), color = JibikStyle.muted)
+                                        if (entry.pending && entry.day <= System.currentTimeMillis()) {
+                                            if (entry.rule != null) TextButton(enabled = !busy, onClick = {
+                                                selected = entry.rule.id; actual = entry.amount.toString(); mode = "review"
+                                            }) { Text("بررسی نوبت") }
+                                            else if (entry.obligationId != null) TextButton(enabled = !busy, onClick = {
+                                                open = false; onPayObligation(entry.obligationId)
+                                            }) { Text("بررسی تعهد") }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

@@ -108,8 +108,8 @@ internal fun FinancialReviewInbox(store: LocalLedgerStore, accounts: List<Accoun
                                 (it.fromAccountId ?: it.toAccountId) == rule.accountId &&
                                 kotlin.math.abs(it.timestampMillis - day) < 36L * 60 * 60 * 1000
                         }
-                        if (matches.isNotEmpty()) JibikFormHint("پرداخت مشابه پیدا شد؛ برای جلوگیری از ثبت دوباره، مورد درست را انتخاب کن.")
-                        matches.forEach { match ->
+                        if (showAmounts && matches.isNotEmpty()) JibikFormHint("پرداخت مشابه پیدا شد؛ برای جلوگیری از ثبت دوباره، مورد درست را انتخاب کن.")
+                        (if (showAmounts) matches else emptyList()).forEach { match ->
                             TextButton(enabled = loaded && !busy, onClick = {
                                 submit { store.linkRecurring(rule.id, day, match) }
                             }) { Text(listOf("اتصال", formatToman(match.amountToman), formatJalaliDueDate(match.timestampMillis),

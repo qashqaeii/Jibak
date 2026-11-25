@@ -557,7 +557,9 @@ private fun JibikApp(
                         customCategories = customCategories.toList(), showAmounts = homeAmountsVisible,
                          onChanged = { retryLoad++ })
                     FinancialCalendar(store, accountRows, obligations.toList(), obligationPayments.toList(), calendarDay, onCalendarOpened,
-                        records.firstOrNull { it.id == recurringSourceId }, { recurringSourceId = null }) { retryLoad++ }
+                        records.firstOrNull { it.id == recurringSourceId }, { recurringSourceId = null },
+                        records = ledger, allDecisions = recurringDecisions,
+                        onPayObligation = { settlingObligationId = it }) { retryLoad++ }
                 },
                 summary = summary,
                 records = records,
