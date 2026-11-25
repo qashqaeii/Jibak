@@ -52,9 +52,11 @@ internal fun GoalsScreen(
     onAdd: () -> Unit,
     onAi: () -> Unit,
     onTransferTo: (String) -> Unit,
+    envelopes: List<MoneyEnvelope>, store: LocalLedgerStore,
+    onEnvelopesChanged: (List<MoneyEnvelope>) -> Unit,
 ) {
     val eligible = accounts.any { a ->
-        a.id != "wallet" && goals.none { it.accountId == a.id }
+        a.id != "wallet" && goals.none { it.accountId == a.id } && envelopes.none { it.accountId == a.id }
     }
     val achieved = goals.count {
         (balances[it.accountId] ?: 0L) >= it.targetToman
@@ -66,7 +68,7 @@ internal fun GoalsScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         JibikPageHeader(
-            title = "هدف‌های پس‌انداز",
+            title = "پس‌انداز و پاکت‌های مالی",
             subtitle = "برای آینده، قدم‌های کوچک اما واقعی",
             onBack = onBack,
         )
@@ -75,7 +77,7 @@ internal fun GoalsScreen(
                 "مسیر پس‌انداز", color = Color(0xFFDCF3EA), fontSize = 13.sp,
             )
             Text(
-                "${goals.size} هدف مالی",
+                "${goals.size + envelopes.size} هدف و پاکت مالی",
                 color = Color.White, fontSize = 26.sp,
                 fontWeight = FontWeight.ExtraBold,
             )
@@ -85,6 +87,8 @@ internal fun GoalsScreen(
                 color = Color(0xFFE1F4EC), fontSize = 12.sp,
             )
         }
+        MoneyEnvelopesSection(store, envelopes, goals, accounts, balances, onEnvelopesChanged)
+        JibikSectionTitle("هدف‌های حساب اختصاصی", "اختیاری · برای حساب پس‌انداز جداگانه")
         if (goals.isEmpty()) {
             JibikStatePanel(
                 title = "اولین هدف پس‌اندازت رو بساز",

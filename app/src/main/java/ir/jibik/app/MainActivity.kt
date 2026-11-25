@@ -201,6 +201,7 @@ private fun JibikApp(
     val savedReceiptLines = remember { mutableStateMapOf<String, List<PurchaseLine>>() }
     val accounts = remember { mutableStateListOf<Account>() }
     val goals = remember { mutableStateListOf<SavingsGoalEntity>() }
+    var envelopes by remember { mutableStateOf(emptyList<MoneyEnvelope>()) }
     val customCategories = remember { mutableStateListOf<CustomCategoryEntity>() }
     val categoryBudgets = remember { mutableStateListOf<CategoryBudgetEntity>() }
     val obligations = remember { mutableStateListOf<FinancialObligationEntity>() }
@@ -311,6 +312,7 @@ private fun JibikApp(
             val loadedReceipts = store.loadAllPurchaseLines()
             val loadedAccounts = store.loadAccounts()
             val persistedGoals = store.loadSavingsGoals()
+            val persistedEnvelopes = store.loadEnvelopes()
             val persistedCategories = store.loadCustomCategories()
             val persistedBudgets = store.loadCategoryBudgets()
             val persistedObligations = store.loadObligations()
@@ -320,6 +322,7 @@ private fun JibikApp(
             accounts.addAll(loadedAccounts)
             goals.clear()
             goals.addAll(persistedGoals)
+            envelopes = persistedEnvelopes
             customCategories.clear()
             customCategories.addAll(persistedCategories)
             categoryBudgets.clear()
@@ -550,7 +553,8 @@ private fun JibikApp(
                     val ledger = records.toList()
                     val balances = remember(accountRows, ledger) { FinanceEngine.balances(accountRows, ledger) }
                     SpendableBalanceCard(accountRows, balances, goals.toList(), obligations.toList(),
-                        obligationPayments.toList(), homeAmountsVisible, recurringRules, recurringDecisions)
+                        obligationPayments.toList(), homeAmountsVisible, recurringRules, recurringDecisions,
+                        envelopes = envelopes, onEnvelopes = { section = Section.ACCOUNTS; showObligations = false; showCategoryManager = false; showGoals = true })
                     FinancialReviewInbox(store, accountRows, ledger,
                         onBank = { section = Section.TRANSACTIONS; showBankSms = true },
                         obligations = obligations.toList(), payments = obligationPayments.toList(),
@@ -726,6 +730,8 @@ private fun JibikApp(
                         goals = goals,
                         accounts = accounts,
                         balances = FinanceEngine.balances(accounts, records.toList()),
+                        envelopes = envelopes, store = store,
+                        onEnvelopesChanged = { envelopes = it },
                         onBack = { showGoals = false },
                         onAdd = { showNewGoal = true },
                         onAi = { jiboAiFeature = JiboAiFeature.SAVINGS },
@@ -922,7 +928,7 @@ private fun JibikApp(
     }
     if (showNewGoal) {
         NewGoalDialog(
-            accounts = accounts,
+            accounts = accounts.filter { account -> envelopes.none { it.accountId == account.id } },
             goals = goals,
             onDismiss = { if (!isSaving) showNewGoal = false },
             isSaving = isSaving,

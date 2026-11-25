@@ -19,6 +19,7 @@ internal fun SpendableBalanceCard(
     accounts: List<Account>, balances: Map<String, Long>, goals: List<SavingsGoalEntity>,
     obligations: List<FinancialObligationEntity>, payments: List<ObligationPaymentEntity>,
     visible: Boolean, rules: List<RecurringRule>, decisions: List<RecurringDecision>,
+    envelopes: List<MoneyEnvelope> = emptyList(), onEnvelopes: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val prefs = remember(context) { context.getSharedPreferences("spending_horizon", Context.MODE_PRIVATE) }
@@ -34,8 +35,8 @@ internal fun SpendableBalanceCard(
     val end = remember(chosen, today) {
         if (chosen >= today) jalaliDueDayEndExclusive(chosen) else currentJalaliMonth(today).endExclusiveMillis
     }
-    val result = remember(balances, goals, obligations, payments, end) {
-        spendableBalance(balances, goals, obligations, payments, end)
+    val result = remember(balances, goals, obligations, payments, end, envelopes) {
+        spendableBalance(balances, goals, obligations, payments, end, envelopes)
     }
     val recurring = remember(rules, decisions, end) {
         rules.filter { !it.income }.mapNotNull { rule ->
@@ -55,6 +56,7 @@ internal fun SpendableBalanceCard(
         JibikSectionTitle(label, "تا $date")
         Text(amount, style = MaterialTheme.typography.titleLarge)
         Text("مشاهدهٔ محاسبه و تغییر تاریخ", color = JibikStyle.muted)
+        if (result.envelopes.any { it.shortfallToman > 0 }) JibikFormHint("بخشی از پاکت‌ها پشتوانه کافی ندارند.", isWarning = true)
     }
     if (details) JibikModalDialog(
         modifier = Modifier.jibikDialogSurface(), properties = JibikWideDialogProperties,
@@ -71,6 +73,12 @@ internal fun SpendableBalanceCard(
                     Text("پس‌انداز کنارگذاشته‌شده", style = MaterialTheme.typography.titleMedium)
                     if (result.goals.isEmpty()) Text("مبلغی کنار گذاشته نشده است.")
                     result.goals.forEach { Text(it.title + " · " + formatToman(it.amount)) }
+                    Text("پاکت‌های مالی مجازی", style = MaterialTheme.typography.titleMedium)
+                    if (result.envelopes.isEmpty()) Text("هنوز پاکتی تعریف نشده است.")
+                    result.envelopes.forEach { row ->
+                        Text(row.envelope.title + " · " + formatToman(row.fundedToman))
+                        if (row.shortfallToman > 0) JibikFormHint("کسری پشتوانه: " + formatToman(row.shortfallToman), isWarning = true)
+                    }
                     Text("اقساط و تعهدات تا این تاریخ", style = MaterialTheme.typography.titleMedium)
                     if (result.dues.isEmpty()) Text("تعهد پرداخت‌نشده‌ای در این بازه وجود ندارد.")
                     result.dues.forEach { Text(it.title + " · " + formatToman(it.amount)) }
@@ -80,6 +88,7 @@ internal fun SpendableBalanceCard(
                     }
 
                 } else Text("برای دیدن مبالغ، نمایش موجودی را در خانه فعال کن.")
+                TextButton(onClick = { details = false; onEnvelopes() }) { Text("مدیریت پاکت‌های مالی") }
                 if (editing) {
                     val day = parseJalaliDueDate(draft)
                     OutlinedTextField(value = draft, onValueChange = { draft = it.take(12) },
