@@ -129,6 +129,19 @@ private val colors = lightColorScheme(
 )
 
 class MainActivity : ComponentActivity() {
+    private lateinit var protection: AppProtection
+    override fun onStart() {
+        super.onStart()
+        if (::protection.isInitialized) protection.onForeground()
+    }
+    override fun onStop() {
+        if (::protection.isInitialized) protection.onBackground()
+        super.onStop()
+    }
+    override fun onDestroy() {
+        if (::protection.isInitialized) protection.dispose()
+        super.onDestroy()
+    }
     private val calendarDay = androidx.compose.runtime.mutableLongStateOf(0L)
     private val dueReminderOpenSignal = mutableIntStateOf(0)
     private val bankSmsOpenSignal = mutableIntStateOf(0)
@@ -164,14 +177,17 @@ class MainActivity : ComponentActivity() {
             isAppearanceLightStatusBars = true
             isAppearanceLightNavigationBars = true
         }
+        protection = AppProtection(this)
         val store = LocalLedgerStore(applicationContext)
         setContent {
             MaterialTheme(colorScheme = colors, typography = JibikTypography) {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    JibikApp(
+                    if (protection.locked) AppLockedScreen(protection)
+                    else JibikApp(
                         store, dueReminderOpenSignal.intValue,
                         bankSmsOpenSignal.intValue, calendarDay.longValue,
                         { calendarDay.longValue = 0; intent?.removeExtra(LocalDueReminders.OPEN_CALENDAR_DAY) },
+                        protection,
                     )
                 }
             }
@@ -192,6 +208,7 @@ private fun JibikApp(
     store: LocalLedgerStore,
     dueReminderOpenSignal: Int,
     bankSmsOpenSignal: Int, calendarDay: Long, onCalendarOpened: () -> Unit,
+    protection: AppProtection,
 ) {
     var welcomed by remember { mutableStateOf(store.hasFinishedWelcome()) }
     var recurringRules by remember { mutableStateOf(emptyList<RecurringRule>()) }
@@ -654,7 +671,10 @@ private fun JibikApp(
                 receiptLines = savedReceiptLines.toMap(),
                 onTransactionClick = { selectedTransactionId = it.id },
                 modifier = Modifier.padding(insets),
-                backupActions = { BackupActions(store) { retryLoad++ } },
+                backupActions = {
+                    AppProtectionCard(protection)
+                    BackupActions(store) { retryLoad++ }
+                },
                 onExportCsv = {
                     if (!isExporting) {
                         exportLauncher.launch("jibik-ledger.csv")
