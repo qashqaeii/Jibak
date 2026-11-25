@@ -206,6 +206,18 @@ manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8
 if "android.permission.READ_SMS" in manifest or "android.permission.RECEIVE_SMS" in manifest:
     errors.append("Restricted SMS permission leaked into test manifest")
 
+# Prevent the original recurring-manager regression: the same scrolling
+# viewport must not retain its position across long/short dialog modes.
+calendar_source = (APP / "FinancialCalendar.kt").read_text(encoding="utf-8")
+if "bodyKey = mode" not in calendar_source or "jibikScrollableBody" not in calendar_source:
+    errors.append("Recurring manager needs mode-keyed scroll viewport")
+if 'dismissButton = if (mode in listOf(' not in calendar_source:
+    errors.append("Recurring manager must not reserve space for an absent cancel action")
+for filename in ("ReportAnalyticsUi.kt", "CashForecastChart.kt", "WealthHistoryUi.kt"):
+    source = (APP / filename).read_text(encoding="utf-8")
+    if "FinanceChartFrame(" not in source or "rememberChartReveal(" not in source:
+        errors.append(f"{filename}: missing shared financial chart axes and motion")
+
 if errors:
     print("Jibik UI consistency failed:")
     for error in errors:

@@ -68,6 +68,9 @@ dependencies {
     testImplementation("org.robolectric:robolectric:4.15.1")
     testImplementation("junit:junit:4.13.2")
     // Only in the isolated instrumentation APK; never open the real ledger with this factory yet.
+    androidTestImplementation(platform("androidx.compose:compose-bom:2025.10.00"))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("net.zetetic:sqlcipher-android:4.20.0")
