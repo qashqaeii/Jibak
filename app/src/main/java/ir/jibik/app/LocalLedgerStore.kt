@@ -137,6 +137,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
             check(dao.find(record.id)?.toRecord() == record)
             check(obligationPaymentDao.list().none { it.transactionId == record.id })
             check(!bankSmsDao.isLinked(record.id))
+            check(!database.recurringDao().isLinked(record.id)) { "Transaction is linked to a recurring occurrence" }
             dao.markVoid(LedgerVoid(record.id, System.currentTimeMillis()))
         } else {
             check(dao.unvoid(record.id) == 1)
@@ -186,6 +187,9 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         require(existing.amountToman > 0 && (existing.fromAccountId ?: existing.toAccountId) == rule.accountId)
         require(kotlin.math.abs(existing.timestampMillis - day) < 36L * 60 * 60 * 1000)
         require(dao.find(existing.id)?.toRecord() == existing)
+        // Bank evidence may coexist with settlement; independent commitments cannot reuse a payment.
+        check(!recurring.isLinked(existing.id)) { "Transaction already linked to a recurring occurrence" }
+        check(obligationPaymentDao.list().none { it.transactionId == existing.id }) { "Transaction already settles an obligation" }
         require(recurring.decisions(0, Long.MAX_VALUE).none { it.ruleId == ruleId && it.day == day })
         recurring.decide(RecurringDecision(ruleId, day, existing.id, existing.amountToman))
     }
@@ -199,6 +203,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
             check(previous.toRecord() == original && !bankSmsDao.isLinked(original.id))
             check(database.purchaseLineDao().forTransaction(original.id).isEmpty())
             check(obligationPaymentDao.list().none { it.transactionId == original.id })
+            check(!database.recurringDao().isLinked(original.id)) { "Transaction is linked to a recurring occurrence" }
             if (original != corrected) {
                 val records = dao.getAll().map { if (it.id == original.id) corrected else it.toRecord() }
                 FinanceEngine.balances(accountDao.list().map { it.toAccount() }, records)
@@ -338,6 +343,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
             val record = requireNotNull(dao.find(transactionId)).toRecord()
             val paid = obligationPaymentDao.forObligation(obligationId)
             if (paid.none { it.transactionId == transactionId }) {
+                check(!database.recurringDao().isLinked(transactionId)) { "Transaction already linked to a recurring occurrence" }
                 val remaining = obligationProgress(item, paid).remainingToman
                 require(record.matchesSettlement(item, accountId, remaining))
                 // The transaction primary key prevents reuse across obligations.
