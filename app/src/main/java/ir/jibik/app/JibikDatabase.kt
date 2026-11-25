@@ -361,9 +361,9 @@ internal interface SavingsGoalDao {
         PurchaseLineEntity::class, SavingsGoalEntity::class,
         CustomCategoryEntity::class, CategoryBudgetEntity::class,
         FinancialObligationEntity::class, ObligationPaymentEntity::class,
-        BankSmsCandidateEntity::class, LedgerRevision::class, MonthlyBudget::class, LedgerVoid::class, RecurringRule::class, RecurringDecision::class, FinancialEditHistory::class,
+        BankSmsCandidateEntity::class, LedgerRevision::class, MonthlyBudget::class, LedgerVoid::class, RecurringRule::class, RecurringDecision::class, FinancialEditHistory::class, MoneyEnvelope::class, EnvelopeEvent::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = false,
 )
 internal abstract class JibikDatabase : RoomDatabase() {
@@ -372,6 +372,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
     abstract fun accountDao(): FinancialAccountDao
     abstract fun purchaseLineDao(): PurchaseLineDao
     abstract fun savingsGoalDao(): SavingsGoalDao
+    abstract fun envelopeDao(): EnvelopeDao
     abstract fun customCategoryDao(): CustomCategoryDao
     abstract fun categoryBudgetDao(): CategoryBudgetDao
     abstract fun obligationDao(): FinancialObligationDao
@@ -557,6 +558,15 @@ internal abstract class JibikDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE money_envelopes (id TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, accountId TEXT NOT NULL, targetToman INTEGER NOT NULL, reservedToman INTEGER NOT NULL, createdAtMillis INTEGER NOT NULL, FOREIGN KEY(accountId) REFERENCES financial_accounts(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE INDEX index_money_envelopes_accountId ON money_envelopes(accountId)")
+                db.execSQL("CREATE TABLE envelope_events (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, envelopeId TEXT NOT NULL, atMillis INTEGER NOT NULL, previousToman INTEGER NOT NULL, reservedToman INTEGER NOT NULL, FOREIGN KEY(envelopeId) REFERENCES money_envelopes(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE INDEX index_envelope_events_envelopeId ON envelope_events(envelopeId)")
+            }
+        }
+
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
                 instance ?: open(context, "jibik_ledger_v1.db").also { instance = it }
@@ -569,7 +579,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
                     name,
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14,
+                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
                 ).build()
     }
 }

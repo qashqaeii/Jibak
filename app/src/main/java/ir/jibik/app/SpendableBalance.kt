@@ -7,6 +7,7 @@ internal data class SpendableBalance(
     val available: BigInteger,
     val goals: List<CashReserve>,
     val dues: List<CashReserve>,
+    val envelopes: List<EnvelopeFunding> = emptyList(),
 )
 
 internal fun spendableBalance(
@@ -15,6 +16,7 @@ internal fun spendableBalance(
     obligations: List<FinancialObligationEntity>,
     payments: List<ObligationPaymentEntity>,
     endExclusive: Long,
+    envelopes: List<MoneyEnvelope> = emptyList(),
 ): SpendableBalance {
     val reserved = goals.mapNotNull { goal ->
         val amount = balances.getOrDefault(goal.accountId, 0L).coerceIn(0L, goal.targetToman)
@@ -38,7 +40,7 @@ internal fun spendableBalance(
             if (due > 0) CashReserve(item.title, due) else null
         }
     val cash = balances.values.fold(BigInteger.ZERO) { sum, value -> sum + value.toBigInteger() }
-    return SpendableBalance((reserved + dues).fold(cash) { value, reserve ->
-        value - reserve.amount.toBigInteger()
-    }, reserved, dues)
+    val funding = envelopeFunding(balances, goals, envelopes)
+    val afterCommitments = (reserved + dues).fold(cash) { value, reserve -> value - reserve.amount.toBigInteger() }
+    return SpendableBalance(funding.fold(afterCommitments) { value, row -> value - row.fundedToman.toBigInteger() }, reserved, dues, funding)
 }

@@ -566,7 +566,45 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
             require(database.savingsGoalDao().list().none {
                 it.accountId == goal.accountId || it.id == goal.id
             }) { "Savings account already assigned to a goal" }
+            require(database.envelopeDao().list().none { it.accountId == goal.accountId }) { "Account already hosts envelopes" }
             database.savingsGoalDao().insert(goal)
+        }
+    }
+
+    suspend fun loadEnvelopes() = withContext(Dispatchers.IO) { database.envelopeDao().list() }
+    suspend fun envelopeHistory(id: String) = withContext(Dispatchers.IO) { database.envelopeDao().history(id) }
+
+    suspend fun addEnvelope(item: MoneyEnvelope) = withContext(Dispatchers.IO) {
+        ensureDefaultWallet()
+        migrateLegacyIfNeeded()
+        database.withTransaction {
+            require(item.id.isNotBlank() && item.title.trim().length in 1..60 && item.createdAtMillis > 0)
+            require(item.targetToman > 0 && item.reservedToman == 0L)
+            require(accountDao.list().any { it.id == item.accountId })
+            require(database.savingsGoalDao().list().none { it.accountId == item.accountId })
+            database.envelopeDao().insert(item.copy(title = item.title.trim()))
+        }
+    }
+
+    /** Reservations are plans, not money movements; compare-and-set prevents stale edits. */
+    suspend fun setEnvelopeReserve(id: String, expected: Long, amount: Long) = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            val envelopeDao = database.envelopeDao()
+            val all = envelopeDao.list()
+            val current = all.first { it.id == id }
+            check(current.reservedToman == expected) { "Reservation changed" }
+            require(amount in 0..current.targetToman)
+            if (amount > expected) {
+                require(database.savingsGoalDao().list().none { it.accountId == current.accountId })
+                val balances = FinanceEngine.balances(accountDao.list().map { it.toAccount() }, dao.getAll().map { it.toRecord() })
+                val free = envelopeFreeCapacity(current.accountId, balances, all, id)
+                require(amount <= free) { "Not enough unreserved account balance" }
+            }
+            if (amount != expected) {
+                check(envelopeDao.updateReserve(id, expected, amount) == 1)
+                envelopeDao.addEvent(EnvelopeEvent(envelopeId = id, atMillis = System.currentTimeMillis(),
+                    previousToman = expected, reservedToman = amount))
+            }
         }
     }
 
