@@ -39,7 +39,7 @@ internal suspend fun stageEncryptedLedger(
     availableBytes: () -> Long = { targetFile.parentFile?.let {
         android.os.StatFs(it.absolutePath).availableBytes
     } ?: 0L },
-    checkpoint: (PilotStage) -> Unit = {},
+    checkpoint: suspend (PilotStage) -> Unit = {},
 ) {
     // Only isolated fixtures are allowed. Never try opening over the active ledger.
     require(targetFile.name.startsWith("pilot-") && source.openHelper.databaseName?.startsWith("pilot-") == true)

@@ -70,6 +70,67 @@ class EncryptedLedgerPilotTest {
             vault.deleteFixture()
         }
     }
+    @Test fun walSourceChangeAndMissingWrappedKeyFailClosed() = runBlocking {
+        System.loadLibrary("sqlcipher")
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val suffix = UUID.randomUUID().toString()
+        val sourceName = "pilot-wal-source-$suffix.db"
+        val targetName = "pilot-wal-target-$suffix.db"
+        val targetFile = ctx.getDatabasePath(targetName)
+        val keyFile = File(ctx.noBackupFilesDir, "pilot-wal-$suffix.key")
+        val savedKey = File(ctx.noBackupFilesDir, "pilot-wal-$suffix.saved")
+        val vault = PilotDatabaseKey("jibik-wal-$suffix", keyFile)
+        fun encrypted(key: ByteArray): JibikDatabase = Room.databaseBuilder(ctx, JibikDatabase::class.java, targetName)
+            .openHelperFactory(SupportOpenHelperFactory(key)).build()
+        val source = Room.databaseBuilder(ctx, JibikDatabase::class.java, sourceName)
+            .setJournalMode(androidx.room.RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING).build()
+        try {
+            val now = System.currentTimeMillis()
+            source.accountDao().insertDefault(FinancialAccountEntity("wallet", "کیف پول", 5000))
+            source.ledgerDao().insert(LedgerEntity("before", "EXPENSE", 20, "wallet", null,
+                "سایر هزینه‌ها", "پیش از انتقال", now))
+            source.openHelper.writableDatabase.query("PRAGMA journal_mode").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("wal", it.getString(0).lowercase(java.util.Locale.ROOT))
+            }
+            val before = pilotSnapshot(source)
+            val late = LedgerEntity("late", "EXPENSE", 30, "wallet", null,
+                "سایر هزینه‌ها", "ثبت هم‌زمان", now + 1)
+            val failure = runCatching {
+                stageEncryptedLedger(source, targetFile, vault, ::encrypted, checkpoint = { stage ->
+                    if (stage == PilotStage.AFTER_REOPEN) source.ledgerDao().insert(late)
+                })
+            }.exceptionOrNull()
+            assertNotNull("A stale staged copy must never be accepted", failure)
+            assertTrue(failure?.message.orEmpty().contains("Snapshot mismatch"))
+            assertEquals(setOf("before", "late"), source.ledgerDao().getAll().map { it.id }.toSet())
+            val key = vault.getOrCreate(true)
+            try {
+                val candidate = encrypted(key)
+                try { verifyPilotSnapshot(before, pilotSnapshot(candidate)) }
+                finally { candidate.close() }
+            } finally { key.fill(0) }
+            assertTrue(runCatching { stageEncryptedLedger(source, targetFile, vault, ::encrypted) }.isFailure)
+            assertTrue(keyFile.renameTo(savedKey))
+            assertTrue(runCatching { vault.getOrCreate(true) }.isFailure)
+            assertFalse("Do not generate a replacement key for an existing database", keyFile.exists())
+            assertTrue(savedKey.renameTo(keyFile))
+            val recovered = vault.getOrCreate(true)
+            try {
+                val candidate = encrypted(recovered)
+                try { verifyPilotSnapshot(before, pilotSnapshot(candidate)) }
+                finally { candidate.close() }
+            } finally { recovered.fill(0) }
+            assertEquals(setOf("before", "late"), source.ledgerDao().getAll().map { it.id }.toSet())
+        } finally {
+            source.close()
+            ctx.deleteDatabase(sourceName)
+            ctx.deleteDatabase(targetName)
+            vault.deleteFixture()
+            savedKey.delete()
+        }
+    }
+
     @Test fun abortedMigrationNeverChangesSourceOrSilentlyReusesCandidate() = runBlocking {
         System.loadLibrary("sqlcipher")
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
