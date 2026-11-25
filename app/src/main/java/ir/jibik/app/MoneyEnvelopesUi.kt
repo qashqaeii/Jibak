@@ -21,6 +21,10 @@ internal fun MoneyEnvelopesSection(store: LocalLedgerStore, envelopes: List<Mone
     val eligible = accounts.filter { account -> goals.none { it.accountId == account.id } }
     val funding = remember(envelopes, balances, goals) { envelopeFunding(balances, goals, envelopes) }
     var create by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<MoneyEnvelope?>(null) }
+    var priority by remember { mutableIntStateOf(1) }
+    var monthly by remember { mutableStateOf("") }
+    val today = parseJalaliDueDate(formatJalaliDueDate(System.currentTimeMillis()))!!
     var selected by remember { mutableStateOf<MoneyEnvelope?>(null) }
     var title by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
@@ -35,7 +39,7 @@ internal fun MoneyEnvelopesSection(store: LocalLedgerStore, envelopes: List<Mone
         scope.launch {
             try {
                 action()
-                create = false; selected = null
+                create = false; selected = null; editing = null
                 onChanged(store.loadEnvelopes())
             } catch (e: CancellationException) { throw e }
             catch (_: Exception) { error = "ذخیره کامل نشد؛ موجودی و تخصیص قبلی را بررسی کن." }
@@ -48,9 +52,9 @@ internal fun MoneyEnvelopesSection(store: LocalLedgerStore, envelopes: List<Mone
         Text(java.text.NumberFormat.getIntegerInstance(java.util.Locale("fa", "IR")).format(
             funding.fold(java.math.BigInteger.ZERO) { sum, row -> sum + row.fundedToman.toBigInteger() }) + " تومان",
             style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-        JibikFormHint("تخصیص و آزادسازی، پول را جابه‌جا نمی‌کند. اگر موجودی کم شود، کسری پاکت‌های جدیدتر نمایش داده می‌شود.")
+        JibikFormHint("تخصیص و آزادسازی، پول را جابه‌جا نمی‌کند. اگر موجودی کم شود، پاکت ضروری اولویت دارد؛ در اولویت برابر، پاکت قدیمی‌تر مقدم است.")
         LiquidGlassButton("＋ ساخت پاکت", enabled = eligible.isNotEmpty() && !busy, onClick = {
-            title = ""; amount = ""; account = eligible.firstOrNull()?.id.orEmpty(); error = ""; create = true
+            title = ""; amount = ""; account = eligible.firstOrNull()?.id.orEmpty(); error = ""; editing = null; priority = 1; monthly = ""; create = true
         })
     }
     if (funding.isEmpty()) Text("برای سفر، هزینه اضطراری یا هر هدف دیگری پاکت بساز.", color = JibikStyle.muted)
@@ -61,32 +65,59 @@ internal fun MoneyEnvelopesSection(store: LocalLedgerStore, envelopes: List<Mone
             Text(formatToman(row.fundedToman) + " از " + formatToman(item.targetToman), fontWeight = FontWeight.Bold)
             JibikProgressTrack(progress = (row.fundedToman.toDouble() / item.targetToman).toFloat().coerceIn(0f, 1f),
                 color = JibikStyle.forest, trackColor = JibikStyle.cream)
-            Text("تخصیص برنامه‌ریزی‌شده: " + formatToman(item.reservedToman), color = JibikStyle.muted)
+            Text("اولویت: " + envelopePriorityLabel(item.priority) + " · تخصیص: " + formatToman(item.reservedToman), color = JibikStyle.muted)
+            val estimate = goalEstimate(item.targetToman, row.fundedToman, item.monthlyPlanToman, today)
+            JibikFinancialDetail("مانده تا هدف", formatToman(estimate.remaining))
+            when {
+                estimate.remaining == 0L -> JibikStatusText("هدف تکمیل شده", JibikStyle.forest)
+                estimate.months == null -> Text("برای برآورد زمان، برنامه ماهانه تعیین کن.", color = JibikStyle.muted)
+                else -> {
+                    JibikFinancialDetail("برآورد رسیدن به هدف", estimate.completionDay?.let(::formatJalaliDueDate)
+                        ?: (estimate.months.toString() + " ماه"))
+                    Text("با تخصیص ماهانه " + formatToman(item.monthlyPlanToman) + "؛ مشروط به تداوم تخصیص.", color = JibikStyle.muted)
+                }
+            }
             if (row.shortfallToman > 0) JibikFormHint("کسری پشتوانه: " + formatToman(row.shortfallToman), isWarning = true)
             LiquidGlassButton("مدیریت تخصیص", enabled = !busy, onClick = {
                 selected = item; amount = item.reservedToman.toString(); history = emptyList(); historyFailed = false; error = ""
             })
+            TextButton(enabled = !busy, onClick = {
+                editing = item; title = item.title; amount = item.targetToman.toString(); account = item.accountId
+                priority = item.priority; monthly = item.monthlyPlanToman.takeIf { it > 0 }?.toString().orEmpty(); error = ""; create = true
+            }) { Text("ویرایش هدف و اولویت") }
         }
     }
     if (error.isNotEmpty() && !create && selected == null) JibikFormHint(error, isWarning = true)
     if (create) {
         val parsed = parseTomanDraft(amount)
+        val plan = if (monthly.isBlank() || monthly.trim() in listOf("0", "۰", "٠")) 0L else parseTomanDraft(monthly)
+        val old = editing
         JibikModalDialog(properties = JibikWideDialogProperties, modifier = Modifier.jibikDialogSurface(),
             onDismissRequest = { if (!busy) create = false },
-            title = { JibikDialogHeading("پاکت جدید", "بدون حساب بانکی جدید") },
+            title = { JibikDialogHeading(if (old == null) "پاکت جدید" else "ویرایش پاکت", "برنامه پس‌انداز شخصی") },
             text = {
                 Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(title, { title = it.take(60) }, label = { Text("نام پاکت") }, singleLine = true, enabled = !busy)
                     JibikTomanField(amount, { amount = it }, "مبلغ هدف", enabled = !busy)
-                    JibikAccountChoice("حساب پشتوانه", eligible, account, { account = it }, enabled = !busy)
-                    JibikFormHint("پس از ساخت، مبلغ دلخواه را از موجودی آزاد همین حساب تخصیص بده.")
+                    if (old == null) JibikAccountChoice("حساب پشتوانه", eligible, account, { account = it }, enabled = !busy)
+                    else Text("حساب پشتوانه: " + accounts.firstOrNull { it.id == old.accountId }?.title.orEmpty())
+                    JibikSectionTitle("اولویت تأمین پشتوانه", "هنگام کاهش موجودی")
+                    JibikSegmentedControl(listOf(0 to "کم", 1 to "عادی", 2 to "ضروری"), priority, onSelected = { if (!busy) priority = it })
+                    JibikTomanField(monthly, { monthly = it }, "تخصیص ماهانه پیشنهادی (اختیاری)", enabled = !busy)
+                    JibikFormHint("برنامه ماهانه فقط برای برآورد زمان است؛ پول خودکار تخصیص داده نمی‌شود.")
+                    if (old != null && parsed != null && parsed < old.reservedToman)
+                        JibikFormHint("ابتدا بخشی از تخصیص فعلی را آزاد کن؛ هدف نمی‌تواند کمتر از مبلغ تخصیص‌یافته باشد.", isWarning = true)
                     if (error.isNotEmpty()) JibikFormHint(error, isWarning = true)
                 }
             },
-            confirmButton = { LiquidGlassButton("ساخت پاکت", enabled = !busy && title.isNotBlank() && parsed != null && parsed > 0 &&
-                eligible.any { it.id == account }, onClick = {
-                save { store.addEnvelope(MoneyEnvelope(UUID.randomUUID().toString(), title.trim(), account,
-                    requireNotNull(parsed), createdAtMillis = System.currentTimeMillis())) }
+            confirmButton = { LiquidGlassButton(if (old == null) "ساخت پاکت" else "ذخیره تغییرات",
+                enabled = !busy && title.isNotBlank() && parsed != null && parsed > 0 && plan != null &&
+                    (if (old == null) eligible.any { it.id == account } else parsed >= old.reservedToman), onClick = {
+                save {
+                    if (old == null) store.addEnvelope(MoneyEnvelope(UUID.randomUUID().toString(), title.trim(), account,
+                        requireNotNull(parsed), createdAtMillis = System.currentTimeMillis(), priority = priority, monthlyPlanToman = requireNotNull(plan)))
+                    else store.editEnvelope(old, title, requireNotNull(parsed), priority, requireNotNull(plan))
+                }
             }) },
             dismissButton = { TextButton(enabled = !busy, onClick = { create = false }) { Text("انصراف") } })
     }
@@ -114,7 +145,7 @@ internal fun MoneyEnvelopesSection(store: LocalLedgerStore, envelopes: List<Mone
                     JibikSectionTitle("تاریخچه تخصیص", "آخرین تغییرات")
                     if (historyFailed) Text("تاریخچه بارگذاری نشد.")
                     history.take(15).forEach { event ->
-                        Text(formatJalaliDueDate(event.atMillis) + " · " + formatToman(event.previousToman) + " ← " + formatToman(event.reservedToman))
+                        Text(formatJalaliDueDate(event.atMillis) + " · " + if (event.details.isNotBlank()) event.details else formatToman(event.previousToman) + " ← " + formatToman(event.reservedToman))
                     }
                 }
             },

@@ -78,6 +78,7 @@ internal fun SpendableBalanceCard(
                             JibikFormHint("اولین کسری پیش‌بینی‌شده: " + formatJalaliDueDate(it), isWarning = true)
                         }
                         JibikFormHint("این سقف میانگین محافظه‌کارانه تا تاریخ انتخابی است؛ درآمد آینده، خریدهای ثبت‌نشده و تغییر قیمت‌ها در آن لحاظ نمی‌شوند.")
+                        CashForecastChart(forecast)
                         LiquidGlassButton("قبل از خرید بررسی کن", onClick = { simulation = true }, enabled = accounts.isNotEmpty())
                     }
                     Text("موجودی حساب‌ها", style = MaterialTheme.typography.titleMedium)

@@ -20,9 +20,12 @@ private fun forecastJulianDay(day: Long): Int =
     Calendar.getInstance(TimeZone.getTimeZone("Asia/Tehran"), ULocale("fa_IR@calendar=persian"))
         .apply { timeInMillis = day }.get(Calendar.JULIAN_DAY)
 
+internal data class ForecastPoint(val day: Long, val available: BigInteger)
+
 internal data class CashForecast(
     val available: BigInteger, val days: Int, val dailyLimit: BigInteger,
     val firstDeficitDay: Long?, val today: Long, val endExclusive: Long,
+    val points: List<ForecastPoint> = emptyList(),
 )
 
 /** Conservative projection: no unreceived income and no invented future purchases.
@@ -51,8 +54,12 @@ internal fun cashForecast(balances: Map<String, Long>, goals: List<SavingsGoalEn
         }
         offsetJalaliDay(today, low)
     }
+    // At most seven evenly spaced samples plus the exact deficit date.
+    val offsets = (0..6).map { ((days - 1L) * it / 6).toInt() }.distinct()
+    val sampleDays = (offsets.map { offsetJalaliDay(today, it) } + listOfNotNull(firstDeficit)).distinct().sorted()
+    val points = sampleDays.map { ForecastPoint(it, availableAt(jalaliDueDayEndExclusive(it))) }
     return CashForecast(available, days, available.max(BigInteger.ZERO) / days.toBigInteger(),
-        firstDeficit, today, endExclusive)
+        firstDeficit, today, endExclusive, points)
 }
 
 internal data class PurchaseImpact(val after: BigInteger, val dailyAfter: BigInteger,
