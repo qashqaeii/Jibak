@@ -51,6 +51,7 @@ internal fun CategoryPickerDialog(
         .filter { !parentOnly || it.depth < 3 }
 
     AlertDialog(
+        properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = onDismiss,
         containerColor = Color.Transparent,
