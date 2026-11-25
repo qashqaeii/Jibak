@@ -44,6 +44,29 @@ internal data class AssetPosition(val holding: AssetHolding, val history: List<A
     val valuationChange: BigInteger? get() = holding.costBasisToman?.let { valueToman.toBigInteger() - it.toBigInteger() }
 }
 
+/** Only actual recorded full sales qualify; unknown cost basis is never treated as zero. */
+internal data class AssetSaleSummary(val proceeds: BigInteger, val knownCost: BigInteger,
+    val realizedDifference: BigInteger, val pricedSales: Int, val unpricedSales: Int)
+internal fun summarizeAssetSales(positions: List<AssetPosition>): AssetSaleSummary {
+    var proceeds = BigInteger.ZERO
+    var cost = BigInteger.ZERO
+    var difference = BigInteger.ZERO
+    var priced = 0
+    var unpriced = 0
+    positions.filter { it.sold }.forEach { position ->
+        val received = position.valueToman.toBigInteger()
+        proceeds += received
+        val basis = position.holding.costBasisToman
+        if (basis == null) unpriced++ else {
+            val paid = basis.toBigInteger()
+            cost += paid
+            difference += received - paid
+            priced++
+        }
+    }
+    return AssetSaleSummary(proceeds, cost, difference, priced, unpriced)
+}
+
 internal fun validateAsset(item: AssetHolding) {
     require(item.id.isNotBlank() && item.title.trim().length in 1..60 && item.kind in ASSET_KINDS)
     require(item.costBasisToman == null || item.costBasisToman >= 0)

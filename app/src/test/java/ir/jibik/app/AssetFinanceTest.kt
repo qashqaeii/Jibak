@@ -22,6 +22,26 @@ class AssetFinanceTest {
         assertEquals(1020.toBigInteger(), f.net)
     }
 
+    @Test fun salesSummarySeparatesUnknownCostAndUnrealizedChanges() {
+        fun sold(id: String, cost: Long?, proceeds: Long): AssetPosition {
+            val asset = holding.copy(id = id, costBasisToman = cost)
+            return assetPositions(listOf(asset), listOf(
+                AssetEvent(1, id, "VALUE", 100, now + 1, ""),
+                AssetEvent(2, id, "SALE", proceeds, now + 2, "", "tx-$id")
+            )).single()
+        }
+        val summary = summarizeAssetSales(listOf(sold("profit", 200, 350),
+            sold("loss", 500, 300), sold("unknown", null, 900),
+            positions(value(1, "VALUE", 1000)).single()))
+        assertEquals(1550.toBigInteger(), summary.proceeds)
+        assertEquals(700.toBigInteger(), summary.knownCost)
+        assertEquals((-50).toBigInteger(), summary.realizedDifference)
+        assertEquals(2, summary.pricedSales)
+        assertEquals(1, summary.unpricedSales)
+        val wide = summarizeAssetSales(listOf(sold("a", 0, Long.MAX_VALUE), sold("b", 0, Long.MAX_VALUE)))
+        assertEquals(Long.MAX_VALUE.toBigInteger() * 2.toBigInteger(), wide.realizedDifference)
+    }
+
     @Test fun malformedHistoryRejectedAndZeroValueAllowed() {
         assertTrue(runCatching { positions(value(1, "ARCHIVE", 100)) }.isFailure)
         assertTrue(runCatching { positions(value(1, "VALUE", 100), value(2, "ARCHIVE", 200)) }.isFailure)

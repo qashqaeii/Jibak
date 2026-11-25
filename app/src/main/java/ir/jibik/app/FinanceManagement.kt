@@ -58,6 +58,20 @@ internal fun weeklyBudgetUsage(start: Long, plans: List<WeeklyBudget>, records: 
 internal data class LoanDetails(val terms: LoanTerms?, val payments: List<ObligationPaymentEntity>,
     val splits: Map<String, LoanPaymentSplit>, val paidPrincipal: BigInteger, val paidInterest: BigInteger,
     val unclassified: BigInteger, val total: Long)
+/** Bounds derived from the contract and recorded payments, not a guessed allocation. */
+internal data class PrincipalBalance(val minimum: BigInteger, val maximum: BigInteger) {
+    init { require(minimum.signum() >= 0 && maximum >= minimum) }
+    val exact get() = minimum == maximum
+}
+internal fun LoanDetails.remainingPrincipal(): PrincipalBalance? {
+    val principal = terms?.principalToman?.toBigInteger() ?: return null
+    val knownRemaining = principal - paidPrincipal
+    val remainingInterestCapacity = total.toBigInteger() - principal - paidInterest
+    // Unclassified payments must fit within remaining principal and interest capacity.
+    val minPrincipalPaid = (unclassified - remainingInterestCapacity).max(BigInteger.ZERO)
+    val maxPrincipalPaid = unclassified.min(knownRemaining)
+    return PrincipalBalance(knownRemaining - maxPrincipalPaid, knownRemaining - minPrincipalPaid)
+}
 internal fun loanDetailsFor(obligation: FinancialObligationEntity, payments: List<ObligationPaymentEntity>,
     terms: LoanTerms?, allSplits: List<LoanPaymentSplit>): LoanDetails {
     require(obligation.kind == "LOAN")

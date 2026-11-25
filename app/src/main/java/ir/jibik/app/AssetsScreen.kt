@@ -68,6 +68,17 @@ internal fun AssetsScreen(store: LocalLedgerStore, assets: List<AssetPosition>,
             JibikFormHint("ارزش خالص بر اساس تعهدات ثبت‌شده است؛ اقساط ممکن است شامل سود آینده باشند. پاکت‌ها و پس‌اندازها دوباره به دارایی اضافه نمی‌شوند.")
         }
         WealthHistoryCard(store)
+        val sales = remember(assets) { summarizeAssetSales(assets) }
+        if (sales.pricedSales + sales.unpricedSales > 0) JibikSurfaceCard {
+            JibikSectionTitle("نتیجه فروش دارایی‌ها", "فقط فروش‌های کامل ثبت‌شده")
+            JibikFinancialDetail("مجموع دریافتی فروش", forecastMoney(sales.proceeds))
+            if (sales.pricedSales > 0) {
+                JibikFinancialDetail("بهای خرید فروش‌های قابل محاسبه", forecastMoney(sales.knownCost))
+                JibikFinancialDetail("سود یا زیان تحقق‌یافته ثبت‌شده", forecastMoney(sales.realizedDifference), emphasis = true)
+            }
+            if (sales.unpricedSales > 0) JibikFormHint("بهای خرید ${sales.unpricedSales} دارایی فروخته‌شده مشخص نیست؛ در سود و زیان لحاظ نشده‌اند.")
+            JibikFormHint("این نتیجه صرفاً اختلاف دریافتی خالص فروش و بهای خرید ثبت‌شده است؛ مالیات، تورم یا هزینه‌های ثبت‌نشده را تخمین نمی‌زند.")
+        }
         JibikSectionTitle("سبد دارایی", "طلا، ارز، ملک، خودرو و سرمایه‌گذاری")
         LiquidGlassButton("＋ ثبت دارایی جدید", modifier = Modifier.fillMaxWidth(),
             onClick = { error = ""; create = true }, enabled = !busy)

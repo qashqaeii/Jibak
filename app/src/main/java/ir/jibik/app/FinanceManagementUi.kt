@@ -199,6 +199,17 @@ internal fun LoanManagementDialog(store: LocalLedgerStore, id: String, onDismiss
                             JibikFinancialDetail("اصل پرداخت‌شده مشخص", forecastMoney(info.paidPrincipal))
                             JibikFinancialDetail("سود پرداخت‌شده مشخص", forecastMoney(info.paidInterest))
                             JibikFinancialDetail("پرداخت تفکیک‌نشده", forecastMoney(info.unclassified))
+                            info.remainingPrincipal()?.let { balance ->
+                                HorizontalDivider()
+                                if (balance.exact) {
+                                    JibikFinancialDetail("مانده اصل وام", forecastMoney(balance.minimum), emphasis = true)
+                                } else {
+                                    JibikSectionTitle("مانده احتمالی اصل وام", "بازه قابل اثبات بر اساس قرارداد")
+                                    JibikFinancialDetail("حداقل", forecastMoney(balance.minimum))
+                                    JibikFinancialDetail("حداکثر", forecastMoney(balance.maximum), emphasis = true)
+                                    JibikFormHint("برای تعیین مانده دقیق، پرداخت‌های تفکیک‌نشده را بر اساس صورتحساب وام مشخص کن.")
+                                }
+                            }
                         }
                         TextButton(onClick = { draft = info.terms?.principalToman?.toString().orEmpty(); mode = "TERMS" }) { Text("تعیین یا اصلاح اصل قراردادی") }
                         if (info.terms != null) info.payments.forEach { payment ->
