@@ -51,8 +51,10 @@ internal fun offsetJalaliDay(day: Long, offset: Int): Long =
         add(Calendar.DAY_OF_MONTH, offset)
     }.timeInMillis
 
-private fun localDate(day: Long) = java.time.Instant.ofEpochMilli(day)
-    .atZone(java.time.ZoneId.of("Asia/Tehran")).toLocalDate()
+private fun julianDay(day: Long): Int =
+    Calendar.getInstance(TimeZone.getTimeZone("Asia/Tehran"), ULocale("fa_IR@calendar=persian")).apply {
+        timeInMillis = day
+    }.get(Calendar.JULIAN_DAY)
 
 private fun RecurringRule.occurrence(index: Int): Long = when (frequency) {
     "DAILY" -> offsetJalaliDay(firstDay, Math.multiplyExact(index, interval))
@@ -66,13 +68,13 @@ private fun RecurringRule.countThrough(timestamp: Long): Int {
     val last = minOf(timestamp, stoppedAt ?: Long.MAX_VALUE, endDay ?: Long.MAX_VALUE)
     if (last < firstDay) return 0
     val index = if (frequency == "DAILY" || frequency == "WEEKLY") {
-        val days = java.time.temporal.ChronoUnit.DAYS.between(localDate(firstDay), localDate(last))
-        (days / (interval * if (frequency == "WEEKLY") 7 else 1)).toInt()
+        val days = julianDay(last) - julianDay(firstDay)
+        days / (interval * (if (frequency == "WEEKLY") 7 else 1))
     } else {
         val first = currentJalaliMonth(firstDay)
         val month = currentJalaliMonth(last)
         ((month.year - first.year) * 12 + month.month - first.month) /
-            (interval * if (frequency == "YEARLY") 12 else 1)
+            (interval * (if (frequency == "YEARLY") 12 else 1))
     }
     return index + if (occurrence(index) <= last) 1 else 0
 }
@@ -81,8 +83,8 @@ private fun RecurringRule.countThrough(timestamp: Long): Int {
 internal fun RecurringRule.dueBetween(start: Long, endExclusive: Long): List<Long> {
     if (endExclusive <= start || endExclusive <= firstDay) return emptyList()
     val from = countThrough(start - 1)
-    val until = countThrough(endExclusive - 1)
-    return (from until until).map { occurrence(it) }
+    val toExclusive = countThrough(endExclusive - 1)
+    return (from until toExclusive).map { occurrence(it) }
 }
 
 internal fun RecurringRule.dueIn(month: JalaliMonthPeriod): Long? =

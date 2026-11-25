@@ -163,6 +163,17 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
 
     suspend fun stopRecurring(id: String) = database.recurringDao().stop(id, System.currentTimeMillis())
 
+    /** Historical occurrences keep their original rule and amount; edits create a successor. */
+    suspend fun replaceRecurring(id: String, replacement: RecurringRule) = database.withTransaction {
+        val recurring = database.recurringDao()
+        val previous = recurring.rules().first { it.id == id }
+        val now = System.currentTimeMillis()
+        require(previous.stoppedAt == null && replacement.id != id && replacement.stoppedAt == null)
+        require(replacement.firstDay >= jalaliDueDayEndExclusive(now))
+        addRecurring(replacement)
+        recurring.stop(id, now)
+    }
+
     suspend fun decideRecurring(ruleId: String, day: Long, amount: Long?) = database.withTransaction {
         val recurring = database.recurringDao()
         val rule = recurring.rules().first { it.id == ruleId }

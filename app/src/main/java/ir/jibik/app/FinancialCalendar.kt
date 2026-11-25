@@ -1,6 +1,9 @@
 package ir.jibik.app
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -25,6 +28,7 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
     obligations: List<FinancialObligationEntity>, payments: List<ObligationPaymentEntity>,
     requestedDay: Long, onOpened: () -> Unit, source: ir.jibik.core.finance.LedgerRecord?,
     onSourceUsed: () -> Unit, records: List<LedgerRecord>, allDecisions: List<RecurringDecision>,
+    customCategories: List<CustomCategoryEntity>,
     onPayObligation: (String) -> Unit, onLedgerChange: () -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
     LiquidGlassCard(onClick = { open = true }, tone = GlassTone.CRYSTAL) {
@@ -45,6 +49,10 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
     var filter by rememberSaveable { mutableStateOf("all") }
     var selected by rememberSaveable { mutableStateOf("") }
     var selectedDay by rememberSaveable { mutableLongStateOf(0L) }
+    var focusDay by rememberSaveable(start) { mutableLongStateOf(0L) }
+    var editingRuleId by rememberSaveable { mutableStateOf<String?>(null) }
+    var category by rememberSaveable { mutableStateOf("") }
+    var categoryOpen by rememberSaveable { mutableStateOf(false) }
     var actual by rememberSaveable { mutableStateOf("") }
     var refresh by remember { mutableIntStateOf(0) }
     var rules by remember { mutableStateOf(emptyList<RecurringRule>()) }
@@ -118,6 +126,8 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
             account = (source.fromAccountId ?: source.toAccountId).orEmpty()
             estimate = source.amountToman.toString()
             date = formatJalaliDueDate(offsetJalaliMonth(source.timestampMillis, 1))
+            frequency = "MONTHLY"; intervalText = "1"; endText = ""; editingRuleId = null
+            category = source.category.takeIf { isSelectableCategory(it, income, customCategories) }.orEmpty()
             mode = "new"
             onSourceUsed()
         }
@@ -127,7 +137,7 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
         modifier = Modifier.jibikDialogSurface(), properties = JibikWideDialogProperties,
         onDismissRequest = { if (!busy) back() },
         title = { JibikDialogHeading(when(mode) {
-            "new" -> "ثبت دوره‌ای جدید"
+            "new" -> if (editingRuleId == null) "ثبت دوره‌ای جدید" else "اصلاح تکرار آینده"
             "review" -> "بررسی نوبت"
             "manage" -> "مدیریت تکرارها"
             else -> "تقویم مالی"
@@ -137,11 +147,13 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 when (mode) {
                     "new" -> {
-                        JibikSegmentedControl(listOf(false to "هزینه", true to "درآمد"), income, onSelected = { income = it })
+                        JibikSegmentedControl(listOf(false to "هزینه", true to "درآمد"), income, onSelected = { income = it; category = "" })
                         OutlinedTextField(title, { title = it.take(70) }, label = { Text("عنوان، مثلاً اجاره") })
                         JibikTomanField(estimate, { estimate = it }, "مبلغ معمول")
                         OutlinedTextField(date, { date = it.take(12) }, label = { Text("اولین سررسید شمسی (سال/ماه/روز)") })
                         JibikAccountChoice("حساب", accounts, account, { account = it })
+                        TextButton(enabled = !busy, onClick = { categoryOpen = true }) { Text("دسته‌بندی: " + category.ifBlank { "انتخاب دسته" }) }
+                        if (editingRuleId != null) JibikFormHint("فقط برنامه آینده جایگزین می‌شود؛ نوبت‌های امروز و گذشته محفوظ می‌مانند.")
                         JibikSegmentedControl(listOf("DAILY" to "روزانه", "WEEKLY" to "هفتگی", "MONTHLY" to "ماهانه", "YEARLY" to "سالانه"),
                             frequency, onSelected = { frequency = it })
                         OutlinedTextField(intervalText, { intervalText = it.take(3) }, label = { Text("هر چند " + recurringFrequencyLabel(frequency) + "؟") }, singleLine = true)
@@ -177,9 +189,23 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
                         if (rules.isEmpty()) Text("هنوز تکراری تعریف نشده است.")
                         rules.forEach { rule ->
                             Text(rule.title + " · " + formatToman(rule.amount) + " · هر " + rule.interval + " " + recurringFrequencyLabel(rule.frequency))
-                            if (rule.stoppedAt == null) TextButton(enabled = !busy, onClick = {
-                                selected = rule.id; mode = "stop"
-                            }) { Text("توقف نوبت‌های آینده") } else Text("متوقف شده")
+                            if (rule.stoppedAt == null) {
+                                TextButton(enabled = !busy, onClick = {
+                                    editingRuleId = rule.id
+                                    title = rule.title; income = rule.income; estimate = rule.amount.toString()
+                                    account = rule.accountId; category = rule.category.takeIf {
+                                        isSelectableCategory(it, rule.income, customCategories)
+                                    }.orEmpty()
+                                    frequency = rule.frequency; intervalText = rule.interval.toString()
+                                    val tomorrow = jalaliDueDayEndExclusive(System.currentTimeMillis())
+                                    date = formatJalaliDueDate(maxOf(tomorrow, rule.firstDay))
+                                    endText = rule.endDay?.takeIf { it >= tomorrow }?.let(::formatJalaliDueDate).orEmpty()
+                                    mode = "new"
+                                }) { Text("اصلاح برنامه آینده") }
+                                TextButton(enabled = !busy, onClick = {
+                                    selected = rule.id; mode = "stop"
+                                }) { Text("توقف نوبت‌های آینده") }
+                            } else Text("متوقف شده")
                         }
                     }
                     "stop" -> Text("نوبت‌های آیندهٔ «" + rules.firstOrNull { it.id == selected }?.title.orEmpty() +
@@ -191,7 +217,7 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
                             TextButton(onClick = { start = offsetJalaliMonth(start, 1) }) { Text("ماه بعد") }
                         }
                         TextButton(onClick = { title = ""; estimate = ""; date = formatJalaliDueDate(System.currentTimeMillis())
-                            income = false; frequency = "MONTHLY"; intervalText = "1"; endText = ""; mode = "new" }) { Text("＋ تعریف ثبت دوره‌ای") }
+                            income = false; frequency = "MONTHLY"; intervalText = "1"; endText = ""; category = ""; editingRuleId = null; mode = "new" }) { Text("＋ تعریف ثبت دوره‌ای") }
                         TextButton(onClick = { mode = "manage" }) { Text("مدیریت تکرارها") }
                         if (!loaded && error.isEmpty()) Text("در حال بارگذاری…")
                         if (loaded) {
@@ -205,7 +231,11 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
                             }
                             JibikSegmentedControl(listOf("all" to "همه", "open" to "باز", "closed" to "بسته"),
                                 filter, onSelected = { filter = it })
-                            val visible = rows.filter { filter == "all" || (filter == "open" && it.pending) || (filter == "closed" && !it.pending) }
+                            val filtered = rows.filter { filter == "all" || (filter == "open" && it.pending) || (filter == "closed" && !it.pending) }
+                            val dayCounts = filtered.groupingBy { formatJalaliDueDate(it.day) }.eachCount()
+                            FinancialMonthGrid(month, focusDay, dayCounts, onDay = { focusDay = if (focusDay == it) 0L else it })
+                            if (focusDay != 0L) TextButton(onClick = { focusDay = 0L }) { Text("نمایش تمام روزهای ماه") }
+                            val visible = filtered.filter { focusDay == 0L || formatJalaliDueDate(it.day) == formatJalaliDueDate(focusDay) }
                             if (visible.isEmpty()) Text("موردی در این بخش نیست.")
                             visible.groupBy { formatJalaliDueDate(it.day) }.forEach { (dateLabel, entries) ->
                                 JibikSectionTitle(dateLabel, "${entries.size} نوبت")
@@ -238,11 +268,15 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
             when (mode) {
                 "new" -> LiquidGlassButton(text = "ذخیرهٔ تکرار", enabled = !busy && title.isNotBlank() &&
                     day != null && amount != null && amount > 0 && interval != null && interval in 1..365 &&
-                    (endText.isBlank() || (end != null && end >= day)) && accounts.any { it.id == account },
+                    (endText.isBlank() || (end != null && end >= day)) &&
+                    (editingRuleId == null || day >= jalaliDueDayEndExclusive(System.currentTimeMillis())) && accounts.any { it.id == account },
                     onClick = { submit {
                         val first = requireNotNull(day)
-                        store.addRecurring(RecurringRule(UUID.randomUUID().toString(), title.trim(), income,
-                            account, requireNotNull(amount), first, frequency = frequency, interval = requireNotNull(interval), endDay = end))
+                        val replacement = RecurringRule(UUID.randomUUID().toString(), title.trim(), income,
+                            account, requireNotNull(amount), first, frequency = frequency, interval = requireNotNull(interval), category = category, endDay = end)
+                        val oldId = editingRuleId
+                        if (oldId == null) store.addRecurring(replacement) else store.replaceRecurring(oldId, replacement)
+                        editingRuleId = null
                         start = currentJalaliMonth(first).startMillis
                     } })
                 "review" -> LiquidGlassButton(text = "تأیید و ثبت", enabled = loaded && !busy && row?.pending == true && amount != null && amount > 0,
@@ -255,4 +289,50 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
         dismissButton = { if (mode in listOf("stop", "new", "review"))
             TextButton(enabled = !busy, onClick = { back() }) { Text("انصراف") } },
     )
+    if (categoryOpen && mode == "new") CategoryPickerDialog(
+        income = income, selected = category, custom = customCategories,
+        onSelected = { category = it; categoryOpen = false }, onDismiss = { categoryOpen = false },
+    )
+}
+
+@Composable
+private fun FinancialMonthGrid(
+    month: JalaliMonthPeriod, selected: Long, counts: Map<String, Int>, onDay: (Long) -> Unit,
+) {
+    val cells = remember(month) { financialCalendarCells(month) }
+    val today = formatJalaliDueDate(System.currentTimeMillis())
+    JibikSurfaceCard {
+        Row(Modifier.fillMaxWidth()) {
+            listOf("ش", "ی", "د", "س", "چ", "پ", "ج").forEach {
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Text(it, color = JibikStyle.muted, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        cells.chunked(7).forEach { week ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                week.forEach { day ->
+                    if (day == null) Spacer(Modifier.weight(1f).height(46.dp))
+                    else {
+                        val key = formatJalaliDueDate(day)
+                        val count = counts[key] ?: 0
+                        Surface(
+                            modifier = Modifier.weight(1f).height(46.dp).clickable(role = Role.Button) { onDay(day) },
+                            color = if (day == selected) JibikStyle.forest else MaterialTheme.colorScheme.surfaceVariant,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center) {
+                                Text(key.takeLast(2), color = if (day == selected) androidx.compose.ui.graphics.Color.White else JibikStyle.ink,
+                                    fontWeight = if (key == today) FontWeight.ExtraBold else FontWeight.Medium,
+                                    style = MaterialTheme.typography.labelMedium)
+                                if (count > 0) Text(count.toString() + " •", style = MaterialTheme.typography.labelSmall,
+                                    color = if (day == selected) androidx.compose.ui.graphics.Color.White else JibikStyle.forest)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
