@@ -50,7 +50,7 @@ internal fun CategoryPickerDialog(
     val choices = categoryOptions(income, custom, parentPath = path, search = search)
         .filter { !parentOnly || it.depth < 3 }
 
-    AlertDialog(
+    JibikModalDialog(
         properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = onDismiss,
