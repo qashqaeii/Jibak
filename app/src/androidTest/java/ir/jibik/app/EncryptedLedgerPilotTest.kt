@@ -15,19 +15,6 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class EncryptedLedgerPilotTest {
-    private fun assertSameSnapshot(expected: JSONObject, actual: JSONObject) {
-        assertEquals(expected.getLong("budget"), actual.getLong("budget"))
-        FinancialBackup.tables.forEach { table ->
-            val a = expected.getJSONObject(table); val b = actual.getJSONObject(table)
-            assertEquals(a.getJSONArray("columns").toString(), b.getJSONArray("columns").toString())
-            fun rows(sheet: JSONObject): List<String> {
-                val data = sheet.getJSONArray("rows")
-                return (0 until data.length()).map { data.getJSONArray(it).toString() }.sorted()
-            }
-            assertEquals(table, rows(a), rows(b))
-        }
-    }
-
     @Test fun copyOnlyPilotReopensWithKeystoreAndRejectsWrongKey() = runBlocking {
         System.loadLibrary("sqlcipher")
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
@@ -48,19 +35,9 @@ class EncryptedLedgerPilotTest {
             source.ledgerDao().insert(LedgerEntity("pilot-entry", "EXPENSE", 120, "wallet", null,
                 "سایر هزینه‌ها", "آزمون فارسی", now))
             source.envelopeDao().insert(MoneyEnvelope("pilot-envelope", "سفر", "wallet", 500, 200, now))
-            val expected = FinancialBackup.snapshot(source, 600)
-            val key = vault.getOrCreate(false)
-            try {
-                val target = openEncrypted(key)
-                try {
-                    FinancialBackup.restore(target, expected)
-                    assertSameSnapshot(expected, FinancialBackup.snapshot(target, 600))
-                    target.openHelper.writableDatabase.query("PRAGMA integrity_check").use {
-                        assertTrue(it.moveToFirst()); assertEquals("ok", it.getString(0))
-                    }
-                    target.openHelper.writableDatabase.query("PRAGMA foreign_key_check").use { assertFalse(it.moveToFirst()) }
-                } finally { target.close() }
-            } finally { key.fill(0) }
+            source.ledgerDao().saveBudget(MonthlyBudget(amount = 600))
+            val expected = pilotSnapshot(source)
+            stageEncryptedLedger(source, targetFile, vault, ::openEncrypted)
             assertTrue(targetFile.exists())
             val header = ByteArray(16).also { bytes ->
                 java.io.DataInputStream(targetFile.inputStream()).use { it.readFully(bytes) }
@@ -74,10 +51,10 @@ class EncryptedLedgerPilotTest {
             val restored = vault.getOrCreate(true)
             try {
                 val reopened = openEncrypted(restored)
-                try { assertSameSnapshot(expected, FinancialBackup.snapshot(reopened, 600)) }
+                try { verifyPilotSnapshot(expected, pilotSnapshot(reopened)) }
                 finally { reopened.close() }
             } finally { restored.fill(0) }
-            assertSameSnapshot(expected, FinancialBackup.snapshot(source, 600))
+            verifyPilotSnapshot(expected, pilotSnapshot(source))
             val missing = PilotDatabaseKey("jibik-missing-$suffix", File(ctx.noBackupFilesDir, "missing-$suffix.key"))
             assertTrue(runCatching { missing.getOrCreate(true) }.isFailure)
         } finally {
@@ -85,6 +62,60 @@ class EncryptedLedgerPilotTest {
             ctx.deleteDatabase(sourceName)
             ctx.deleteDatabase(targetName)
             vault.deleteFixture()
+        }
+    }
+    @Test fun abortedMigrationNeverChangesSourceOrSilentlyReusesCandidate() = runBlocking {
+        System.loadLibrary("sqlcipher")
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val suffix = UUID.randomUUID().toString()
+        val sourceName = "pilot-interrupt-source-$suffix.db"
+        val targetName = "pilot-interrupt-target-$suffix.db"
+        val targetFile = ctx.getDatabasePath(targetName)
+        val keyFile = File(ctx.noBackupFilesDir, "pilot-interrupt-$suffix.key")
+        val vault = PilotDatabaseKey("jibik-interrupt-$suffix", keyFile)
+        fun encrypted(key: ByteArray): JibikDatabase = Room.databaseBuilder(ctx, JibikDatabase::class.java, targetName)
+            .openHelperFactory(SupportOpenHelperFactory(key)).build()
+        val source = JibikDatabase.open(ctx, sourceName)
+        try {
+            val now = System.currentTimeMillis()
+            source.accountDao().insertDefault(FinancialAccountEntity("wallet", "کیف پول", 100000))
+            for (index in 0 until 1001) source.ledgerDao().insert(
+                LedgerEntity("e-$index", "EXPENSE", 1, "wallet", null, "سایر هزینه‌ها", "آزمون", now + index))
+            source.ledgerDao().saveBudget(MonthlyBudget(amount = 15000))
+            val expected = pilotSnapshot(source)
+            assertTrue(runCatching {
+                stageEncryptedLedger(source, targetFile, vault, ::encrypted, availableBytes = { 0L })
+            }.isFailure)
+            assertFalse(targetFile.exists())
+            verifyPilotSnapshot(expected, pilotSnapshot(source))
+            for (step in listOf(PilotStage.BEFORE_COPY, PilotStage.AFTER_COPY, PilotStage.AFTER_REOPEN)) {
+                assertTrue(runCatching {
+                    stageEncryptedLedger(source, targetFile, vault, ::encrypted, checkpoint = { if (it == step) error("simulated interruption") })
+                }.isFailure)
+                verifyPilotSnapshot(expected, pilotSnapshot(source))
+                // A leftover candidate cannot be overwritten implicitly.
+                if (targetFile.exists()) assertTrue(runCatching {
+                    stageEncryptedLedger(source, targetFile, vault, ::encrypted)
+                }.isFailure)
+                // Explicit fixture-only cleanup, never performed on a real ledger.
+                ctx.deleteDatabase(targetName)
+                vault.deleteFixture()
+            }
+            stageEncryptedLedger(source, targetFile, vault, ::encrypted)
+            verifyPilotSnapshot(expected, pilotSnapshot(source))
+            val wrapped = keyFile.readBytes()
+            keyFile.writeBytes(wrapped.copyOf().apply { this[lastIndex] = (this[lastIndex].toInt() xor 1).toByte() })
+            assertTrue(runCatching { vault.getOrCreate(true) }.isFailure)
+            verifyPilotSnapshot(expected, pilotSnapshot(source))
+            keyFile.writeBytes(wrapped)
+            val restored = vault.getOrCreate(true)
+            try {
+                val db = encrypted(restored)
+                try { verifyPilotSnapshot(expected, pilotSnapshot(db)) } finally { db.close() }
+            } finally { restored.fill(0) }
+        } finally {
+            source.close()
+            ctx.deleteDatabase(sourceName); ctx.deleteDatabase(targetName); vault.deleteFixture()
         }
     }
 }
