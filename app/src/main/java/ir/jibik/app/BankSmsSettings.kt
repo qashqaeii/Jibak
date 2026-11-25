@@ -30,7 +30,8 @@ internal object BankSmsSettings {
     }
 
     fun isEnabled(context: Context) =
-        prefs(context).getBoolean(ENABLED, false) && permissionGranted(context)
+        BuildConfig.BANK_SMS_AVAILABLE && prefs(context).getBoolean(ENABLED, false) &&
+            permissionGranted(context) && BankSenderRegistry.active(context).isNotEmpty()
 
     fun approvedBanks(context: Context): Set<String> {
         val known = BankSmsParser.banks.map { it.id }.toSet()
@@ -47,12 +48,13 @@ internal object BankSmsSettings {
 
     /** User consent is never silently enabled by permission or inbox import. */
     fun setEnabled(context: Context, active: Boolean): Boolean {
-        if (active && (!permissionGranted(context) || approvedBanks(context).isEmpty())) return false
+        if (active && (!BuildConfig.BANK_SMS_AVAILABLE || !permissionGranted(context) ||
+            BankSenderRegistry.active(context).isEmpty())) return false
         check(prefs(context).edit().putBoolean(ENABLED, active).commit())
         return true
     }
 
-    fun fingerprintSalt(context: Context): String {
+    @Synchronized fun fingerprintSalt(context: Context): String {
         val prefs = prefs(context)
         val existing = prefs.getString(SALT, null)
         if (existing != null && existing.length >= 8) return existing

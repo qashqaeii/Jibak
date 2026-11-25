@@ -51,7 +51,7 @@ internal fun BankSmsScreen(
     val scope = rememberCoroutineScope()
     var approved by remember { mutableStateOf(BankSmsSettings.approvedBanks(context)) }
     var pendingItems by remember { mutableStateOf<List<BankSmsCandidateEntity>>(emptyList()) }
-    var sample by rememberSaveable { mutableStateOf("") }
+    var sample by remember { mutableStateOf("") }
     var sampleResult by remember { mutableStateOf<BankSmsMatch?>(null) }
     var showAllBanks by rememberSaveable { mutableStateOf(false) }
     var showAllPending by rememberSaveable { mutableStateOf(false) }
@@ -74,7 +74,7 @@ internal fun BankSmsScreen(
     ) {
         JibikSectionTitle(
             title = "پیامک‌های بانکی",
-            subtitle = "واریز و برداشت، فقط با بررسی و تأیید",
+            subtitle = "مدیریت خصوصی پیام‌های واریز و برداشت",
             trailing = {
                 TextButton(onClick = onBack) { Text("بازگشت", color = JibikStyle.forest) }
             },
@@ -93,54 +93,21 @@ internal fun BankSmsScreen(
             "همه پردازش‌ها روی گوشی انجام می‌شود. متن پیام، نام افراد، " +
                 "موجودی بانک و رمزهای یک‌بارمصرف ذخیره یا به سرور ارسال نمی‌شوند."
         )
-        LiquidGlassCard(tone = GlassTone.CRYSTAL) {
-            JibikSectionTitle(
-                "۱. دسترسی به پیامک",
-                "موقتاً برای نصب و تست APK غیرفعال است",
-            )
-            JibikFormHint(
-                "در این نسخه هیچ اجازه خواندن یا دریافت پیامک درخواست نمی‌شود. " +
-                    "می‌توانی پایین‌تر نمونه پیام بانکی را دستی بررسی کنی."
-            )
-        }
-        LiquidGlassCard(tone = GlassTone.CRYSTAL) {
-            JibikSectionTitle("۲. انتخاب بانک‌ها", "فقط بانک‌های تأییدشده بررسی می‌شوند")
-            val visible = if (showAllBanks) BankSmsParser.banks
-                else BankSmsParser.banks.take(6)
-            visible.chunked(2).forEach { banks ->
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    banks.forEach { bank ->
-                        JibikGlassChip(
-                            text = bank.title,
-                            selected = bank.id in approved,
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                BankSmsSettings.allowBank(
-                                    context, bank.id, bank.id !in approved,
-                                )
-                                approved = BankSmsSettings.approvedBanks(context)
-                            },
-                        )
-                    }
+        BankSenderSettingsPanel(accounts = accounts, busy = busy,
+            onScan = {
+                busy = true
+                scope.launch {
+                    try {
+                        val count = store.importBankSms(BankSmsInboxScanner.scan(context))
+                        pendingItems = store.bankSmsSuggestions()
+                        notice = "$count پیشنهاد جدید پیدا شد؛ هنوز هیچ مبلغی ثبت نشده است."
+                    } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (_: Exception) { notice = "اسکن انجام نشد؛ دسترسی و سرشماره‌ها را بررسی کن." }
+                    finally { busy = false }
                 }
-            }
-            TextButton(onClick = { showAllBanks = !showAllBanks }) {
-                Text(
-                    if (showAllBanks) "نمایش بانک‌های پرکاربرد"
-                    else "مشاهده تمام بانک‌های قابل شناسایی",
-                    color = JibikStyle.forest,
-                )
-            }
-        }
+            })
         LiquidGlassCard(tone = GlassTone.CRYSTAL) {
-            JibikSectionTitle("۳. بررسی پیامک‌های قبلی", "موقتاً در نسخه تست غیرفعال")
-            JibikFormHint("اسکن صندوق پیامک‌ها به مجوز READ_SMS نیاز دارد؛ در این APK اجرا نمی‌شود.")
-        }
-        LiquidGlassCard(tone = GlassTone.CRYSTAL) {
-            JibikSectionTitle("۴. آزمایش نمونه پیام",
+            JibikSectionTitle("آزمایش نمونه پیام",
                 "پیام نمونه را جای‌گذاری کن؛ متن آن ذخیره نمی‌شود")
             OutlinedTextField(
                 value = sample,
@@ -178,13 +145,6 @@ internal fun BankSmsScreen(
                 }) { Text("انتخاب این بانک", color = JibikStyle.forest) }
             }
         }
-        LiquidGlassCard(tone = GlassTone.CRYSTAL) {
-            JibikSectionTitle("۵. پایش پیامک‌های جدید", "موقتاً در نسخه تست غیرفعال")
-            JibikFormHint(
-                "دریافت خودکار پیامک بانکی به مجوز RECEIVE_SMS نیاز دارد. " +
-                    "با بازگرداندن مجوزها در نسخه کامل، این قابلیت دوباره فعال می‌شود."
-            )
-        }
         val pending = pendingItems.filter { it.state == "PENDING" }
         val handled = pendingItems.size - pending.size
         JibikSectionTitle(
@@ -201,8 +161,7 @@ internal fun BankSmsScreen(
         )
         if (pending.isEmpty()) JibikStatePanel(
             title = "پیام جدیدی در صف نیست",
-            description = "در این نسخه پیامک جدیدی خوانده نمی‌شود؛ " +
-                "پیشنهادهای ثبت‌شده قبلی، در صورت وجود، اینجا باقی می‌مانند.",
+            description = "پیام‌های قابل تشخیص از سرشماره‌های معرفی‌شده پس از دریافت یا اسکن در این بخش نمایش داده می‌شوند.",
         )
         pending.take(if (showAllPending) 100 else 12).forEach { item ->
             LiquidGlassCard(tone = GlassTone.CRYSTAL) {
@@ -283,6 +242,9 @@ internal fun BankSmsScreen(
             busy = busy,
             onDismiss = { if (!busy) selected = null },
             error = reviewError, linkedIds = linkedIds,
+            suggestedAccountId = BankSenderRegistry.active(context)
+                .filter { it.bankId == candidate.bankId && it.accountLast4 == candidate.accountLast4 }
+                .map { it.accountId }.distinct().singleOrNull(),
             targetsFor = { record -> bankPaymentOptions(record, obligations, payments, rules, decisions, System.currentTimeMillis()) },
             onConfirm = { record, link, target ->
                 busy = true; reviewError = ""

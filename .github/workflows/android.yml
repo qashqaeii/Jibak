@@ -139,6 +139,33 @@ jobs:
             app/build/outputs/apk/debug/update-identity.txt
           if-no-files-found: error
           retention-days: 14
+      - name: Build opt-in bank SMS test APK
+        if: success() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: gradle --no-daemon :app:assembleSmsDebug --stacktrace
+      - name: Verify bank SMS APK permissions and identity
+        if: success() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/smsDebug/*.apk)
+          [[ ${#apks[@]} == 1 ]]
+          permissions="$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump permissions "${apks[0]}")"
+          grep -q android.permission.READ_SMS <<< "$permissions"
+          grep -q android.permission.RECEIVE_SMS <<< "$permissions"
+          if grep -q android.permission.SEND_SMS <<< "$permissions"; then exit 1; fi
+          signer="$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "${apks[0]}" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
+          grep -Fx "certificateSha256=$signer" app/build/outputs/apk/debug/update-identity.txt
+          cp app/build/outputs/apk/debug/update-identity.txt app/build/outputs/apk/smsDebug/update-identity.txt
+          sha256sum "${apks[0]}" > "${apks[0]}.sha256"
+      - name: Upload opt-in SMS test APK
+        if: success() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Jibik-bank-sms-test-apk
+          path: app/build/outputs/apk/smsDebug/
+          if-no-files-found: error
+          retention-days: 14
       - name: Remove injected private signing key
         if: always() && steps.signing.outcome != 'skipped'
         run: rm -f "$HOME/.android/debug.keystore"

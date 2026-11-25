@@ -14,8 +14,9 @@ android {
         minSdk = 26
         targetSdk = 35
         // Bump for every distributable update; never change applicationId.
-        versionCode = 2
-        versionName = "0.1.1"
+        versionCode = 3
+        versionName = "0.1.2"
+        buildConfigField("boolean", "BANK_SMS_AVAILABLE", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         // Only the public Jibik API URL is injected at build time.
@@ -26,6 +27,12 @@ android {
     }
 
     buildTypes {
+        // Same application ID and debug signer; separate opt-in distribution channel.
+        create("smsDebug") {
+            initWith(getByName("debug"))
+            matchingFallbacks += listOf("debug")
+            buildConfigField("boolean", "BANK_SMS_AVAILABLE", "true")
+        }
         release {
             isMinifyEnabled = false
         }

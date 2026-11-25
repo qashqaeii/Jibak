@@ -38,10 +38,12 @@ internal fun BankSmsReviewDialog(
     error: String = "",
     linkedIds: Set<String> = emptySet(),
     targetsFor: (LedgerRecord) -> List<BankPaymentOption> = { emptyList() },
+    suggestedAccountId: String? = null,
 ) {
     val income = candidate.income
     var accountId by remember(candidate.id) {
-        mutableStateOf(accounts.firstOrNull()?.id.orEmpty())
+        mutableStateOf(accounts.firstOrNull { it.id == suggestedAccountId && !it.archived }?.id
+            ?: accounts.firstOrNull { !it.archived }?.id.orEmpty())
     }
     var category by remember(candidate.id) {
         mutableStateOf(if (income) "سایر درآمدها" else "سایر هزینه‌ها")

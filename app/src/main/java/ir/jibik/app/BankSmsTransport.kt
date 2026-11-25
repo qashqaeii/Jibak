@@ -28,6 +28,8 @@ internal object BankSmsInboxScanner {
                 ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
                     PackageManager.PERMISSION_GRANTED
             ) { "Permission is required to scan bank messages" }
+            val profiles = BankSenderRegistry.active(context)
+            if (profiles.isEmpty()) return@withContext emptyList()
             val matches = mutableListOf<BankSmsMatch>()
             val projection = arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE)
             val salt = BankSmsSettings.fingerprintSalt(context)
@@ -41,15 +43,33 @@ internal object BankSmsInboxScanner {
                 var checked = 0
                 while (checked < limit && cursor.moveToNext()) {
                     checked++
-                    BankSmsParser.parse(
-                        cursor.getString(sender).orEmpty(),
-                        cursor.getString(body).orEmpty(),
-                        cursor.getLong(date), salt,
-                    )?.takeIf { it.amountToman != null }?.let(matches::add)
+                    val address = cursor.getString(sender).orEmpty()
+                    val key = bankSenderKey(address) ?: continue
+                    val bankId = profiles.filter { it.sender == key }.map { it.bankId }.distinct().singleOrNull() ?: continue
+                    // Never read the body of an unapproved address.
+                    BankSmsParser.parse(address, cursor.getString(body).orEmpty(),
+                        cursor.getLong(date), salt, bankId)
+                        ?.takeIf { it.amountToman != null && resolveBankSender(profiles, address, bankId, it.accountLast4) != null }
+                        ?.let(matches::add)
                 }
             }
             matches.distinctBy { it.fingerprint }
         }
+}
+
+/** Discovery reads only addresses, never message bodies. Explicit user action only. */
+internal suspend fun discoverSmsSenders(context: Context): List<String> = withContext(Dispatchers.IO) {
+    check(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED)
+    val found = linkedSetOf<String>()
+    context.contentResolver.query(Telephony.Sms.Inbox.CONTENT_URI,
+        arrayOf(Telephony.Sms.ADDRESS), null, null, Telephony.Sms.DATE + " DESC")?.use { cursor ->
+        var checked = 0
+        while (checked < 2000 && cursor.moveToNext()) {
+            checked++
+            bankSenderKey(cursor.getString(0).orEmpty())?.let(found::add)
+        }
+    }
+    found.toList()
 }
 
 /** SMS_RECEIVED never changes account balances or captures OTP content. */
@@ -60,21 +80,21 @@ internal class BankSmsReceiver : BroadcastReceiver() {
         ) return
         val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
         if (messages.isEmpty()) return
-        val match = BankSmsParser.parse(
-            messages.first().displayOriginatingAddress.orEmpty(),
+        val address = messages.first().displayOriginatingAddress.orEmpty()
+        val key = bankSenderKey(address) ?: return
+        if (messages.any { bankSenderKey(it.displayOriginatingAddress.orEmpty()) != key }) return
+        val profiles = BankSenderRegistry.active(context)
+        val bankId = profiles.filter { it.sender == key }.map { it.bankId }.distinct().singleOrNull() ?: return
+        val match = BankSmsParser.parse(address,
             messages.joinToString("") { it.displayMessageBody.orEmpty() },
-            messages.first().timestampMillis,
-            BankSmsSettings.fingerprintSalt(context),
-        )?.takeIf {
-            it.bankId in BankSmsSettings.approvedBanks(context) &&
-                it.amountToman != null
-        } ?: return
+            messages.first().timestampMillis, BankSmsSettings.fingerprintSalt(context), bankId
+        )?.takeIf { it.amountToman != null && resolveBankSender(profiles, address, bankId, it.accountLast4) != null } ?: return
 
         val result = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 if (BankSmsSettings.isEnabled(context) &&
-                    match.bankId in BankSmsSettings.approvedBanks(context)
+                    resolveBankSender(BankSenderRegistry.active(context), address, bankId, match.accountLast4) != null
                 ) {
                     val count = LocalLedgerStore(context).importBankSms(listOf(match))
                     if (count > 0) BankSmsNotifications.show(context)
