@@ -242,6 +242,7 @@ internal fun CreateAccountDialog(
         cleanTitle.length <= 48 && !duplicated &&
         amount != null && amount >= 0L
     AlertDialog(
+        properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
