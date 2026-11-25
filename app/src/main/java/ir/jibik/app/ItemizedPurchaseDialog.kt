@@ -88,6 +88,7 @@ internal fun ItemizedPurchaseDialog(
     var selectingCategoryIndex by rememberSaveable { mutableStateOf(-1) }
 
     AlertDialog(
+        properties = JibikWideDialogProperties,
         modifier = Modifier.imePadding().jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
