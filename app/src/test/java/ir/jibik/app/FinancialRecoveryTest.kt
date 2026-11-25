@@ -27,12 +27,16 @@ class FinancialRecoveryTest {
         SQLiteDatabase.openDatabase(ctx.getDatabasePath(name).path, null, SQLiteDatabase.OPEN_READWRITE).use {
             it.execSQL("DROP TABLE ledger_revisions")
             it.execSQL("DROP TABLE monthly_budget")
+            it.execSQL("DROP TABLE ledger_voids")
             it.version = 8
         }
         JibikDatabase.open(ctx, name).use { db ->
             val source = LocalLedgerStore(ctx, db)
             val corrected = record.copy(amountToman = 25)
             source.correct(record, corrected)
+            source.setVoided(corrected, true)
+            assertTrue(source.load().isEmpty())
+            source.setVoided(corrected, false)
             assertEquals(record, source.revisions(record.id).single().previous.toRecord())
             assertTrue(runCatching { source.correct(record, record.copy(amountToman = 1)) }.isFailure)
             source.addObligation(FinancialObligationEntity("bill", "قبض", "BILL", 40, 5000, 1, "", 1000))

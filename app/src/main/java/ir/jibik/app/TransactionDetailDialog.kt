@@ -21,7 +21,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -72,9 +72,12 @@ internal fun TransactionDetailDialog(
     onDismiss: () -> Unit,
     obligationTitle: String? = null,
     revisions: List<LedgerRevision> = emptyList(),
+    voided: Boolean = false,
+    onToggleVoid: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     onRepeat: (() -> Unit)? = null,
 ) {
+    var confirmVoid by remember(record.id) { mutableStateOf(false) }
     val isTransfer = record.kind == LedgerKind.TRANSFER
     val title = when (record.kind) {
         LedgerKind.EXPENSE -> "جزئیات هزینه"
@@ -227,6 +230,16 @@ internal fun TransactionDetailDialog(
                                 )
                             }
                         }
+                    }
+                }
+                if (onToggleVoid != null) {
+                    if (confirmVoid) {
+                        JibikFormHint(if (voided) "این مبلغ دوباره در مانده حساب محاسبه می‌شود."
+                            else "مبلغ از محاسبات کنار گذاشته می‌شود. از فهرست باطل‌شده‌ها قابل بازگردانی است.")
+                        TextButton(onClick = onToggleVoid) { Text("تأیید تغییر وضعیت") }
+                        TextButton(onClick = { confirmVoid = false }) { Text("انصراف") }
+                    } else TextButton(onClick = { confirmVoid = true }) {
+                        Text(if (voided) "بازگردانی تراکنش" else "ابطال تراکنش")
                     }
                 }
                 if (onEdit != null) TextButton(onClick = onEdit) { Text("اصلاح تراکنش") }

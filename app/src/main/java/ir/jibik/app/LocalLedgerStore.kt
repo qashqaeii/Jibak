@@ -130,6 +130,20 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
             }
         }
 
+    suspend fun voided() = dao.voided().map { it.toRecord() }
+
+    suspend fun setVoided(record: LedgerRecord, void: Boolean) = database.withTransaction {
+        if (void) {
+            check(dao.find(record.id)?.toRecord() == record)
+            check(obligationPaymentDao.list().none { it.transactionId == record.id })
+            check(!bankSmsDao.isLinked(record.id))
+            dao.markVoid(LedgerVoid(record.id, System.currentTimeMillis()))
+        } else {
+            check(dao.unvoid(record.id) == 1)
+        }
+        FinanceEngine.balances(accountDao.list().map { it.toAccount() }, dao.getAll().map { it.toRecord() })
+    }
+
     suspend fun revisions(id: String) = withContext(Dispatchers.IO) { dao.revisions(id) }
 
     suspend fun correct(original: LedgerRecord, corrected: LedgerRecord) = withContext(Dispatchers.IO) {

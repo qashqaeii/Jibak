@@ -190,6 +190,7 @@ private fun JibikApp(
     bankSmsOpenSignal: Int,
 ) {
     var welcomed by remember { mutableStateOf(store.hasFinishedWelcome()) }
+    val voidedRecords = remember { mutableStateListOf<LedgerRecord>() }
     val records = remember { mutableStateListOf<LedgerRecord>() }
     val savedReceiptLines = remember { mutableStateMapOf<String, List<PurchaseLine>>() }
     val accounts = remember { mutableStateListOf<Account>() }
@@ -297,6 +298,8 @@ private fun JibikApp(
         try {
             budget = store.budgetToman()
             val persisted = store.load()
+            voidedRecords.clear()
+            voidedRecords.addAll(store.voided())
             val loadedReceipts = store.loadAllPurchaseLines()
             val loadedAccounts = store.loadAccounts()
             val persistedGoals = store.loadSavingsGoals()
@@ -567,6 +570,7 @@ private fun JibikApp(
                     modifier = Modifier.padding(insets),
                 )
             } else Transactions(
+                voided = voidedRecords,
                 records = records,
                 receiptLines = savedReceiptLines.toMap(),
                 customCategories = customCategories,
@@ -717,7 +721,8 @@ private fun JibikApp(
     }
 
     selectedTransactionId?.let { id ->
-        records.firstOrNull { it.id == id }?.let { record ->
+        val voided = voidedRecords.firstOrNull { it.id == id }
+        (voided ?: records.firstOrNull { it.id == id })?.let { record ->
             TransactionDetailDialog(
                 record = record,
                 accounts = accounts,
@@ -730,7 +735,20 @@ private fun JibikApp(
                     obligations.firstOrNull { it.id == payment.obligationId }?.title
                 },
                 revisions = revisions.filter { it.transactionId == id },
-                onEdit = if (receiptRows?.isEmpty() == true &&
+                voided = voided != null,
+                onToggleVoid = if (obligationPayments.none { it.transactionId == id } && !isSaving) ({
+                    isSaving = true
+                    scope.launch {
+                        try {
+                            store.setVoided(record, voided == null)
+                            selectedTransactionId = null
+                            retryLoad++
+                        } catch (_: Exception) {
+                            storageError = "تغییر وضعیت ممکن نیست. تراکنش متصل به پرداخت بانکی یا تعهد باید حفظ شود."
+                        } finally { isSaving = false }
+                    }
+                }) else null,
+                onEdit = if (voided == null && receiptRows?.isEmpty() == true &&
                     obligationPayments.none { it.transactionId == id }) ({
                     editOriginal = record
                     selectedTransactionId = null
@@ -738,7 +756,7 @@ private fun JibikApp(
                     showAdd = true
                 }) else null,
                 onRepeat = if (
-                    obligationPayments.none { it.transactionId == record.id } &&
+                    voided == null && obligationPayments.none { it.transactionId == record.id } &&
                     receiptRows?.isEmpty() == true &&
                     (record.kind == LedgerKind.TRANSFER ||
                         isSelectableCategory(
@@ -1542,6 +1560,7 @@ private fun MetricCard(
 
 @Composable
 private fun Transactions(
+    voided: List<LedgerRecord>,
     records: List<LedgerRecord>,
     receiptLines: Map<String, List<PurchaseLine>>,
     customCategories: List<CustomCategoryEntity>,
@@ -1556,10 +1575,11 @@ private fun Transactions(
     var showCategoryPicker by rememberSaveable { mutableStateOf(false) }
     // One derived snapshot per active filter. Unrelated modal/navigation state
     // should not re-run the full ledger search on every Compose recomposition.
-    val filtered by remember(records, receiptLines, kindFilter, categoryPath, search) {
+    var showVoided by rememberSaveable { mutableStateOf(false) }
+    val filtered by remember(records, voided, showVoided, receiptLines, kindFilter, categoryPath, search) {
         derivedStateOf {
             filterLocalTransactions(
-                records = records, receiptLines = receiptLines,
+                records = if (showVoided) voided else records, receiptLines = receiptLines,
                 kindFilter = kindFilter, categoryPath = categoryPath, query = search,
             )
         }
@@ -1633,6 +1653,10 @@ private fun Transactions(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                if (voided.isNotEmpty() || showVoided) JibikGlassChip(
+                    text = "باطل‌شده‌ها", selected = showVoided,
+                    onClick = { showVoided = !showVoided },
+                )
                 listOf("همه", "هزینه", "درآمد", "انتقال").forEach { option ->
                     JibikGlassChip(
                         text = option,

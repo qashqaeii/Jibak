@@ -66,15 +66,18 @@ internal data class LedgerRevision(
 @Entity(tableName = "monthly_budget")
 internal data class MonthlyBudget(@PrimaryKey val id: Int = 1, val amount: Long)
 
+@Entity(tableName = "ledger_voids")
+internal data class LedgerVoid(@PrimaryKey val transactionId: String, val voidedAt: Long)
+
 @Dao
 internal interface LedgerDao {
-    @Query("SELECT * FROM ledger_records ORDER BY timestampMillis DESC, id DESC")
+    @Query("SELECT * FROM ledger_records WHERE id NOT IN (SELECT transactionId FROM ledger_voids) ORDER BY timestampMillis DESC, id DESC")
     suspend fun getAll(): List<LedgerEntity>
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(record: LedgerEntity)
 
-    @Query("SELECT * FROM ledger_records WHERE id = :id")
+    @Query("SELECT * FROM ledger_records WHERE id = :id AND id NOT IN (SELECT transactionId FROM ledger_voids)")
     suspend fun find(id: String): LedgerEntity?
 
     @Query("SELECT amount FROM monthly_budget WHERE id = 1")
@@ -82,6 +85,15 @@ internal interface LedgerDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveBudget(row: MonthlyBudget)
+
+    @Query("SELECT r.* FROM ledger_records r JOIN ledger_voids v ON v.transactionId = r.id ORDER BY v.voidedAt DESC")
+    suspend fun voided(): List<LedgerEntity>
+
+    @Insert
+    suspend fun markVoid(row: LedgerVoid)
+
+    @Query("DELETE FROM ledger_voids WHERE transactionId = :id")
+    suspend fun unvoid(id: String): Int
 
     @androidx.room.Update
     suspend fun update(record: LedgerEntity): Int
@@ -316,9 +328,9 @@ internal interface SavingsGoalDao {
         PurchaseLineEntity::class, SavingsGoalEntity::class,
         CustomCategoryEntity::class, CategoryBudgetEntity::class,
         FinancialObligationEntity::class, ObligationPaymentEntity::class,
-        BankSmsCandidateEntity::class, LedgerRevision::class, MonthlyBudget::class,
+        BankSmsCandidateEntity::class, LedgerRevision::class, MonthlyBudget::class, LedgerVoid::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 internal abstract class JibikDatabase : RoomDatabase() {
@@ -482,6 +494,12 @@ internal abstract class JibikDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE ledger_voids (transactionId TEXT NOT NULL PRIMARY KEY, voidedAt INTEGER NOT NULL)")
+            }
+        }
+
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
                 instance ?: open(context, "jibik_ledger_v1.db").also { instance = it }
@@ -494,7 +512,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
                     name,
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
+                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
                 ).build()
     }
 }
