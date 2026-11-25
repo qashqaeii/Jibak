@@ -530,6 +530,13 @@ private fun JibikApp(
     ) { insets ->
         when (section) {
             Section.HOME -> Home(
+                spendableCard = {
+                    val accountRows = accounts.toList()
+                    val ledger = records.toList()
+                    val balances = remember(accountRows, ledger) { FinanceEngine.balances(accountRows, ledger) }
+                    SpendableBalanceCard(accountRows, balances, goals.toList(), obligations.toList(),
+                        obligationPayments.toList(), homeAmountsVisible)
+                },
                 summary = summary,
                 records = records,
                 budget = budget,
@@ -1195,6 +1202,7 @@ private fun WelcomeScreen(onStart: () -> Unit) {
 
 @Composable
 private fun Home(
+    spendableCard: @Composable () -> Unit,
     summary: MoneySummary,
     records: List<LedgerRecord>,
     budget: Long,
@@ -1219,6 +1227,7 @@ private fun Home(
     ) {
         BrandHeader()
         BalanceCard(summary, amountsVisible, onToggleAmounts)
+        spendableCard()
         JibikSectionTitle("ثبت سریع", "کارهای روزمره، بدون فرم‌های طولانی")
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val fontScale = LocalDensity.current.fontScale
