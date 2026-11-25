@@ -30,8 +30,13 @@ internal fun strictBankAutoTemplate(body: String, match: BankSmsMatch): String? 
 }
 
 internal const val BANK_AUTO_PREFIX = "bank-auto-"
+internal fun isBankAutoId(id: String): Boolean = id.startsWith(BANK_AUTO_PREFIX) &&
+    Regex("[0-9a-f]{64}").matches(id.removePrefix(BANK_AUTO_PREFIX))
+internal fun isEditableBankAuto(record: LedgerRecord) =
+    isBankAutoId(record.id) && record.kind != LedgerKind.TRANSFER
+internal fun bankFallbackCategory(income: Boolean) = if (income) "سایر درآمدها" else "سایر هزینه‌ها"
 internal fun needsBankAutoDetails(record: LedgerRecord) =
-    record.id.startsWith(BANK_AUTO_PREFIX) && record.note.isBlank()
+    isEditableBankAuto(record) && record.note.isBlank() && record.category == bankFallbackCategory(record.kind == LedgerKind.INCOME)
 
 /** Similar existing cash movements (including voids) require explicit review.
  * Do not silently link or merge by amount; opposite direction on another account

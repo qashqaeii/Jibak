@@ -149,6 +149,10 @@ internal object BankSmsNotifications {
         val open = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(BankSmsSettings.EXTRA_OPEN_BANK_SMS, true)
+            if (autoTransactionId != null) {
+                data = android.net.Uri.Builder().scheme("jibik").authority("bank-review").appendPath(autoTransactionId).build()
+                putExtra(BankSmsSettings.EXTRA_BANK_TRANSACTION, autoTransactionId)
+            }
         }
         val click = PendingIntent.getActivity(
             context, 281, open,
@@ -216,6 +220,8 @@ internal class BankAutoReplyReceiver : BroadcastReceiver() {
             try {
                 val store = LocalLedgerStore(context)
                 val row = store.load().firstOrNull { it.id == id && needsBankAutoDetails(it) } ?: return@launch
+                if (context.getSharedPreferences("app_protection", Context.MODE_PRIVATE).getBoolean("enabled", false) ||
+                    context.getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked) return@launch
                 store.completeBankAutoDetailsFromReply(id, note)
                 BankSmsUiEvents.changed()
                 NotificationManagerCompat.from(context).cancel(id, BankSmsSettings.NOTIFICATION_ID)

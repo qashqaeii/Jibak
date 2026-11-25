@@ -14,6 +14,7 @@ internal object BankSmsSettings {
     private const val SALT = "fingerprint_salt"
     private const val ENABLED_SINCE = "enabled_since"
     const val EXTRA_OPEN_BANK_SMS = "jibik_open_bank_sms"
+    const val EXTRA_BANK_TRANSACTION = "jibik_bank_transaction_id"
     const val CHANNEL_ID = "jibik_bank_sms_review"
     const val NOTIFICATION_ID = 18103
 

@@ -47,17 +47,17 @@ internal fun BankSmsScreen(
     rules: List<RecurringRule> = emptyList(),
     decisions: List<RecurringDecision> = emptyList(),
     modifier: Modifier = Modifier,
+    focusTransactionId: String? = null,
+    onFocusConsumed: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var approved by remember { mutableStateOf(BankSmsSettings.approvedBanks(context)) }
     var pendingItems by remember { mutableStateOf<List<BankSmsCandidateEntity>>(emptyList()) }
     var sample by remember { mutableStateOf("") }
     var sampleResult by remember { mutableStateOf<BankSmsMatch?>(null) }
     var balanceAccountId by remember { mutableStateOf("") }
     var scanDialog by remember { mutableStateOf(false) }
     var scanPreview by remember { mutableStateOf<BankHistoryPreview?>(null) }
-    var showAllBanks by rememberSaveable { mutableStateOf(false) }
     var pendingLimit by rememberSaveable { mutableStateOf(12) }
     var selected by remember { mutableStateOf<BankSmsCandidateEntity?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -74,6 +74,14 @@ internal fun BankSmsScreen(
     LaunchedEffect(bankRevision) {
         runCatching { pendingItems = store.bankSmsSuggestions(); linkedIds = store.bankLinkedTransactionIds() }
             .onFailure { notice = "صف پیام‌های بانکی بارگذاری نشد." }
+    }
+
+    val focusRow = existingRecords.firstOrNull { it.id == focusTransactionId && isEditableBankAuto(it) }
+    LaunchedEffect(focusTransactionId, focusRow, linkedIds) {
+        if (focusRow != null && focusRow.id in linkedIds) {
+            completing = focusRow
+            onFocusConsumed()
+        }
     }
 
     Column(
@@ -158,10 +166,7 @@ internal fun BankSmsScreen(
                         }
                     }
                 }
-                if (row.bankId !in approved) TextButton(onClick = {
-                    BankSmsSettings.allowBank(context, row.bankId, true)
-                    approved = BankSmsSettings.approvedBanks(context)
-                }) { Text("انتخاب این بانک", color = JibikStyle.forest) }
+                JibikFormHint("برای ثبت خودکار، سرشماره را در بانک‌های من معرفی و قالب را در همان ارتباط تأیید کن.")
             }
         }
         val pairs = bankTransferPairs(pendingItems, BankSenderRegistry.active(context), accounts, existingRecords)
@@ -195,14 +200,14 @@ internal fun BankSmsScreen(
                 Text(if (showMoreAuto) "نمایش کمتر" else "مشاهده موارد بیشتر")
             }
         }
-        val completedAuto = existingRecords.filter { it.id.startsWith(BANK_AUTO_PREFIX) && it.id in linkedIds &&
-            it.kind != ir.jibik.core.finance.LedgerKind.TRANSFER && !needsBankAutoDetails(it) }
+        val completedAuto = existingRecords.filter { isEditableBankAuto(it) && it.id in linkedIds && !needsBankAutoDetails(it) }
         if (completedAuto.isNotEmpty()) {
             TextButton(onClick = { showHistory = !showHistory }) { Text(if (showHistory) "بستن ثبت‌های خودکار قبلی" else "مشاهده ثبت‌های خودکار قبلی") }
             if (showHistory) completedAuto.take(50).forEach { row ->
                 JibikSurfaceCard {
                     JibikFinancialDetail(row.note, formatToman(row.amountToman))
                     JibikFormHint(formatJalaliDueDate(row.timestampMillis))
+                    TextButton(enabled = !busy, onClick = { completing = row }) { Text("ویرایش توضیح و دسته") }
                     TextButton(enabled = !busy, onClick = { voiding = row }) { Text("ابطال ثبت اشتباه") }
                 }
             }
@@ -428,7 +433,7 @@ internal fun BankSmsScreen(
 @Composable
 private fun BankAutoDetailsDialog(row: LedgerRecord, custom: List<CustomCategoryEntity>, history: List<LedgerRecord>, busy: Boolean,
     onDismiss: () -> Unit, onSave: (String, String) -> Unit) {
-    var note by remember(row.id) { mutableStateOf("") }
+    var note by remember(row.id) { mutableStateOf(row.note) }
     var category by remember(row.id) { mutableStateOf(row.category) }
     var picker by remember { mutableStateOf(false) }
     val income = row.kind == ir.jibik.core.finance.LedgerKind.INCOME
@@ -451,7 +456,8 @@ private fun BankAutoDetailsDialog(row: LedgerRecord, custom: List<CustomCategory
                 JibikFormHint("مبلغ، حساب و تاریخ از پیامک ثبت شده‌اند؛ فقط توضیح و دسته تکمیل می‌شوند.")
             }
         },
-        confirmButton = { LiquidGlassButton("ذخیره توضیح", enabled = !busy && note.isNotBlank(), onClick = { onSave(note, category) }) },
+        confirmButton = { LiquidGlassButton("ذخیره اطلاعات", enabled = !busy && (note.isNotBlank() || category != bankFallbackCategory(income)),
+            onClick = { onSave(note, category) }) },
         dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("بعداً") } })
     if (picker) CategoryPickerDialog(income = income, selected = category, custom = custom,
         onSelected = { category = it; picker = false }, onDismiss = { picker = false })

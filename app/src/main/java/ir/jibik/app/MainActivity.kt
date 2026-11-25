@@ -157,6 +157,16 @@ class MainActivity : ComponentActivity() {
     private val calendarDay = androidx.compose.runtime.mutableLongStateOf(0L)
     private val dueReminderOpenSignal = mutableIntStateOf(0)
     private val bankSmsOpenSignal = mutableIntStateOf(0)
+    private val bankFocusId = mutableStateOf<String?>(null)
+    private fun acceptBankIntent(source: Intent?) {
+        if (source?.getBooleanExtra(BankSmsSettings.EXTRA_OPEN_BANK_SMS, false) != true) return
+        bankFocusId.value = source.getStringExtra(BankSmsSettings.EXTRA_BANK_TRANSACTION)?.takeIf {
+            isBankAutoId(it) && source.data?.authority == "bank-review" && source.data?.lastPathSegment == it
+        }
+        bankSmsOpenSignal.intValue++
+        source.removeExtra(BankSmsSettings.EXTRA_OPEN_BANK_SMS)
+        source.removeExtra(BankSmsSettings.EXTRA_BANK_TRANSACTION)
+    }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -165,9 +175,7 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra(LocalDueReminders.OPEN_OBLIGATIONS, false)) {
             dueReminderOpenSignal.intValue++
         }
-        if (intent.getBooleanExtra(BankSmsSettings.EXTRA_OPEN_BANK_SMS, false)) {
-            bankSmsOpenSignal.intValue++
-        }
+        acceptBankIntent(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -176,9 +184,7 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra(LocalDueReminders.OPEN_OBLIGATIONS, false) == true) {
             dueReminderOpenSignal.intValue++
         }
-        if (intent?.getBooleanExtra(BankSmsSettings.EXTRA_OPEN_BANK_SMS, false) == true) {
-            bankSmsOpenSignal.intValue++
-        }
+        acceptBankIntent(intent)
         // Keep system bars visually continuous with the light liquid-glass canvas.
         // Android 15 may manage the bar surfaces itself; icon contrast still applies.
         @Suppress("DEPRECATION")
@@ -205,6 +211,7 @@ class MainActivity : ComponentActivity() {
                         bankSmsOpenSignal.intValue, calendarDay.longValue,
                         { calendarDay.longValue = 0; intent?.removeExtra(LocalDueReminders.OPEN_CALENDAR_DAY) },
                         protection,
+                        bankFocusId.value, { bankFocusId.value = null },
                     )
                 }
             }
@@ -226,6 +233,8 @@ private fun JibikApp(
     dueReminderOpenSignal: Int,
     bankSmsOpenSignal: Int, calendarDay: Long, onCalendarOpened: () -> Unit,
     protection: AppProtection,
+    bankFocusId: String?,
+    onBankFocusConsumed: () -> Unit,
 ) {
     var welcomed by remember { mutableStateOf(store.hasFinishedWelcome()) }
     var recurringRules by remember { mutableStateOf(emptyList<RecurringRule>()) }
@@ -638,7 +647,8 @@ private fun JibikApp(
                     accounts = accounts.filterNot { it.archived },
                     customCategories = customCategories,
                     existingRecords = records,
-                    onBack = { showBankSms = false },
+                    onBack = { showBankSms = false; onBankFocusConsumed() },
+                    focusTransactionId = bankFocusId, onFocusConsumed = onBankFocusConsumed,
                     obligations = obligations.toList(), payments = obligationPayments.toList(),
                     rules = recurringRules, decisions = recurringDecisions,
                     onRegistered = {

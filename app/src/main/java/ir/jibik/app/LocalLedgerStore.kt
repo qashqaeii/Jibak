@@ -648,6 +648,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
     suspend fun completeBankAutoDetailsFromReply(id: String, note: String): LedgerRecord =
         database.withTransaction {
             val row = requireNotNull(dao.find(id)).toRecord()
+            require(needsBankAutoDetails(row)) { "Transaction already completed" }
             val suggestion = suggestBankCategory(note, row.kind == LedgerKind.INCOME,
                 dao.getAll().map { it.toRecord() }, customCategoryDao.list(), id)
             completeBankAutoDetails(id, note, suggestion?.path ?: row.category)
@@ -657,10 +658,11 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         database.withTransaction {
             val previous = requireNotNull(dao.find(id))
             val record = previous.toRecord()
-            require(needsBankAutoDetails(record) && bankSmsDao.isLinked(id))
+            require(isEditableBankAuto(record) && bankSmsDao.isLinked(id))
             val clean = note.trim()
-            require(clean.length in 1..250)
-            require(isSelectableCategory(category, record.kind == LedgerKind.INCOME, customCategoryDao.list()))
+            val income = record.kind == LedgerKind.INCOME
+            require(clean.length <= 250 && (clean.isNotBlank() || category != bankFallbackCategory(income)))
+            require(isSelectableCategory(category, income, customCategoryDao.list()))
             val updated = record.copy(note = clean, category = category)
             dao.recordRevision(LedgerRevision(transactionId = id, editedAt = System.currentTimeMillis(), previous = previous))
             check(dao.update(updated.toEntity()) == 1)
