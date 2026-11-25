@@ -178,6 +178,18 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         recurring.decide(RecurringDecision(ruleId, day, recordId, amount))
     }
 
+    suspend fun linkRecurring(ruleId: String, day: Long, existing: LedgerRecord) = database.withTransaction {
+        val recurring = database.recurringDao()
+        val rule = recurring.rules().first { it.id == ruleId }
+        require(rule.dueIn(currentJalaliMonth(day)) == day && day <= System.currentTimeMillis())
+        require(existing.kind == if (rule.income) LedgerKind.INCOME else LedgerKind.EXPENSE)
+        require(existing.amountToman > 0 && (existing.fromAccountId ?: existing.toAccountId) == rule.accountId)
+        require(kotlin.math.abs(existing.timestampMillis - day) < 36L * 60 * 60 * 1000)
+        require(dao.find(existing.id)?.toRecord() == existing)
+        require(recurring.decisions(0, Long.MAX_VALUE).none { it.ruleId == ruleId && it.day == day })
+        recurring.decide(RecurringDecision(ruleId, day, existing.id, existing.amountToman))
+    }
+
     suspend fun revisions(id: String) = withContext(Dispatchers.IO) { dao.revisions(id) }
 
     suspend fun correct(original: LedgerRecord, corrected: LedgerRecord) = withContext(Dispatchers.IO) {

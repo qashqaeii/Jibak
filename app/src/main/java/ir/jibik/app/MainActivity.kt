@@ -546,6 +546,9 @@ private fun JibikApp(
                     val balances = remember(accountRows, ledger) { FinanceEngine.balances(accountRows, ledger) }
                     SpendableBalanceCard(accountRows, balances, goals.toList(), obligations.toList(),
                         obligationPayments.toList(), homeAmountsVisible, recurringRules, recurringDecisions)
+                    FinancialReviewInbox(store, accountRows, ledger,
+                        onBank = { section = Section.TRANSACTIONS; showBankSms = true },
+                        onPosted = { posted -> records.add(0, posted); retryLoad++ })
                     FinancialCalendar(store, accountRows, obligations.toList(), obligationPayments.toList(), calendarDay, onCalendarOpened,
                         records.firstOrNull { it.id == recurringSourceId }, { recurringSourceId = null }) { retryLoad++ }
                 },
