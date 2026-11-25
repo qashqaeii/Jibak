@@ -146,6 +146,37 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
 
     suspend fun isBankLinked(id: String) = bankSmsDao.isLinked(id)
 
+    suspend fun recurringRules() = database.recurringDao().rules()
+    suspend fun recurringDecisions(month: JalaliMonthPeriod) =
+        database.recurringDao().decisions(month.startMillis, month.endExclusiveMillis)
+
+    suspend fun addRecurring(rule: RecurringRule) = database.withTransaction {
+        require(rule.title.isNotBlank() && rule.amount > 0 && rule.firstDay > 0)
+        require(accountDao.list().any { it.id == rule.accountId })
+        database.recurringDao().add(rule)
+    }
+
+    suspend fun stopRecurring(id: String) = database.recurringDao().stop(id, System.currentTimeMillis())
+
+    suspend fun decideRecurring(ruleId: String, day: Long, amount: Long?) = database.withTransaction {
+        val recurring = database.recurringDao()
+        val rule = recurring.rules().first { it.id == ruleId }
+        require(rule.dueIn(currentJalaliMonth(day)) == day && day <= System.currentTimeMillis())
+        val recordId = if (amount != null) {
+            require(amount > 0)
+            val record = LedgerRecord(id = java.util.UUID.randomUUID().toString(),
+                kind = if (rule.income) LedgerKind.INCOME else LedgerKind.EXPENSE,
+                amountToman = amount, fromAccountId = rule.accountId.takeUnless { rule.income },
+                toAccountId = rule.accountId.takeIf { rule.income },
+                category = if (rule.income) "سایر درآمدها" else "سایر هزینه‌ها",
+                note = rule.title, timestampMillis = System.currentTimeMillis())
+            FinanceEngine.balances(accountDao.list().map { it.toAccount() }, dao.getAll().map { it.toRecord() } + record)
+            dao.insert(record.toEntity())
+            record.id
+        } else null
+        recurring.decide(RecurringDecision(ruleId, day, recordId, amount))
+    }
+
     suspend fun revisions(id: String) = withContext(Dispatchers.IO) { dao.revisions(id) }
 
     suspend fun correct(original: LedgerRecord, corrected: LedgerRecord) = withContext(Dispatchers.IO) {

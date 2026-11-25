@@ -536,6 +536,7 @@ private fun JibikApp(
                     val balances = remember(accountRows, ledger) { FinanceEngine.balances(accountRows, ledger) }
                     SpendableBalanceCard(accountRows, balances, goals.toList(), obligations.toList(),
                         obligationPayments.toList(), homeAmountsVisible)
+                    FinancialCalendar(store, accountRows, obligations.toList(), obligationPayments.toList()) { retryLoad++ }
                 },
                 summary = summary,
                 records = records,

@@ -328,12 +328,13 @@ internal interface SavingsGoalDao {
         PurchaseLineEntity::class, SavingsGoalEntity::class,
         CustomCategoryEntity::class, CategoryBudgetEntity::class,
         FinancialObligationEntity::class, ObligationPaymentEntity::class,
-        BankSmsCandidateEntity::class, LedgerRevision::class, MonthlyBudget::class, LedgerVoid::class,
+        BankSmsCandidateEntity::class, LedgerRevision::class, MonthlyBudget::class, LedgerVoid::class, RecurringRule::class, RecurringDecision::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = false,
 )
 internal abstract class JibikDatabase : RoomDatabase() {
+    abstract fun recurringDao(): RecurringDao
     abstract fun ledgerDao(): LedgerDao
     abstract fun accountDao(): FinancialAccountDao
     abstract fun purchaseLineDao(): PurchaseLineDao
@@ -500,6 +501,13 @@ internal abstract class JibikDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE recurring_rules (id TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, income INTEGER NOT NULL, accountId TEXT NOT NULL, amount INTEGER NOT NULL, firstDay INTEGER NOT NULL, stoppedAt INTEGER)")
+                db.execSQL("CREATE TABLE recurring_decisions (ruleId TEXT NOT NULL, day INTEGER NOT NULL, transactionId TEXT, actual INTEGER, PRIMARY KEY(ruleId, day))")
+            }
+        }
+
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
                 instance ?: open(context, "jibik_ledger_v1.db").also { instance = it }
@@ -512,7 +520,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
                     name,
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
+                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
                 ).build()
     }
 }

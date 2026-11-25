@@ -32,6 +32,8 @@ class FinancialRecoveryTest {
             it.execSQL("DROP TABLE ledger_revisions")
             it.execSQL("DROP TABLE monthly_budget")
             it.execSQL("DROP TABLE ledger_voids")
+            it.execSQL("DROP TABLE recurring_decisions")
+            it.execSQL("DROP TABLE recurring_rules")
             it.version = 8
         }
         JibikDatabase.open(ctx, name).withOpenDatabase { db ->
@@ -49,6 +51,17 @@ class FinancialRecoveryTest {
             val receipt = record.copy(id = "receipt", amountToman = 12)
             source.appendItemizedPurchase(receipt, listOf(PurchaseLine("نان", "خوراک", 2, 6)))
             source.setVoided(receipt, true)
+            val first = requireNotNull(parseJalaliDueDate("۱۴۰۳/۰۶/۳۱"))
+            val rule = RecurringRule("rent", "اجاره", false, "wallet", 20, first)
+            source.addRecurring(rule)
+            val shortMonth = currentJalaliMonth(requireNotNull(parseJalaliDueDate("۱۴۰۳/۰۷/۰۱")))
+            val next = requireNotNull(rule.dueIn(shortMonth))
+            assertEquals("۱۴۰۳/۰۷/۳۰", formatJalaliDueDate(next))
+            source.decideRecurring(rule.id, first, 18)
+            assertTrue(runCatching { source.decideRecurring(rule.id, first, 18) }.isFailure)
+            source.decideRecurring(rule.id, next, null)
+            assertEquals(1, source.load().count { it.note == rule.title })
+            assertEquals(18L, source.load().single { it.note == rule.title }.amountToman)
             source.updateBudgetToman(500)
             val pass = "correct-password".toCharArray()
             val bytes = FinancialBackup.encrypt(source.backup(), pass)
@@ -72,7 +85,9 @@ class FinancialRecoveryTest {
                 assertEquals(FinanceEngine.balances(source.loadAccounts(), source.load()),
                     FinanceEngine.balances(target.loadAccounts(), target.load()))
                 assertTrue(runCatching { target.restoreBackup(backup) }.isFailure)
-                assertEquals(listOf(corrected), target.load())
+                assertEquals(source.load(), target.load())
+                assertEquals(source.recurringRules(), target.recurringRules())
+                assertEquals(source.recurringDecisions(shortMonth), target.recurringDecisions(shortMonth))
             }
         }
     }
