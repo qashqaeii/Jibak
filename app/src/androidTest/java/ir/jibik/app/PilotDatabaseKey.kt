@@ -20,8 +20,14 @@ internal class PilotDatabaseKey(private val alias: String, file: File) {
     private fun aad() = ("jibik-sqlcipher-pilot-v1:" + alias).toByteArray(Charsets.UTF_8)
 
     fun getOrCreate(databaseExists: Boolean): ByteArray {
-        if (blob.exists()) {
-            val bytes = blob.readFully()
+        // openRead recovers AtomicFile's legacy backup when necessary. An I/O
+        // error is not evidence that a key is absent.
+        val bytes = try { blob.readFully() } catch (e: java.io.FileNotFoundException) {
+            if (blob.baseFile.exists() || File(blob.baseFile.path + ".bak").exists() ||
+                File(blob.baseFile.path + ".new").exists()) throw e
+            null
+        }
+        if (bytes != null) {
             require(bytes.size == 1 + 12 + 32 + 16 && bytes[0] == 1.toByte())
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, existingKey(), GCMParameterSpec(128, bytes.copyOfRange(1, 13)))
