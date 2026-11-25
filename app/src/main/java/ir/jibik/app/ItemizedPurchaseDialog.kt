@@ -89,9 +89,9 @@ internal fun ItemizedPurchaseDialog(
     val incompleteCount = drafts.size - completeCount
     var selectingCategoryIndex by rememberSaveable { mutableStateOf(-1) }
 
-    AlertDialog(
+    JibikModalDialog(
         properties = JibikWideDialogProperties,
-        modifier = Modifier.imePadding().jibikDialogSurface(),
+        modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
         tonalElevation = 0.dp,
