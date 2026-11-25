@@ -361,18 +361,21 @@ private fun JibikApp(
     var selectedTransactionId by rememberSaveable { mutableStateOf<String?>(null) }
     var receiptRows by remember { mutableStateOf<List<PurchaseLine>?>(null) }
     var receiptLoadError by remember { mutableStateOf(false) }
+    var revisions by remember { mutableStateOf(emptyList<LedgerRevision>()) }
     var receiptRetry by remember { mutableIntStateOf(0) }
     LaunchedEffect(selectedTransactionId, receiptRetry) {
         val id = selectedTransactionId ?: return@LaunchedEffect
         receiptRows = null
         receiptLoadError = false
         try {
+            revisions = store.revisions(id)
             receiptRows = store.loadPurchaseLines(id)
         } catch (_: Exception) {
             receiptLoadError = true
         }
     }
     var showAdd by remember { mutableStateOf(false) }
+    var editOriginal by remember { mutableStateOf<LedgerRecord?>(null) }
     var repeatRecord by remember { mutableStateOf<LedgerRecord?>(null) }
     var addKind by remember { mutableStateOf(LedgerKind.EXPENSE) }
     var addTargetAccountId by remember { mutableStateOf<String?>(null) }
@@ -723,6 +726,14 @@ private fun JibikApp(
                 }?.let { payment ->
                     obligations.firstOrNull { it.id == payment.obligationId }?.title
                 },
+                revisions = revisions.filter { it.transactionId == id },
+                onEdit = if (receiptRows?.isEmpty() == true &&
+                    obligationPayments.none { it.transactionId == id }) ({
+                    editOriginal = record
+                    selectedTransactionId = null
+                    receiptRows = null
+                    showAdd = true
+                }) else null,
                 onRepeat = if (
                     obligationPayments.none { it.transactionId == record.id } &&
                     receiptRows?.isEmpty() == true &&
@@ -936,12 +947,14 @@ private fun JibikApp(
             customCategories = customCategories,
             initialKind = addKind,
             initialTargetAccountId = addTargetAccountId,
-            repeatRecord = repeatRecord,
+            repeatRecord = editOriginal ?: repeatRecord,
+            editing = editOriginal != null,
             isSaving = isSaving,
             onDismiss = { if (!isSaving) {
                 showAdd = false
                 addTargetAccountId = null
                 repeatRecord = null
+                editOriginal = null
             } },
             onSave = { record ->
                 if (!isSaving) {
@@ -949,13 +962,22 @@ private fun JibikApp(
                     scope.launch {
                         try {
                             // Store on background dispatcher, then update the visible ledger.
-                            store.append(record)
-                            records.add(0, record)
+                            val original = editOriginal
+                            if (original == null) {
+                                store.append(record)
+                                records.add(0, record)
+                            } else {
+                                store.correct(original, record)
+                                records.clear()
+                                records.addAll(store.load())
+                                editOriginal = null
+                                selectedTransactionId = record.id
+                            }
                             showAdd = false
                             addTargetAccountId = null
                             repeatRecord = null
                             notifications.showSnackbar(
-                                when (record.kind) {
+                                if (original != null) "اصلاح تراکنش ذخیره شد." else when (record.kind) {
                                     LedgerKind.EXPENSE -> "هزینه ثبت شد."
                                     LedgerKind.INCOME -> "درآمد ثبت شد."
                                     LedgerKind.TRANSFER -> "انتقال بین حساب‌ها انجام شد."
@@ -1888,6 +1910,7 @@ private fun AddTransactionDialog(
     customCategories: List<CustomCategoryEntity>,
     initialKind: LedgerKind,
     initialTargetAccountId: String? = null,
+    editing: Boolean = false,
     repeatRecord: LedgerRecord? = null,
     isSaving: Boolean = false,
     onDismiss: () -> Unit,
@@ -1920,6 +1943,9 @@ private fun AddTransactionDialog(
                 ?: accounts.firstOrNull { it.id != sourceId }?.id.orEmpty(),
         )
     }
+    val originalDay = repeatRecord?.let { formatJalaliDueDate(it.timestampMillis) }.orEmpty()
+    var date by rememberSaveable(repeatRecord?.id) { mutableStateOf(originalDay) }
+    val editedTime = if (date == originalDay) repeatRecord?.timestampMillis else parseJalaliDueDate(date)
     val numericAmount = parseTomanDraft(amount)
     val sourceValid = accounts.any { it.id == sourceId }
     val targetValid = accounts.any { it.id == targetId }
@@ -1928,7 +1954,7 @@ private fun AddTransactionDialog(
         LedgerKind.INCOME -> isSelectableCategory(category, true, customCategories)
         LedgerKind.TRANSFER -> true
     }
-    val canSave = !isSaving && numericAmount != null && numericAmount > 0L &&
+    val canSave = (!editing || editedTime != null) && !isSaving && numericAmount != null && numericAmount > 0L &&
         sourceValid && (kind != LedgerKind.TRANSFER ||
             (accounts.size > 1 && targetValid && sourceId != targetId)) &&
         categoryValid
@@ -1938,7 +1964,7 @@ private fun AddTransactionDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
         title = {
             JibikDialogHeading(
-                title = when (kind) {
+                title = if (editing) "اصلاح تراکنش" else when (kind) {
                     LedgerKind.EXPENSE -> "ثبت هزینه"
                     LedgerKind.INCOME -> "ثبت درآمد"
                     LedgerKind.TRANSFER -> "انتقال بین حساب‌ها"
@@ -2038,6 +2064,12 @@ private fun AddTransactionDialog(
                         JibikFormHint("یک دسته معتبر انتخاب کن.", isWarning = true)
                     }
                 }
+                if (editing) {
+                    OutlinedTextField(value = date, onValueChange = { date = it },
+                        label = { Text("تاریخ شمسی (سال/ماه/روز)") },
+                        isError = editedTime == null, singleLine = true,
+                        enabled = !isSaving, modifier = Modifier.fillMaxWidth())
+                }
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it.take(180) },
@@ -2061,7 +2093,7 @@ private fun AddTransactionDialog(
         confirmButton = {
             LiquidGlassButton(
                 text = if (isSaving) "در حال ذخیره..."
-                    else when (kind) {
+                    else if (editing) "ذخیره اصلاحات" else when (kind) {
                         LedgerKind.EXPENSE -> "ثبت هزینه"
                         LedgerKind.INCOME -> "ثبت درآمد"
                         LedgerKind.TRANSFER -> "ثبت انتقال"
@@ -2077,14 +2109,14 @@ private fun AddTransactionDialog(
                     } else sourceId
                     onSave(
                         LedgerRecord(
-                            id = UUID.randomUUID().toString(),
+                            id = if (editing) requireNotNull(repeatRecord).id else UUID.randomUUID().toString(),
                             kind = kind,
                             amountToman = value,
                             fromAccountId = if (kind == LedgerKind.INCOME) null else sourceId,
                             toAccountId = if (kind == LedgerKind.EXPENSE) null else destination,
                             category = if (kind == LedgerKind.TRANSFER) "" else category.trim(),
                             note = note.trim(),
-                            timestampMillis = System.currentTimeMillis(),
+                            timestampMillis = if (editing) requireNotNull(editedTime) else System.currentTimeMillis(),
                         ),
                     )
                 },

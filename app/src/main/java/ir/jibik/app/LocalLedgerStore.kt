@@ -123,6 +123,25 @@ internal class LocalLedgerStore(context: Context) {
             }
         }
 
+    suspend fun revisions(id: String) = withContext(Dispatchers.IO) { dao.revisions(id) }
+
+    suspend fun correct(original: LedgerRecord, corrected: LedgerRecord) = withContext(Dispatchers.IO) {
+        require(original.id == corrected.id)
+        database.withTransaction {
+            val previous = requireNotNull(dao.find(original.id))
+            check(previous.toRecord() == original)
+            check(database.purchaseLineDao().forTransaction(original.id).isEmpty())
+            check(obligationPaymentDao.list().none { it.transactionId == original.id })
+            if (original != corrected) {
+                val records = dao.getAll().map { if (it.id == original.id) corrected else it.toRecord() }
+                FinanceEngine.balances(accountDao.list().map { it.toAccount() }, records)
+                dao.recordRevision(LedgerRevision(transactionId = original.id,
+                    editedAt = System.currentTimeMillis(), previous = previous))
+                check(dao.update(corrected.toEntity()) == 1)
+            }
+        }
+    }
+
     suspend fun loadPurchaseLines(transactionId: String): List<PurchaseLine> =
         withContext(Dispatchers.IO) {
             database.purchaseLineDao().forTransaction(transactionId).map {

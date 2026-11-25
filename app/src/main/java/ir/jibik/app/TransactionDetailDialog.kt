@@ -71,6 +71,8 @@ internal fun TransactionDetailDialog(
     onRetry: () -> Unit,
     onDismiss: () -> Unit,
     obligationTitle: String? = null,
+    revisions: List<LedgerRevision> = emptyList(),
+    onEdit: (() -> Unit)? = null,
     onRepeat: (() -> Unit)? = null,
 ) {
     val isTransfer = record.kind == LedgerKind.TRANSFER
@@ -226,6 +228,15 @@ internal fun TransactionDetailDialog(
                             }
                         }
                     }
+                }
+                if (onEdit != null) TextButton(onClick = onEdit) { Text("اصلاح تراکنش") }
+                revisions.forEach { revision ->
+                    val old = revision.previous
+                    DetailRow("پیش از اصلاح در " + receiptDate(revision.editedAt),
+                        listOf(receiptMoney(old.amountToman), receiptDate(old.timestampMillis),
+                            accounts.firstOrNull { it.id == old.fromAccountId }?.let { "از " + it.title }.orEmpty(),
+                            accounts.firstOrNull { it.id == old.toAccountId }?.let { "به " + it.title }.orEmpty(),
+                            old.category, old.note).filter { it.isNotBlank() }.joinToString(" · "))
                 }
             }
         },

@@ -55,6 +55,14 @@ internal interface FinancialAccountDao {
     suspend fun insert(account: FinancialAccountEntity)
 }
 
+@Entity(tableName = "ledger_revisions", indices = [Index("transactionId")])
+internal data class LedgerRevision(
+    @PrimaryKey(autoGenerate = true) val revisionId: Long = 0,
+    val transactionId: String,
+    val editedAt: Long,
+    @androidx.room.Embedded(prefix = "old_") val previous: LedgerEntity,
+)
+
 @Dao
 internal interface LedgerDao {
     @Query("SELECT * FROM ledger_records ORDER BY timestampMillis DESC, id DESC")
@@ -65,6 +73,15 @@ internal interface LedgerDao {
 
     @Query("SELECT * FROM ledger_records WHERE id = :id")
     suspend fun find(id: String): LedgerEntity?
+
+    @androidx.room.Update
+    suspend fun update(record: LedgerEntity): Int
+
+    @Insert
+    suspend fun recordRevision(revision: LedgerRevision)
+
+    @Query("SELECT * FROM ledger_revisions WHERE transactionId = :id ORDER BY revisionId DESC")
+    suspend fun revisions(id: String): List<LedgerRevision>
 
     /** Allows idempotent legacy import after a process interruption. */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
@@ -287,9 +304,9 @@ internal interface SavingsGoalDao {
         PurchaseLineEntity::class, SavingsGoalEntity::class,
         CustomCategoryEntity::class, CategoryBudgetEntity::class,
         FinancialObligationEntity::class, ObligationPaymentEntity::class,
-        BankSmsCandidateEntity::class,
+        BankSmsCandidateEntity::class, LedgerRevision::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 internal abstract class JibikDatabase : RoomDatabase() {
@@ -436,6 +453,17 @@ internal abstract class JibikDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE ledger_revisions (" +
+                    "revisionId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, transactionId TEXT NOT NULL, " +
+                    "editedAt INTEGER NOT NULL, old_id TEXT NOT NULL, old_kind TEXT NOT NULL, " +
+                    "old_amountToman INTEGER NOT NULL, old_fromAccountId TEXT, old_toAccountId TEXT, " +
+                    "old_category TEXT NOT NULL, old_note TEXT NOT NULL, old_timestampMillis INTEGER NOT NULL)")
+                db.execSQL("CREATE INDEX index_ledger_revisions_transactionId ON ledger_revisions(transactionId)")
+            }
+        }
+
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -444,7 +472,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
                     "jibik_ledger_v1.db",
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
+                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
                 ).build().also { instance = it }
             }
     }
