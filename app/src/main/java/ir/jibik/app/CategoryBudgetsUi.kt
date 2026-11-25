@@ -191,11 +191,15 @@ internal fun CategoryBudgetDialog(
                     Text(category.ifBlank { "انتخاب دسته هزینه" },
                         color = JibikStyle.ink, fontSize = 13.sp)
                     if (previous == null) {
-                        Text("‹ انتخاب دسته", color = JibikStyle.forest, fontSize = 12.sp)
+                        Text("انتخاب دسته", color = JibikStyle.forest, fontSize = 12.sp)
                     }
                 }
-                JibikTomanField(value = amount, onValueChange = { amount = it },
-                    label = "سقف ماهانه (تومان)")
+                JibikTomanField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = "سقف ماهانه (تومان)",
+                    enabled = !isSaving,
+                )
                 Text("هشدار در میزان مصرف", color = JibikStyle.muted, fontSize = 12.sp)
                 Row(Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(5.dp)) {
