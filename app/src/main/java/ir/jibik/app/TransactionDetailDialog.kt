@@ -90,7 +90,7 @@ internal fun TransactionDetailDialog(
             )
         }.getOrNull()
     }
-    AlertDialog(
+    JibikModalDialog(
         properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = onDismiss,
@@ -230,7 +230,12 @@ internal fun TransactionDetailDialog(
             }
         },
         confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            // Receipt has two explicit actions; avoid stretching each button
+            // inside the dialog's primary-action composition local.
+            androidx.compose.runtime.CompositionLocalProvider(
+                LocalJibikModalPrimaryAction provides false,
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 if (onRepeat != null) {
                     LiquidGlassButton(
                         text = "ثبت مشابه",
@@ -243,6 +248,7 @@ internal fun TransactionDetailDialog(
                     onClick = onDismiss,
                     tone = GlassTone.CRYSTAL,
                 )
+                }
             }
         },
     )
