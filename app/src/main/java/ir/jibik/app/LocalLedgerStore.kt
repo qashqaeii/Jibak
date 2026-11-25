@@ -584,6 +584,9 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
                 match.bankId, match.accountLast4)
             if (!BankSmsSettings.isEnabled(context) || current != profile || template !in profile.autoTemplates)
                 return@withTransaction null
+            if (profile.accountLast4.isEmpty() && (profile.bankId != "blu" ||
+                BankSenderRegistry.list(context).count { it.sender == profile.sender } != 1))
+                return@withTransaction null
             val now = System.currentTimeMillis()
             if (match.receivedAtMillis !in (now - 15 * 60_000L)..(now + 60_000L)) return@withTransaction null
             val candidate = bankSmsDao.find(match.fingerprint) ?: return@withTransaction null

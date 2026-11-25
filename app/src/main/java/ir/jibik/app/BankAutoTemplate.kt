@@ -7,7 +7,9 @@ import ir.jibik.core.finance.LedgerRecord
  * A sample explicitly confirms the label/direction/unit. All transfers remain review-only.
  */
 internal fun strictBankAutoTemplate(body: String, match: BankSmsMatch): String? {
-    if (match.accountLast4.length != 4 || match.amountToman == null) return null
+    if (match.amountToman == null) return null
+    if (match.bankId == "blu" && match.accountLast4.isEmpty()) return bluAutoTemplate(body, match)
+    if (match.accountLast4.length != 4) return null
     explicitBankAutoTemplate(body, match)?.let { return it }
     if (match.bankId != "melli") return null
     val lines = BankSmsParser.normalise(body).lines().map { it.trim() }.filter { it.isNotBlank() }
@@ -67,6 +69,25 @@ private fun explicitBankAutoTemplate(body: String, match: BankSmsMatch): String?
 
 internal fun isSupportedAutoTemplate(bankId: String, template: String): Boolean {
     val labels = setOf("خریداینترنتی", "خرید", "برداشت", "واریز")
-    return (bankId == "melli" && labels.any { template == "melli-signed-rial-v1:" + it }) ||
+    return (bankId == "blu" && template in setOf("blu-rial-v1:credit", "blu-rial-v1:debit")) ||
+        (bankId == "melli" && labels.any { template == "melli-signed-rial-v1:" + it }) ||
         labels.any { label -> listOf("ریال", "تومان").any { unit -> template == "explicit-v1:$bankId:$label:$unit" } }
+}
+
+/** Blu's confirmed no-account-number format. The greeting is constrained to
+ * letters/spaces; only the exact financial sentence and one balance are allowed.
+ */
+private fun bluAutoTemplate(body: String, match: BankSmsMatch): String? {
+    val lines = BankSmsParser.normalise(body).lines().map { it.trim() }.filter { it.isNotBlank() }
+    if (lines.size != 6 || lines[0] !in setOf("بلو", "بلوبانک")) return null
+    val income = when (lines[1]) { "واریز پول" -> true; "برداشت پول" -> false; else -> return null }
+    if (income != match.income) return null
+    val phrase = if (income) "به حساب شما نشست" else "از حساب شما پرید"
+    val event = Regex("^[\\p{L} ]{1,70} عزیز,\\s*([0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)\\s*ریال\\s+" + phrase + "\\.?$")
+        .matchEntire(lines[2]) ?: return null
+    if (event.groupValues[1].replace(",", "").toLongOrNull() != match.amountRial) return null
+    if (!Regex("^موجودی\\s*:\\s*(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)\\s*ریال$").matches(lines[3])) return null
+    if (!Regex("^(?:[01]?[0-9]|2[0-3]):[0-5][0-9]$").matches(lines[4])) return null
+    if (!Regex("^[0-9]{4}[./][0-9]{1,2}[./][0-9]{1,2}$").matches(lines[5])) return null
+    return if (income) "blu-rial-v1:credit" else "blu-rial-v1:debit"
 }

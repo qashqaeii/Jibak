@@ -75,7 +75,8 @@ internal fun BankSenderSettingsPanel(accounts: List<Account>, busy: Boolean, onS
                 val account = accounts.firstOrNull { it.id == profile.accountId && !it.archived }
                 JibikFinancialDetail("حساب جیبیک", account?.title ?: "حساب در دسترس نیست")
                 JibikStatusText(if (profile.autoTemplates.isEmpty()) "فقط بررسی" else "ثبت خودکار: " + profile.autoTemplates.size + " قالب")
-                if (profile.accountLast4.isNotBlank() && account != null && profile.enabled) {
+                if ((profile.accountLast4.isNotBlank() || profile.bankId == "blu" &&
+                    profiles.count { it.sender == profile.sender } == 1) && account != null && profile.enabled) {
                     TextButton(onClick = { training = profile }) { Text("آموزش قالب ثبت خودکار") }
                     if (profile.autoTemplates.isNotEmpty()) TextButton(onClick = {
                         runCatching { BankSenderRegistry.stopAuto(context, profile.id); refresh() }
@@ -208,7 +209,8 @@ private fun BankAutoTrainingDialog(profile: BankSenderProfile, onDismiss: () -> 
                 match?.let {
                     JibikFinancialDetail("نوع", if (it.income) "واریز" else "برداشت")
                     JibikFinancialDetail("مبلغ", it.amountToman?.let(::formatToman) ?: "نامعتبر")
-                    JibikFinancialDetail("حساب", "••••" + it.accountLast4)
+                    JibikFinancialDetail("حساب", if (it.accountLast4.isBlank()) "بدون شماره در پیام؛ حساب معرفی‌شده" else "••••" + it.accountLast4)
+                    if (it.accountLast4.isBlank()) JibikFormHint("فقط اگر تمام پیام‌های این سرشماره به همین یک حساب تعلق دارند، ثبت خودکار را تأیید کن.", isWarning = true)
                     JibikFormHint(if (template != null) "این قالب قابل تأیید است؛ واحد " + (if (template?.endsWith(":تومان") == true) "تومان" else "ریال") + " است." else "این قالب فعلاً فقط برای بررسی دستی مناسب است.")
                 }
                 if (template != null) Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {

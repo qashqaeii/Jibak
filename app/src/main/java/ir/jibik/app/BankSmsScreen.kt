@@ -54,6 +54,7 @@ internal fun BankSmsScreen(
     var pendingItems by remember { mutableStateOf<List<BankSmsCandidateEntity>>(emptyList()) }
     var sample by remember { mutableStateOf("") }
     var sampleResult by remember { mutableStateOf<BankSmsMatch?>(null) }
+    var balanceAccountId by remember { mutableStateOf("") }
     var showAllBanks by rememberSaveable { mutableStateOf(false) }
     var showAllPending by rememberSaveable { mutableStateOf(false) }
     var selected by remember { mutableStateOf<BankSmsCandidateEntity?>(null) }
@@ -117,7 +118,7 @@ internal fun BankSmsScreen(
                 "پیام نمونه را جای‌گذاری کن؛ متن آن ذخیره نمی‌شود")
             OutlinedTextField(
                 value = sample,
-                onValueChange = { sample = it.take(1500); sampleResult = null },
+                onValueChange = { sample = it.take(1500); sampleResult = null; balanceAccountId = "" },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("متن پیام بانک ملی، بلو یا بانک دیگر") },
                 minLines = 3, maxLines = 7,
@@ -145,6 +146,22 @@ internal fun BankSmsScreen(
                     color = JibikStyle.forest,
                     fontSize = 13.sp, fontWeight = FontWeight.Bold,
                 )
+                bankReportedBalanceToman(sample, row)?.let { reported ->
+                    JibikSectionTitle("مقایسه مانده", "فقط مقایسه؛ هیچ تراکنشی ثبت نمی‌شود")
+                    JibikFinancialDetail("مانده اعلام‌شده در نمونه", formatToman(reported), emphasis = true)
+                    JibikAccountChoice("حساب متناظر در جیبیک", accounts, balanceAccountId, { balanceAccountId = it })
+                    if (balanceAccountId.isNotBlank()) {
+                        val local = runCatching {
+                            ir.jibik.core.finance.FinanceEngine.balances(accounts, existingRecords).getValue(balanceAccountId)
+                        }.getOrNull()
+                        if (local != null) {
+                            JibikFinancialDetail("مانده فعلی جیبیک", formatToman(local))
+                            val difference = bankBalanceDifference(local, reported)
+                            JibikFinancialDetail("اختلاف جیبیک منهای نمونه", forecastMoney(difference), emphasis = true)
+                            JibikFormHint("نمونه پیام ممکن است قدیمی باشد یا تراکنش‌های پس از آن ثبت شده باشند؛ این اختلاف به‌تنهایی نشانه خطا نیست.")
+                        }
+                    }
+                }
                 if (row.bankId !in approved) TextButton(onClick = {
                     BankSmsSettings.allowBank(context, row.bankId, true)
                     approved = BankSmsSettings.approvedBanks(context)

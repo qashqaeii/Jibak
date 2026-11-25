@@ -81,6 +81,8 @@ internal object BankSenderRegistry {
         val rows = list(context)
         val profile = rows.single { it.id == id && it.enabled }
         require(isSupportedAutoTemplate(profile.bankId, template))
+        if (profile.accountLast4.isEmpty()) require(profile.bankId == "blu" &&
+            template.startsWith("blu-rial-v1:") && rows.count { it.sender == profile.sender } == 1)
         write(context, rows.map { if (it.id == id) it.copy(autoTemplates = it.autoTemplates + template) else it })
     }
     @Synchronized fun stopAuto(context: Context, id: String) {
