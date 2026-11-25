@@ -85,6 +85,38 @@ class FinancialRecoveryTest {
         }
     }
 
+    @Test fun reopeningBankAndRecurringLinksPreservesPaymentAndDetectsLegacyConflict() = runBlocking {
+        val ctx: Context = RuntimeEnvironment.getApplication()
+        JibikDatabase.open(ctx, "legacy-link-review").withOpenDatabase { db ->
+            val store = LocalLedgerStore(ctx, db)
+            val day = requireNotNull(parseJalaliDueDate("۱۴۰۳/۰۶/۱۵"))
+            val record = LedgerRecord("existing", LedgerKind.EXPENSE, 30, fromAccountId = "wallet",
+                category = "خرید", timestampMillis = day)
+            store.append(record)
+            val rule = RecurringRule("rent", "اجاره", false, "wallet", 30, day)
+            store.addRecurring(rule)
+            store.addRecurring(rule.copy(id = "second"))
+            val sms = BankSmsCandidateEntity("message", "bank", "بانک", false, 300, "", day)
+            db.bankSmsCandidateDao().insertIgnore(sms)
+            store.linkBankSms(sms.id, record)
+            store.linkRecurring(rule.id, day, record)
+            assertTrue(store.inspectIntegrity().isEmpty())
+            // Emulate a duplicate link written by a pre-hardening version.
+            db.recurringDao().decide(RecurringDecision("second", day, record.id, 30))
+            assertTrue(store.inspectIntegrity().any { it.id == record.id })
+            val before = FinanceEngine.balances(store.loadAccounts(), store.load())
+            store.detachPaymentLinks(record)
+            assertEquals(before, FinanceEngine.balances(store.loadAccounts(), store.load()))
+            assertEquals("PENDING", db.bankSmsCandidateDao().find(sms.id)?.state)
+            assertTrue(store.allRecurringDecisions().isEmpty())
+            assertTrue(store.inspectIntegrity().isEmpty())
+            store.linkBankSms(sms.id, record)
+            store.linkRecurring(rule.id, day, record)
+            assertEquals(before, FinanceEngine.balances(store.loadAccounts(), store.load()))
+            assertEquals(1, store.financialEdits(record.id).size)
+        }
+    }
+
     @Test fun migrateCorrectLinkAndRestoreWithoutChangingBalances() = runBlocking {
         val ctx: Context = RuntimeEnvironment.getApplication()
         val name = "recovery-test"

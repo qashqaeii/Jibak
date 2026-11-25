@@ -7,6 +7,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -24,6 +29,7 @@ internal fun BackupActions(store: LocalLedgerStore, onRestored: () -> Unit) {
     var preview by remember { mutableStateOf<JSONObject?>(null) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
+    var integrity by remember { mutableStateOf<List<IntegrityIssue>?>(null) }
     DisposableEffect(Unit) { onDispose { secret?.fill(Char.MIN_VALUE) } }
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         val password = secret
@@ -48,9 +54,42 @@ internal fun BackupActions(store: LocalLedgerStore, onRestored: () -> Unit) {
     }
     JibikSurfaceCard {
         Text("نسخه پشتیبان دفتر مالی")
+        TextButton(enabled = !busy, onClick = {
+            busy = true
+            scope.launch {
+                try { integrity = store.inspectIntegrity() }
+                catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (_: Exception) { message = "بررسی سلامت کامل نشد. دوباره تلاش کن." }
+                finally { busy = false }
+            }
+        }) { Text("بررسی سلامت دفتر مالی") }
         TextButton(enabled = !busy, onClick = { mode = "save" }) { Text("ساخت پشتیبان رمزدار") }
         TextButton(enabled = !busy, onClick = { open.launch(arrayOf("*/*")) }) { Text("بازیابی از فایل") }
         if (busy || message.isNotBlank()) JibikFormHint(if (busy) "در حال پردازش…" else message)
+    }
+    integrity?.let { issues ->
+        JibikModalDialog(
+            properties = JibikWideDialogProperties,
+            modifier = Modifier.jibikDialogSurface(),
+            onDismissRequest = { integrity = null },
+            title = { JibikDialogHeading("سلامت دفتر مالی", "بررسی محلی؛ بدون تغییر اطلاعات") },
+            text = {
+                androidx.compose.foundation.layout.Column(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
+                ) {
+                    if (issues.isEmpty()) JibikFormHint("در کنترل‌های فعلی ناسازگاری پیدا نشد.")
+                    else {
+                        JibikFormHint("پیش از تغییر اطلاعات، پشتیبان بگیر. ارتباط‌های اشتباه را از جزئیات تراکنش باز کن؛ موارد بدون تراکنش به بررسی تخصصی نیاز دارند.", isWarning = true)
+                        issues.forEach { issue ->
+                            Text(issue.label + " · " + issue.id)
+                        }
+                    }
+                }
+            },
+            confirmButton = { LiquidGlassButton("بستن", { integrity = null }) },
+        )
     }
     mode?.let { action ->
         EncryptedCsvExportDialog(

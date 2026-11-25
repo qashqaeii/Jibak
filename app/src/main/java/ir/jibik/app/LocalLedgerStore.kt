@@ -196,6 +196,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
 
     suspend fun revisions(id: String) = withContext(Dispatchers.IO) { dao.revisions(id) }
     suspend fun financialEdits(id: String) = withContext(Dispatchers.IO) { dao.financialEdits(id) }
+    suspend fun inspectIntegrity() = FinancialIntegrity.inspect(database)
 
     /** Reopen linked commitments and bank suggestions without moving money. */
     suspend fun detachPaymentLinks(record: LedgerRecord) = database.withTransaction {
