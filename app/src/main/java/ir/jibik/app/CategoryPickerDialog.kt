@@ -59,7 +59,10 @@ internal fun CategoryPickerDialog(
             JibikDialogHeading(if (parentOnly) "انتخاب دسته والد" else if (income) "دسته‌بندی درآمد" else "دسته‌بندی هزینه", "دسته اصلی ← زیر‌دسته ← جزئیات")
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 470.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 OutlinedTextField(
                     value = search,
                     onValueChange = { search = it.take(70) },
@@ -108,7 +111,7 @@ internal fun CategoryPickerDialog(
                     )
                 } else {
                     LazyColumn(
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 335.dp),
+                        modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
                         verticalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
                         items(choices, key = { it.path }) { item ->
@@ -143,7 +146,8 @@ internal fun CategoryPickerDialog(
                                         color = JibikStyle.ink, fontSize = 14.sp,
                                         fontWeight = if (selectedNow)
                                             FontWeight.ExtraBold else FontWeight.Medium,
-                                        maxLines = 1,
+                                        maxLines = 2,
+                                        lineHeight = 20.sp,
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                     if (search.isNotBlank()) {
