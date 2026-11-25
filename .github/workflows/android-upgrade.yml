@@ -1,0 +1,87 @@
+name: Android in-place upgrade preservation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'core/**'
+      - 'scripts/test_android_upgrade.py'
+      - '**/*.gradle.kts'
+      - '.github/workflows/android-upgrade.yml'
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'core/**'
+      - 'scripts/test_android_upgrade.py'
+      - '**/*.gradle.kts'
+      - '.github/workflows/android-upgrade.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-upgrade-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - baseline: 9f0268806263846a0e24d4ea69e102d178bffee9
+            schema: 4
+            api: 26
+          - baseline: 103ce7303431a047840f7cc9614b5d3ec5a356a7
+            schema: 20
+            api: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.baseline }}
+          path: historical
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Generate isolated common signer for both test APKs
+        run: |
+          mkdir -p "$HOME/.android"
+          rm -f "$HOME/.android/debug.keystore"
+          keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 30 -dname "CN=Jibik Upgrade Test,O=CI,C=US"
+      - name: Build the historical APK
+        working-directory: historical
+        run: gradle --no-daemon :app:assembleDebug --stacktrace
+      - name: Build current APK and upgrade test
+        run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install old app, seed data and update without uninstall
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: python3 scripts/test_android_upgrade.py --schema ${{ matrix.schema }}
+      - name: Retain test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upgrade-from-room-${{ matrix.schema }}
+          path: upgrade-test.log
+          if-no-files-found: warn
+          retention-days: 14
