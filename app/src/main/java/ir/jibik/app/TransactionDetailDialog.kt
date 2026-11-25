@@ -91,6 +91,7 @@ internal fun TransactionDetailDialog(
         }.getOrNull()
     }
     AlertDialog(
+        properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = onDismiss,
         containerColor = Color.Transparent,
