@@ -43,7 +43,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p ci-diagnostics
-          gradle --no-daemon :core:finance:test :app:testDebugUnitTest :app:assembleDebug --stacktrace 2>&1 | tee ci-diagnostics/gradle-build.log
+          gradle --no-daemon :core:finance:test :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace 2>&1 | tee ci-diagnostics/gradle-build.log
       - name: Upload test and build diagnostics
         if: failure()
         uses: actions/upload-artifact@v4

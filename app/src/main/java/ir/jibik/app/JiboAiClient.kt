@@ -40,6 +40,7 @@ internal class JiboAiClient(serverUrl: String) {
                 connection.connectTimeout = 8_000
                 connection.readTimeout = 16_000
                 connection.doOutput = true
+                connection.useCaches = false
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 connection.setRequestProperty("Accept", "application/json")
                 connection.setRequestProperty("Cache-Control", "no-store")
@@ -62,12 +63,17 @@ internal class JiboAiClient(serverUrl: String) {
                         }
                     )
                 }
-                val response = connection.inputStream.bufferedReader(Charsets.UTF_8).use {
-                    it.readText()
+                val response = connection.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
+                    val result = StringBuilder()
+                    val buffer = CharArray(1024)
+                    while (true) {
+                        val count = reader.read(buffer)
+                        if (count < 0) break
+                        if (result.length + count > 12_000) throw JiboAiNetworkException("پاسخ سرویس قابل خواندن نیست.")
+                        result.append(buffer, 0, count)
+                    }
+                    result.toString()
                 }
-                if (response.length > 12_000) throw JiboAiNetworkException(
-                    "پاسخ سرویس قابل خواندن نیست."
-                )
                 JSONObject(response)
             } catch (e: JiboAiNetworkException) {
                 throw e

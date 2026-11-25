@@ -15,6 +15,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         // Only the public Jibik API URL is injected at build time.
         // Never compile the Arvan API key or any server secret into Android.
@@ -66,5 +67,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     testImplementation("org.robolectric:robolectric:4.15.1")
     testImplementation("junit:junit:4.13.2")
+    // Only in the isolated instrumentation APK; never open the real ledger with this factory yet.
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("net.zetetic:sqlcipher-android:4.20.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

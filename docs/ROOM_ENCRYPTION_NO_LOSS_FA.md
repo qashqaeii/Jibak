@@ -1,12 +1,16 @@
 # طرح مهاجرت ایمن Room جیبیک به رمزنگاری
 
-**وضعیت: فقط طراحی و معیار پذیرش — در APK فعلی اجرا نشده است.**
+**وضعیت: پایلوت جداگانه برای تست دستگاه؛ دیتابیس واقعی هنوز SQLite عادی است.**
+
+۲۵ نوامبر ۲۰۲۶: Room اکنون نسخه ۱۶ و پشتیبان مالی نسخه ۷ است. SQLCipher 4.20.0 فقط وابستگی androidTest است. تست مهاجرت روی نام‌های تصادفی و جداگانه ساخته می‌شود، از snapshot کامل مالی استفاده می‌کند، مقصد رمزدار را بسته و مجدد باز می‌کند و محتوای جدول‌ها، مانده و سلامت دیتابیس را کنترل می‌کند. کلید تصادفی ۲۵۶بیتی با AES-GCM و Android Keystore در noBackupFilesDir محافظت می‌شود. کلید مفقود/خراب موجب خطا است؛ هیچ تولید کلید جایگزین روی دیتابیس موجود مجاز نیست. مسیر فعال برنامه به مقصد تغییر داده نشده است. آزمون دستگاه واقعی و سناریوهای WAL، فضای ناکافی، مرگ فرایند، بازیابی و انتشار محدود همچنان شرط فعال‌سازی‌اند.
+
+اجرا در دستگاه آزمایشی: `gradle :app:connectedDebugAndroidTest`. ساخت APK آزمون در CI انجام می‌شود؛ اجرای Native/Keystore روی دستگاه جداگانه است.
 
 ## وضعیت مبنا
 
 - Android: Kotlin/Jetpack Compose، حداقل SDK ۲۶، `androidx.room:room-runtime:2.8.5`.
-- دیتابیس محلی `jibik_ledger_v1.db` روی Room نسخه ۸ بدون رمزنگاری است. جدول‌های مالی شامل ledger، account، receipt، goal، category، category budget، obligation، obligation payment و bank SMS candidate هستند.
-- تاریخچه مایگریشن‌های `1→2` تا `7→8` حفظ و اجرا می‌شوند؛ داده‌ها با `fallbackToDestructiveMigration` هرگز حذف نشوند.
+- دیتابیس محلی `jibik_ledger_v1.db` روی Room نسخه ۱۶ بدون رمزنگاری است. جدول‌های مالی شامل ledger، account، receipt، goal، category، category budget، obligation، obligation payment و bank SMS candidate هستند.
+- تاریخچه مایگریشن‌های `1→2` تا `15→16` حفظ و اجرا می‌شوند؛ داده‌ها با `fallbackToDestructiveMigration` هرگز حذف نشوند.
 - سایر تنظیمات در SharedPreferences هستند (آنبوردینگ/بودجه و تنظیمات یادآوری و SMS). رمزگذاری Room به‌تنهایی همه داده‌های شخصی را حفاظت نمی‌کند.
 
 ## ترتیب اجباری پیاده‌سازی
