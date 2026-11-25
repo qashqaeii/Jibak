@@ -68,11 +68,12 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
 
     suspend fun loadAccounts(): List<Account> = withContext(Dispatchers.IO) {
         ensureDefaultWallet()
-        accountDao.list().map { it.toAccount() }
+        val archived = database.managementDao().archives().map { it.accountId }.toSet()
+        accountDao.list().map { it.toAccount().copy(archived = it.id in archived) }
     }
 
     suspend fun addAccount(account: Account) = withContext(Dispatchers.IO) {
-        require(account.id.isNotBlank() && account.id != "wallet")
+        require(account.id.isNotBlank() && account.id != "wallet" && !account.archived)
         require(account.title.isNotBlank() && account.title.length <= 48)
         require(account.openingBalanceToman >= 0L)
         database.withTransaction {
@@ -85,6 +86,85 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
             FinanceEngine.balances(updated, dao.getAll().map { it.toRecord() })
             accountDao.insert(account.toEntity())
         }
+    }
+
+    private suspend fun requireActiveAccounts(vararg ids: String?) {
+        val archived = database.managementDao().archives().map { it.accountId }.toSet()
+        require(ids.filterNotNull().none { it in archived }) { "Account archived" }
+    }
+
+    suspend fun accountHistory(id: String) = database.managementDao().accountHistory(id)
+
+    suspend fun renameAccount(expected: Account, title: String) = database.withTransaction {
+        val clean = title.trim()
+        require(clean.length in 1..48)
+        val current = loadAccounts().first { it.id == expected.id }
+        check(current == expected)
+        require(loadAccounts().none { it.id != current.id && it.title == clean })
+        if (clean != current.title) {
+            check(accountDao.rename(current.id, clean) == 1)
+            database.managementDao().log(AccountEditEvent(accountId = current.id, atMillis = System.currentTimeMillis(), action = "RENAME", details = current.title + " ← " + clean))
+        }
+    }
+
+    suspend fun archiveAccount(expected: Account, archive: Boolean) = database.withTransaction {
+        val current = loadAccounts().first { it.id == expected.id }
+        check(current == expected && current.id != "wallet" && current.archived != archive)
+        val management = database.managementDao()
+        if (archive) {
+            val balances = FinanceEngine.balances(loadAccounts(), dao.getAll().map { it.toRecord() })
+            require(balances.getValue(current.id) == 0L) { "Only zero-balance accounts can be archived" }
+            require(database.savingsGoalDao().list().none { it.accountId == current.id })
+            require(database.envelopeDao().list().none { it.accountId == current.id })
+            require(database.recurringDao().rules().none { it.accountId == current.id })
+            management.archive(AccountArchive(current.id, System.currentTimeMillis()))
+        } else check(management.unarchive(current.id) == 1)
+        management.log(AccountEditEvent(accountId = current.id, atMillis = System.currentTimeMillis(), action = if (archive) "ARCHIVE" else "RESTORE", details = current.title))
+    }
+
+    suspend fun reconcileAccount(expected: Account, expectedBalance: Long, actualBalance: Long, reason: String, transactionId: String) = database.withTransaction {
+        val clean = reason.trim(); require(clean.length in 3..200)
+        val accounts = loadAccounts()
+        val current = accounts.first { it.id == expected.id }
+        check(current == expected && !current.archived)
+        val before = FinanceEngine.balances(accounts, dao.getAll().map { it.toRecord() }).getValue(current.id)
+        check(before == expectedBalance)
+        val delta = actualBalance.toBigInteger() - before.toBigInteger()
+        require(delta.signum() != 0)
+        val credit = delta.signum() > 0
+        val row = LedgerRecord(transactionId, if (credit) LedgerKind.INCOME else LedgerKind.EXPENSE, delta.abs().longValueExact(),
+            fromAccountId = current.id.takeUnless { credit }, toAccountId = current.id.takeIf { credit }, category = "اصلاح موجودی", note = clean, timestampMillis = System.currentTimeMillis())
+        append(row)
+        database.managementDao().log(AccountEditEvent(accountId = current.id, atMillis = row.timestampMillis, action = "RECONCILE", details = formatToman(before) + " ← " + formatToman(actualBalance) + " · " + clean + " · " + row.id))
+    }
+
+    suspend fun weeklyBudgets() = database.managementDao().weeklyBudgets()
+    suspend fun saveWeeklyBudget(item: WeeklyBudget) = database.withTransaction {
+        validateWeeklyBudget(item)
+        database.managementDao().saveWeeklyBudget(item)
+    }
+
+    suspend fun loanDetails(id: String): LoanDetails = database.withTransaction {
+        val obligation = obligationDao.list().first { it.id == id && it.kind == "LOAN" }
+        loanDetailsFor(obligation, obligationPaymentDao.forObligation(id), database.managementDao().loanTerms(id), database.managementDao().splits())
+    }
+
+    suspend fun saveLoanTerms(id: String, principal: Long) = database.withTransaction {
+        val obligation = obligationDao.list().first { it.id == id && it.kind == "LOAN" }
+        val terms = LoanTerms(id, principal)
+        loanDetailsFor(obligation, obligationPaymentDao.forObligation(id), terms, database.managementDao().splits())
+        database.managementDao().saveLoanTerms(terms)
+    }
+
+    suspend fun classifyLoanPayment(id: String, transactionId: String, principal: Long) = database.withTransaction {
+        val obligation = obligationDao.list().first { it.id == id && it.kind == "LOAN" }
+        val payments = obligationPaymentDao.forObligation(id)
+        val payment = payments.first { it.transactionId == transactionId }
+        require(principal in 0..payment.amountToman)
+        val terms = requireNotNull(database.managementDao().loanTerms(id))
+        val split = LoanPaymentSplit(transactionId, principal, payment.amountToman - principal)
+        loanDetailsFor(obligation, payments, terms, database.managementDao().splits().filterNot { it.transactionId == transactionId } + split)
+        database.managementDao().saveSplit(split)
     }
 
     suspend fun load(): List<LedgerRecord> = withContext(Dispatchers.IO) {
@@ -101,6 +181,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
             val accounts = accountDao.list().map { it.toAccount() }
             val allRecords = dao.getAll().map { it.toRecord() } + record
             FinanceEngine.balances(accounts, allRecords)
+            requireActiveAccounts(record.fromAccountId, record.toAccountId)
             dao.insert(record.toEntity())
         }
     }
@@ -118,7 +199,8 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
                 val accounts = accountDao.list().map { it.toAccount() }
                 val existing = dao.getAll().map { it.toRecord() }
                 FinanceEngine.balances(accounts, existing + record)
-                dao.insert(record.toEntity())
+                requireActiveAccounts(record.fromAccountId, record.toAccountId)
+            dao.insert(record.toEntity())
                 database.purchaseLineDao().insertAll(lines.mapIndexed { index, line ->
                     PurchaseLineEntity(
                         transactionId = record.id, lineIndex = index,
@@ -133,6 +215,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
     suspend fun voided() = dao.voided().map { it.toRecord() }
 
     suspend fun setVoided(record: LedgerRecord, void: Boolean) = database.withTransaction {
+        requireActiveAccounts(record.fromAccountId, record.toAccountId)
         if (void) {
             check(dao.find(record.id)?.toRecord() == record)
             check(obligationPaymentDao.list().none { it.transactionId == record.id })
@@ -158,6 +241,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         require(rule.frequency in RECURRING_FREQUENCIES && rule.interval in 1..365)
         require(rule.endDay == null || rule.endDay >= rule.firstDay)
         require(rule.category.isBlank() || isSelectableCategory(rule.category, rule.income, customCategoryDao.list()))
+        requireActiveAccounts(rule.accountId)
         require(accountDao.list().any { it.id == rule.accountId })
         database.recurringDao().add(rule)
     }
@@ -188,6 +272,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
                 category = rule.category.ifBlank { if (rule.income) "سایر درآمدها" else "سایر هزینه‌ها" },
                 note = rule.title, timestampMillis = System.currentTimeMillis())
             FinanceEngine.balances(accountDao.list().map { it.toAccount() }, dao.getAll().map { it.toRecord() } + record)
+            requireActiveAccounts(record.fromAccountId, record.toAccountId)
             dao.insert(record.toEntity())
             record.id
         } else null
@@ -226,7 +311,9 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         val obligationTitles = obligationDao.list().associate { it.id to it.title }
         val ruleTitles = database.recurringDao().rules().associate { it.id to it.title }
         val details = buildString {
+            val splits = database.managementDao().splits().associateBy { it.transactionId }
             obligations.forEach { row ->
+                splits[row.transactionId]?.let { appendLine("اصل: " + it.principalToman + " · سود: " + it.interestToman) }
                 appendLine("تعهد: " + obligationTitles[row.obligationId].orEmpty() + " · " + row.obligationId + " · " + row.amountToman + " تومان · " + row.paidAtMillis)
             }
             recurring.forEach { row ->
@@ -245,6 +332,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
 
     suspend fun correctReceipt(original: LedgerRecord, corrected: LedgerRecord,
         oldLines: List<PurchaseLine>, lines: List<PurchaseLine>) = database.withTransaction {
+        requireActiveAccounts(original.fromAccountId, original.toAccountId, corrected.fromAccountId, corrected.toAccountId)
         require(original.id == corrected.id && original.kind == LedgerKind.EXPENSE)
         validateItemizedPurchase(corrected, lines)
         val previous = requireNotNull(dao.find(original.id))
@@ -283,6 +371,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
     suspend fun correct(original: LedgerRecord, corrected: LedgerRecord) = withContext(Dispatchers.IO) {
         require(original.id == corrected.id)
         database.withTransaction {
+            requireActiveAccounts(original.fromAccountId, original.toAccountId, corrected.fromAccountId, corrected.toAccountId)
             val previous = requireNotNull(dao.find(original.id))
             check(previous.toRecord() == original && !bankSmsDao.isLinked(original.id))
             check(!database.assetDao().isLinked(original.id)) { "Asset trade is immutable" }
@@ -407,6 +496,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
             require(accounts.any { it.id == accountId }) { "Account not found" }
             val record = settlementRecord(item, accountId, amountToman, transactionId, atMillis)
             FinanceEngine.balances(accounts, dao.getAll().map { it.toRecord() } + record)
+            requireActiveAccounts(record.fromAccountId, record.toAccountId)
             dao.insert(record.toEntity())
             obligationPaymentDao.insert(
                 ObligationPaymentEntity(
@@ -511,7 +601,8 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
                 FinanceEngine.balances(
                     accounts, dao.getAll().map { it.toRecord() } + record,
                 )
-                dao.insert(record.toEntity())
+                requireActiveAccounts(record.fromAccountId, record.toAccountId)
+            dao.insert(record.toEntity())
                 check(bankSmsDao.markRegistered(id, record.id) == 1)
                 record
             }
@@ -567,6 +658,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         }
         database.withTransaction {
             val accounts = accountDao.list()
+            requireActiveAccounts(goal.accountId)
             require(accounts.any { it.id == goal.accountId }) { "Account not found" }
             require(database.savingsGoalDao().list().none {
                 it.accountId == goal.accountId || it.id == goal.id
@@ -667,6 +759,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         database.withTransaction {
             require(item.id.isNotBlank() && item.title.trim().length in 1..60 && item.createdAtMillis > 0)
             require(item.targetToman > 0 && item.reservedToman == 0L && item.priority in 0..2 && item.monthlyPlanToman >= 0)
+            requireActiveAccounts(item.accountId)
             require(accountDao.list().any { it.id == item.accountId })
             require(database.savingsGoalDao().list().none { it.accountId == item.accountId })
             database.envelopeDao().insert(item.copy(title = item.title.trim()))

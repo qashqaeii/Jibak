@@ -16,7 +16,7 @@ import javax.crypto.spec.SecretKeySpec
 internal object FinancialBackup {
     val tables = listOf("financial_accounts", "ledger_records", "custom_categories",
         "category_budgets", "financial_obligations", "savings_goals", "purchase_lines",
-        "obligation_payments", "bank_sms_candidates", "ledger_revisions", "ledger_voids", "recurring_rules", "recurring_decisions", "financial_edit_history", "money_envelopes", "envelope_events", "asset_holdings", "asset_events", "wealth_snapshots")
+        "obligation_payments", "bank_sms_candidates", "ledger_revisions", "ledger_voids", "recurring_rules", "recurring_decisions", "financial_edit_history", "money_envelopes", "envelope_events", "asset_holdings", "asset_events", "wealth_snapshots", "account_archives", "account_edit_events", "weekly_budgets", "loan_terms", "loan_payment_splits")
     private val magic = "JIBIKBAK1".toByteArray(Charsets.US_ASCII)
     const val maxBytes = 32 * 1024 * 1024
 
@@ -25,7 +25,7 @@ internal object FinancialBackup {
 
     suspend fun snapshot(room: JibikDatabase, budget: Long): JSONObject = room.withTransaction {
         val db = room.openHelper.writableDatabase
-        val root = JSONObject().put("version", 10).put("budget", budget)
+        val root = JSONObject().put("version", 11).put("budget", budget)
         tables.forEach { table ->
             db.query("SELECT * FROM $table").use { rows ->
                 val data = JSONArray()
@@ -49,7 +49,7 @@ internal object FinancialBackup {
     }
 
     suspend fun restore(room: JibikDatabase, root: JSONObject) = room.withTransaction {
-        require(root.getInt("version") in 1..10 && root.getLong("budget") >= 0)
+        require(root.getInt("version") in 1..11 && root.getLong("budget") >= 0)
         val db = room.openHelper.writableDatabase
         // Restore on a fresh ledger only. Recheck inside the write transaction.
         tables.forEach { table ->
@@ -59,6 +59,7 @@ internal object FinancialBackup {
         }
         db.execSQL("DELETE FROM financial_accounts")
         tables.forEach { table ->
+            if (root.getInt("version") < 11 && table in MANAGEMENT_TABLES) return@forEach
             if (root.getInt("version") < 9 && table == "wealth_snapshots") return@forEach
             if (root.getInt("version") < 8 && table in setOf("asset_holdings", "asset_events")) return@forEach
             if (root.getInt("version") < 6 && table in setOf("money_envelopes", "envelope_events")) return@forEach
@@ -93,6 +94,7 @@ internal object FinancialBackup {
         require(room.envelopeDao().list().all { it.accountId !in dedicated && it.targetToman > 0 && it.reservedToman in 0..it.targetToman && it.priority in 0..2 && it.monthlyPlanToman >= 0 })
         validateAssetTransactions(assetPositions(room.assetDao().holdings(), room.assetDao().events()), room.ledgerDao().getAll().map { it.toRecord() })
         room.wealthDao().list().forEach { it.worth() }
+        validateManagementData(room)
         ir.jibik.core.finance.FinanceEngine.balances(accounts, room.ledgerDao().getAll().map { it.toRecord() })
     }
 
@@ -113,8 +115,8 @@ internal object FinancialBackup {
         val clear = cipher(password, header, Cipher.DECRYPT_MODE).doFinal(data, size, data.size - size)
         return try {
             JSONObject(clear.toString(Charsets.UTF_8)).also { root ->
-                require(root.getInt("version") in 1..10 && root.getLong("budget") >= 0)
-                tables.filter { (it != "wealth_snapshots" || root.getInt("version") >= 9) && (it !in setOf("asset_holdings", "asset_events") || root.getInt("version") >= 8) && (it !in setOf("money_envelopes", "envelope_events") || root.getInt("version") >= 6) && (it != "financial_edit_history" || root.getInt("version") >= 4) && (!it.startsWith("recurring_") || root.getInt("version") >= 3) && (it != "ledger_voids" || root.getInt("version") >= 2) }.forEach { root.getJSONObject(it).getJSONArray("rows") }
+                require(root.getInt("version") in 1..11 && root.getLong("budget") >= 0)
+                tables.filter { (it !in MANAGEMENT_TABLES || root.getInt("version") >= 11) && (it != "wealth_snapshots" || root.getInt("version") >= 9) && (it !in setOf("asset_holdings", "asset_events") || root.getInt("version") >= 8) && (it !in setOf("money_envelopes", "envelope_events") || root.getInt("version") >= 6) && (it != "financial_edit_history" || root.getInt("version") >= 4) && (!it.startsWith("recurring_") || root.getInt("version") >= 3) && (it != "ledger_voids" || root.getInt("version") >= 2) }.forEach { root.getJSONObject(it).getJSONArray("rows") }
             }
         } finally { clear.fill(0) }
     }

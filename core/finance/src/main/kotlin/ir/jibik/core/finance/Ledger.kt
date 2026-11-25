@@ -8,6 +8,7 @@ data class Account(
     val id: String,
     val title: String,
     val openingBalanceToman: Long = 0L,
+    val archived: Boolean = false,
 )
 
 enum class LedgerKind { EXPENSE, INCOME, TRANSFER }

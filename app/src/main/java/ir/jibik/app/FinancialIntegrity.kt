@@ -54,6 +54,7 @@ internal object FinancialIntegrity {
             issues.add(IntegrityIssue("تاریخچه دارایی نامعتبر", "دارایی‌ها"))
         room.wealthDao().list().forEach { row -> if (runCatching { row.worth() }.isFailure)
             issues.add(IntegrityIssue("تصویر ثروت نامعتبر", row.id.toString())) }
+        if (runCatching { validateManagementData(room) }.isFailure) issues.add(IntegrityIssue("اطلاعات مدیریت مالی نامعتبر", "حساب، بودجه یا وام"))
         val records = room.ledgerDao().getAll().map { it.toRecord() }
         val allRecords = (records + room.ledgerDao().voided().map { it.toRecord() }).associateBy { it.id }
         room.purchaseLineDao().all().groupBy { it.transactionId }.forEach { (id, rows) ->

@@ -53,6 +53,9 @@ internal interface FinancialAccountDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(account: FinancialAccountEntity)
+
+    @Query("UPDATE financial_accounts SET title = :title WHERE id = :id")
+    suspend fun rename(id: String, title: String): Int
 }
 
 @Entity(tableName = "ledger_revisions", indices = [Index("transactionId")])
@@ -361,9 +364,9 @@ internal interface SavingsGoalDao {
         PurchaseLineEntity::class, SavingsGoalEntity::class,
         CustomCategoryEntity::class, CategoryBudgetEntity::class,
         FinancialObligationEntity::class, ObligationPaymentEntity::class,
-        BankSmsCandidateEntity::class, LedgerRevision::class, MonthlyBudget::class, LedgerVoid::class, RecurringRule::class, RecurringDecision::class, FinancialEditHistory::class, MoneyEnvelope::class, EnvelopeEvent::class, AssetHolding::class, AssetEvent::class, WealthSnapshot::class,
+        BankSmsCandidateEntity::class, LedgerRevision::class, MonthlyBudget::class, LedgerVoid::class, RecurringRule::class, RecurringDecision::class, FinancialEditHistory::class, MoneyEnvelope::class, EnvelopeEvent::class, AssetHolding::class, AssetEvent::class, WealthSnapshot::class, AccountArchive::class, AccountEditEvent::class, WeeklyBudget::class, LoanTerms::class, LoanPaymentSplit::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = false,
 )
 internal abstract class JibikDatabase : RoomDatabase() {
@@ -375,6 +378,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
     abstract fun envelopeDao(): EnvelopeDao
     abstract fun assetDao(): AssetDao
     abstract fun wealthDao(): WealthDao
+    abstract fun managementDao(): FinanceManagementDao
     abstract fun customCategoryDao(): CustomCategoryDao
     abstract fun categoryBudgetDao(): CategoryBudgetDao
     abstract fun obligationDao(): FinancialObligationDao
@@ -598,6 +602,17 @@ internal abstract class JibikDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_19_20 = object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE account_archives (accountId TEXT NOT NULL PRIMARY KEY, atMillis INTEGER NOT NULL, FOREIGN KEY(accountId) REFERENCES financial_accounts(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE TABLE account_edit_events (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, accountId TEXT NOT NULL, atMillis INTEGER NOT NULL, action TEXT NOT NULL, details TEXT NOT NULL, FOREIGN KEY(accountId) REFERENCES financial_accounts(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE INDEX index_account_edit_events_accountId ON account_edit_events(accountId)")
+                db.execSQL("CREATE TABLE weekly_budgets (weekStart INTEGER NOT NULL PRIMARY KEY, limitToman INTEGER NOT NULL, carryPrevious INTEGER NOT NULL)")
+                db.execSQL("CREATE TABLE loan_terms (obligationId TEXT NOT NULL PRIMARY KEY, principalToman INTEGER NOT NULL, FOREIGN KEY(obligationId) REFERENCES financial_obligations(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE TABLE loan_payment_splits (transactionId TEXT NOT NULL PRIMARY KEY, principalToman INTEGER NOT NULL, interestToman INTEGER NOT NULL, FOREIGN KEY(transactionId) REFERENCES obligation_payments(transactionId) ON UPDATE NO ACTION ON DELETE CASCADE)")
+            }
+        }
+
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
                 instance ?: open(context, "jibik_ledger_v1.db").also { instance = it }
@@ -610,7 +625,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
                     name,
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19,
+                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20,
                 ).build()
     }
 }
