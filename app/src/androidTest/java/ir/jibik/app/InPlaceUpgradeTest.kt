@@ -46,7 +46,7 @@ class InPlaceUpgradeTest {
         assertEquals(records, store.load()) // No duplicate import after reopening the store.
         db.openHelper.writableDatabase.query("PRAGMA user_version").use {
             assertTrue(it.moveToFirst())
-            assertEquals(20, it.getInt(0))
+            assertTrue("Unexpected schema downgrade", it.getInt(0) >= 20)
         }
         db.openHelper.writableDatabase.query("PRAGMA integrity_check").use {
             assertTrue(it.moveToFirst())

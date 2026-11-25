@@ -36,7 +36,7 @@ def sandbox_read(path):
 
 def sandbox_write(path, data):
     # Fixed fixture paths only, no shell interpolation of user data.
-    adb("exec-in", "run-as", PACKAGE, "sh", "-c", f"cat > {path}", data=data)
+    adb("exec-in", f"run-as {PACKAGE} sh -c 'cat > {path}'", data=data)
 
 
 def single_apk(directory):
@@ -92,7 +92,7 @@ def extend_old_database(schema):
         path.write_bytes(sandbox_read(DB))
         try:
             wal = sandbox_read(DB + "-wal")
-            if wal:
+            if wal[:4] in (bytes.fromhex("377f0682"), bytes.fromhex("377f0683")):
                 Path(str(path) + "-wal").write_bytes(wal)
         except RuntimeError:
             pass
@@ -108,7 +108,7 @@ def extend_old_database(schema):
             db.execute(f"INSERT INTO purchase_lines({columns}) VALUES(?,?,?,?,?,?)",
                        ("upgrade-expense", 0, "کالای آزمون", "سایر هزینه‌ها", 2, 125000))
             if schema >= 20:
-                db.execute("INSERT INTO monthly_budget(id,amount) VALUES(1,7000000)")
+                db.execute("INSERT OR REPLACE INTO monthly_budget(id,amount) VALUES(1,7000000)")
                 db.execute("INSERT INTO custom_categories(id,kind,parentPath,title,archived,createdAtMillis) VALUES(?,?,?,?,?,?)",
                            ("upgrade-category", "EXPENSE", "", "دسته آزمون", 0, NOW))
                 db.execute("INSERT INTO asset_holdings(id,title,kind,costBasisToman,createdAtMillis) VALUES(?,?,?,?,?)",
@@ -123,9 +123,10 @@ def extend_old_database(schema):
         with sqlite3.connect(path) as checkpoint:
             checkpoint.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchall()
         checkpoint.close()
-        sandbox_write(DB, path.read_bytes())
         # Only test-emulator WAL sidecars, never a real user's files.
         adb("shell", "run-as", PACKAGE, "rm", "-f", DB + "-wal", DB + "-shm")
+        sandbox_write(DB, path.read_bytes())
+        assert sandbox_read(DB) == path.read_bytes()
 
 
 def main():

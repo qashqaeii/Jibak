@@ -58,7 +58,7 @@ jobs:
         run: |
           mkdir -p "$HOME/.android"
           rm -f "$HOME/.android/debug.keystore"
-          keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 30 -dname "CN=Jibik Upgrade Test,O=CI,C=US"
+          keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -storepass android -keypass android -alias androiddebugkey -storetype JKS -keyalg RSA -keysize 2048 -validity 30 -dname "CN=Jibik Upgrade Test,O=CI,C=US"
       - name: Build the historical APK
         working-directory: historical
         run: gradle --no-daemon :app:assembleDebug --stacktrace
