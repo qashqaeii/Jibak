@@ -73,7 +73,7 @@ internal object GlassPalette {
 
 private fun toneStops(tone: GlassTone): List<Color> = when (tone) {
     GlassTone.CRYSTAL -> listOf(
-        Color(0xFFFDFEFD), Color(0xFCF9FCFA), Color(0xF8EDF5EF),
+        Color(0xFFFFFFFF), Color(0xFFFBFDFC), Color(0xFFF7FAF7),
     )
     // Full opacity is intentional for dialogs: finance data behind the modal
     // must never bleed into labels, input borders or validation messages.
@@ -84,7 +84,7 @@ private fun toneStops(tone: GlassTone): List<Color> = when (tone) {
         Color(0xF41A806F), Color(0xF406665B), Color(0xFF02483F),
     )
     GlassTone.HONEY -> listOf(
-        Color(0xFFFFF6E8), Color(0xFAFFE4BE), Color(0xF5EBC38C),
+        Color(0xFFFFFAF3), Color(0xFFFFF4E4), Color(0xFFFDECD5),
     )
     GlassTone.LILAC -> listOf(
         Color(0xFFF5EDFF), Color(0xF3DCCDFC), Color(0xF3CBB9EC),
@@ -147,87 +147,43 @@ internal fun Modifier.liquidBackdrop(): Modifier = this.drawBehind {
  * background on cards. Reduce GPU pressure by avoiding animated blur or
  * repeated offscreen RenderEffect operations.
  */
+/**
+ * Quiet premium surface: depth communicates hierarchy, not decoration.
+ * Ordinary cards use an almost-solid paper material, one edge and a restrained
+ * shadow. Only the financial hero keeps a saturated gradient.
+ */
 internal fun Modifier.liquidGlass(
     tone: GlassTone = GlassTone.CRYSTAL,
     radius: Dp = 23.dp,
     elevation: Dp = 10.dp,
 ): Modifier {
     val shape = RoundedCornerShape(radius)
+    val effectiveElevation = when (tone) {
+        GlassTone.CRYSTAL -> minOf(elevation, 2.dp)
+        GlassTone.HONEY, GlassTone.LILAC, GlassTone.ROSE -> minOf(elevation, 3.dp)
+        GlassTone.FROSTED -> minOf(elevation, 9.dp)
+        GlassTone.EMERALD -> elevation
+    }
+    val edge = when (tone) {
+        GlassTone.EMERALD -> Color.White.copy(alpha = 0.18f)
+        GlassTone.HONEY -> Color(0xFFE9DAC4)
+        GlassTone.FROSTED -> Color(0xFFE0E9E4)
+        else -> Color(0xFFE4ECE6)
+    }
     return this
         .shadow(
-            elevation = elevation,
+            elevation = effectiveElevation,
             shape = shape,
-            clip = false,
-            ambientColor = glassShadow(tone),
-            spotColor = glassShadow(tone),
+            ambientColor = glassShadow(tone).copy(alpha = 0.36f),
+            spotColor = glassShadow(tone).copy(alpha = 0.36f),
         )
         .clip(shape)
         .background(
-            Brush.linearGradient(
+            brush = Brush.verticalGradient(
                 colors = toneStops(tone),
-                start = Offset.Zero,
-                end = Offset(750f, 900f),
-            )
-        )
-        .border(
-            width = 0.9.dp,
-            brush = Brush.linearGradient(
-                colors = listOf(
-                    Color.White.copy(alpha = 0.95f),
-                    Color.White.copy(alpha = 0.22f),
-                    Color(0xFF8BAFA4).copy(alpha = 0.49f),
-                    Color.White.copy(alpha = 0.7f),
-                )
             ),
-            shape = shape,
         )
-        .drawWithContent {
-            drawContent()
-            val r = radius.toPx()
-            // Two concentric reflective rims imitate a moulded glass edge.
-            drawRoundRect(
-                brush = Brush.verticalGradient(
-                    0f to Color.White.copy(alpha = 0.73f),
-                    0.31f to Color.White.copy(alpha = 0.12f),
-                    0.69f to Color(0xFF26594E).copy(alpha = 0.08f),
-                    1f to Color.White.copy(alpha = 0.50f),
-                ),
-                topLeft = Offset(2.2.dp.toPx(), 2.2.dp.toPx()),
-                size = Size(
-                    (size.width - 4.4.dp.toPx()).coerceAtLeast(0f),
-                    (size.height - 4.4.dp.toPx()).coerceAtLeast(0f),
-                ),
-                cornerRadius = CornerRadius((r - 2.dp.toPx()).coerceAtLeast(0f)),
-                style = Stroke(width = 1.15.dp.toPx()),
-            )
-            // Specular near-top and near-bottom light, clipped inside surface.
-            drawLine(
-                brush = Brush.horizontalGradient(
-                    listOf(
-                        Color.Transparent,
-                        Color.White.copy(alpha = 0.80f),
-                        Color.White.copy(alpha = 0.28f),
-                        Color.Transparent,
-                    )
-                ),
-                start = Offset(size.width * .10f, 3.6.dp.toPx()),
-                end = Offset(size.width * .90f, 3.6.dp.toPx()),
-                strokeWidth = 1.6.dp.toPx(),
-            )
-            drawLine(
-                brush = Brush.horizontalGradient(
-                    listOf(
-                        Color.Transparent,
-                        Color.White.copy(alpha = .18f),
-                        Color.White.copy(alpha = .58f),
-                        Color.Transparent,
-                    )
-                ),
-                start = Offset(size.width * .18f, size.height - 3.dp.toPx()),
-                end = Offset(size.width * .82f, size.height - 3.dp.toPx()),
-                strokeWidth = 1.dp.toPx(),
-            )
-        }
+        .border(width = 1.dp, color = edge, shape = shape)
 }
 
 /**
@@ -303,11 +259,14 @@ internal fun LiquidGlassButton(
         animationSpec = tween(durationMillis = 130),
         label = "jibik-button-press",
     )
+    val baseModifier = if (LocalJibikModalPrimaryAction.current) {
+        modifier.fillMaxWidth()
+    } else modifier
     Box(
-        modifier = modifier
+        modifier = baseModifier
             .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
             .heightIn(min = 52.dp)
-            .liquidGlass(tone = if (enabled) tone else GlassTone.CRYSTAL, radius = 18.dp, elevation = 4.dp)
+            .liquidGlass(tone = if (enabled) tone else GlassTone.CRYSTAL, radius = 16.dp, elevation = 2.dp)
             .clickable(
                 interactionSource = interaction,
                 indication = LocalIndication.current,
