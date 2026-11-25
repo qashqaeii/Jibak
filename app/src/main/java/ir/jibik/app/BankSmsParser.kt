@@ -75,12 +75,21 @@ internal object BankSmsParser {
      * Fail-closed. National Bank signed amounts are Rial by their known template.
      * Other templates require an explicit currency label.
      */
-    fun parse(sender: String, body: String, timestamp: Long, salt: String): BankSmsMatch? {
+    fun parse(sender: String, body: String, timestamp: Long, salt: String,
+        approvedBankId: String? = null): BankSmsMatch? {
         if (body.length !in 12..1500 || timestamp <= 0L || salt.length < 8) return null
         val normalized = normalise(body)
         if (otp.containsMatchIn(normalized) || dangerous.containsMatchIn(normalized)) return null
-        val bank = bankFor(sender, body) ?: return null
-        val signed = labelAmount.find(normalized)
+        if (Regex("ناموفق|انجام نشد|لغو شد|رد شد|عدم موفقیت|نامعتبر|تبلیغات|failed|declined|unsuccessful").containsMatchIn(normalized)) return null
+        val detected = bankFor(sender, body)
+        val bank = if (approvedBankId == null) detected ?: return null else {
+            val expected = banks.firstOrNull { it.id == approvedBankId } ?: return null
+            if (detected != null && detected.id != expected.id) return null
+            expected
+        }
+        val signedMatches = labelAmount.findAll(normalized).toList()
+        if (signedMatches.size > 1) return null
+        val signed = signedMatches.singleOrNull()
         val income: Boolean
         val amountString: String
         val unit: String
