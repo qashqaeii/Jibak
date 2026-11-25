@@ -367,12 +367,14 @@ private fun JibikApp(
     var receiptRows by remember { mutableStateOf<List<PurchaseLine>?>(null) }
     var receiptLoadError by remember { mutableStateOf(false) }
     var revisions by remember { mutableStateOf(emptyList<LedgerRevision>()) }
+    var bankLinked by remember { mutableStateOf(true) }
     var receiptRetry by remember { mutableIntStateOf(0) }
     LaunchedEffect(selectedTransactionId, receiptRetry) {
         val id = selectedTransactionId ?: return@LaunchedEffect
         receiptRows = null
         receiptLoadError = false
         try {
+            bankLinked = store.isBankLinked(id)
             revisions = store.revisions(id)
             receiptRows = store.loadPurchaseLines(id)
         } catch (_: Exception) {
@@ -736,7 +738,7 @@ private fun JibikApp(
                 },
                 revisions = revisions.filter { it.transactionId == id },
                 voided = voided != null,
-                onToggleVoid = if (obligationPayments.none { it.transactionId == id } && !isSaving) ({
+                onToggleVoid = if (!bankLinked && receiptRows != null && obligationPayments.none { it.transactionId == id } && !isSaving) ({
                     isSaving = true
                     scope.launch {
                         try {
@@ -748,7 +750,7 @@ private fun JibikApp(
                         } finally { isSaving = false }
                     }
                 }) else null,
-                onEdit = if (voided == null && receiptRows?.isEmpty() == true &&
+                onEdit = if (voided == null && !bankLinked && receiptRows?.isEmpty() == true &&
                     obligationPayments.none { it.transactionId == id }) ({
                     editOriginal = record
                     selectedTransactionId = null

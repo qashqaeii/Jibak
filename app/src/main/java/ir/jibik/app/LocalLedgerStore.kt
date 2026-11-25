@@ -144,13 +144,15 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         FinanceEngine.balances(accountDao.list().map { it.toAccount() }, dao.getAll().map { it.toRecord() })
     }
 
+    suspend fun isBankLinked(id: String) = bankSmsDao.isLinked(id)
+
     suspend fun revisions(id: String) = withContext(Dispatchers.IO) { dao.revisions(id) }
 
     suspend fun correct(original: LedgerRecord, corrected: LedgerRecord) = withContext(Dispatchers.IO) {
         require(original.id == corrected.id)
         database.withTransaction {
             val previous = requireNotNull(dao.find(original.id))
-            check(previous.toRecord() == original)
+            check(previous.toRecord() == original && !bankSmsDao.isLinked(original.id))
             check(database.purchaseLineDao().forTransaction(original.id).isEmpty())
             check(obligationPaymentDao.list().none { it.transactionId == original.id })
             if (original != corrected) {
