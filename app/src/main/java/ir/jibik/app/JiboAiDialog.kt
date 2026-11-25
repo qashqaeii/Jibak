@@ -52,6 +52,7 @@ internal fun JiboAiDialog(
     var error by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
+        properties = JibikWideDialogProperties,
         onDismissRequest = { if (!working) onDismiss() },
         modifier = Modifier.jibikDialogSurface(),
         containerColor = Color.Transparent,
