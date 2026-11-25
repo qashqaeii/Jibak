@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.jibik.core.finance.Account
+import ir.jibik.core.finance.LedgerRecord
 import java.util.UUID
 
 private fun obligationKindName(kind: String): String = when (kind) {
@@ -419,14 +420,23 @@ internal fun SettleObligationDialog(
     obligation: FinancialObligationEntity,
     payments: List<ObligationPaymentEntity>,
     accounts: List<Account>,
+    records: List<LedgerRecord>,
     onDismiss: () -> Unit,
-    onSave: (String, Long) -> Unit,
+    onSave: (String, Long, String?) -> Unit,
     isSaving: Boolean = false,
 ) {
     val outstanding = obligationProgress(obligation, payments).remainingToman
     var accountId by rememberSaveable { mutableStateOf(accounts.firstOrNull()?.id.orEmpty()) }
     var amount by rememberSaveable { mutableStateOf(outstanding.toString()) }
-    val parsed = parseTomanDraft(amount)
+    var linking by rememberSaveable { mutableStateOf(false) }
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
+    var limit by rememberSaveable { mutableStateOf(10) }
+    val usedIds = payments.mapTo(hashSetOf()) { it.transactionId }
+    val candidates = if (linking) records.filter {
+        it.id !in usedIds && it.matchesSettlement(obligation, accountId, outstanding)
+    }.sortedByDescending { it.timestampMillis } else emptyList()
+    val selected = candidates.firstOrNull { it.id == selectedId }
+    val parsed = if (linking) selected?.amountToman else parseTomanDraft(amount)
     val valid = !isSaving && parsed != null &&
         parsed in 1..outstanding && accounts.any { it.id == accountId }
     JibikModalDialog(
@@ -447,29 +457,46 @@ internal fun SettleObligationDialog(
                     fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text("مانده تعهد: " + formatToman(outstanding),
                     color = JibikStyle.muted, fontSize = 13.sp)
+                JibikSegmentedControl(
+                    items = listOf(false to "پرداخت جدید", true to "تراکنش قبلی"),
+                    selected = linking,
+                    enabled = { !isSaving },
+                    onSelected = { linking = it },
+                )
                 JibikAccountChoice(
                     title = if (obligation.kind == "RECEIVABLE")
                         "دریافت به حساب" else "برداشت از حساب",
                     accounts = accounts,
                     selectedId = accountId,
-                    onSelect = { accountId = it },
+                    onSelect = { accountId = it; selectedId = null; limit = 10 },
                     enabled = !isSaving,
                 )
-                JibikTomanField(
-                    value = amount, onValueChange = { amount = it },
-                    label = "مبلغ واقعی این پرداخت / دریافت",
-                    enabled = !isSaving,
-                )
-                JibikFormHint(
-                    "با تأیید، دقیقاً یک تراکنش " +
-                        (if (obligation.kind == "RECEIVABLE") "درآمد" else "هزینه") +
-                        " ثبت می‌شود و مانده این تعهد کاهش پیدا می‌کند."
-                )
-                JibikFormHint(
-                    "اگر این پرداخت را قبلاً در تراکنش‌های عادی ثبت کرده‌ای، " +
-                        "دوباره از این بخش ثبتش نکن؛ مبلغ دوبار از حساب کم می‌شود.",
-                    isWarning = true,
-                )
+                if (linking) {
+                    JibikFormHint("یک تراکنش را به این تعهد وصل کن. موجودی حساب تغییر نمی‌کند.")
+                    if (candidates.isEmpty()) JibikFormHint("در این حساب تراکنش قابل اتصال پیدا نشد.")
+                    candidates.take(limit).forEach { record ->
+                        TextButton(
+                            enabled = !isSaving,
+                            onClick = { selectedId = record.id },
+                        ) {
+                            Text(listOf(
+                                if (selectedId == record.id) "✓ انتخاب شده" else "",
+                                formatToman(record.amountToman), formatJalaliDueDate(record.timestampMillis),
+                                record.category, record.note,
+                            ).filter { it.isNotBlank() }.joinToString(" · "))
+                        }
+                    }
+                    if (limit < candidates.size) TextButton(onClick = { limit += 10 }) {
+                        Text("تراکنش‌های بیشتر")
+                    }
+                } else {
+                    JibikTomanField(
+                        value = amount, onValueChange = { amount = it },
+                        label = "مبلغ واقعی این پرداخت / دریافت",
+                        enabled = !isSaving,
+                    )
+                    JibikFormHint("اگر پرداخت را قبلاً ثبت کرده‌ای، گزینهٔ تراکنش قبلی را انتخاب کن.")
+                }
                 if (parsed != null && parsed > outstanding) JibikFormHint(
                     "مبلغ نمی‌تواند بیشتر از مانده تعهد باشد.", isWarning = true,
                 )
@@ -477,8 +504,8 @@ internal fun SettleObligationDialog(
         },
         confirmButton = {
             LiquidGlassButton(
-                text = if (isSaving) "در حال ثبت..." else "تأیید پرداخت واقعی",
-                onClick = { parsed?.let { onSave(accountId, it) } },
+                text = if (isSaving) "در حال ثبت..." else if (linking) "تأیید اتصال" else "تأیید پرداخت واقعی",
+                onClick = { parsed?.let { onSave(accountId, it, if (linking) selected?.id else null) } },
                 enabled = valid,
                 tone = GlassTone.EMERALD,
             )

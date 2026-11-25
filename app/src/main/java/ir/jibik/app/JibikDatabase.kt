@@ -63,6 +63,9 @@ internal interface LedgerDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(record: LedgerEntity)
 
+    @Query("SELECT * FROM ledger_records WHERE id = :id")
+    suspend fun find(id: String): LedgerEntity?
+
     /** Allows idempotent legacy import after a process interruption. */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertLegacy(records: List<LedgerEntity>): List<Long>

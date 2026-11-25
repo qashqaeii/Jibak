@@ -242,6 +242,27 @@ internal class LocalLedgerStore(context: Context) {
         }
     }
 
+    suspend fun linkObligationPayment(
+        obligationId: String,
+        accountId: String,
+        transactionId: String,
+    ): LedgerRecord = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            val item = obligationDao.list().first { it.id == obligationId }
+            val record = requireNotNull(dao.find(transactionId)).toRecord()
+            val paid = obligationPaymentDao.forObligation(obligationId)
+            if (paid.none { it.transactionId == transactionId }) {
+                val remaining = obligationProgress(item, paid).remainingToman
+                require(record.matchesSettlement(item, accountId, remaining))
+                // The transaction primary key prevents reuse across obligations.
+                obligationPaymentDao.insert(ObligationPaymentEntity(
+                    transactionId, obligationId, record.amountToman, record.timestampMillis,
+                ))
+            }
+            record
+        }
+    }
+
     suspend fun bankSmsSuggestions(): List<BankSmsCandidateEntity> =
         withContext(Dispatchers.IO) { bankSmsDao.recent() }
 

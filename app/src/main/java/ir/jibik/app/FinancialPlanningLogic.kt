@@ -134,3 +134,16 @@ internal fun settlementRecord(
         timestampMillis = atMillis,
     )
 }
+
+internal fun LedgerRecord.matchesSettlement(
+    obligation: FinancialObligationEntity,
+    accountId: String,
+    remainingToman: Long,
+): Boolean {
+    if (amountToman !in 1..remainingToman) return false
+    return if (obligation.kind == "RECEIVABLE") {
+        kind == LedgerKind.INCOME && toAccountId == accountId
+    } else {
+        kind == LedgerKind.EXPENSE && fromAccountId == accountId
+    }
+}

@@ -772,25 +772,28 @@ private fun JibikApp(
                 obligation = obligation,
                 payments = obligationPayments,
                 accounts = accounts,
+                records = records,
                 isSaving = isSaving,
                 onDismiss = { if (!isSaving) settlingObligationId = null },
-                onSave = { accountId, value ->
+                onSave = { accountId, value, existingId ->
                     if (!isSaving) {
                         isSaving = true
                         scope.launch {
                             try {
-                                val posted = store.settleObligation(
+                                val posted = if (existingId != null) {
+                                    store.linkObligationPayment(id, accountId, existingId)
+                                } else store.settleObligation(
                                     obligationId = id,
                                     accountId = accountId,
                                     amountToman = value,
                                     transactionId = UUID.randomUUID().toString(),
                                 )
-                                records.add(0, posted)
+                                if (existingId == null) records.add(0, posted)
                                 obligationPayments.clear()
                                 obligationPayments.addAll(store.loadObligationPayments())
                                 settlingObligationId = null
                                 selectedTransactionId = posted.id
-                                notifications.showSnackbar("پرداخت واقعی ثبت شد.")
+                                notifications.showSnackbar(if (existingId == null) "پرداخت واقعی ثبت شد." else "تراکنش به تعهد متصل شد.")
                             } catch (_: Exception) {
                                 storageError = "پرداخت ثبت نشد؛ مانده حساب و تعهد تغییری نکرد."
                             } finally { isSaving = false }
