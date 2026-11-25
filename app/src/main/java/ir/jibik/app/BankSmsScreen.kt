@@ -55,6 +55,8 @@ internal fun BankSmsScreen(
     var sample by remember { mutableStateOf("") }
     var sampleResult by remember { mutableStateOf<BankSmsMatch?>(null) }
     var balanceAccountId by remember { mutableStateOf("") }
+    var scanDialog by remember { mutableStateOf(false) }
+    var scanPreview by remember { mutableStateOf<BankHistoryPreview?>(null) }
     var showAllBanks by rememberSaveable { mutableStateOf(false) }
     var pendingLimit by rememberSaveable { mutableStateOf(12) }
     var selected by remember { mutableStateOf<BankSmsCandidateEntity?>(null) }
@@ -81,8 +83,8 @@ internal fun BankSmsScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         JibikSectionTitle(
-            title = "پیامک‌های بانکی",
-            subtitle = "مدیریت خصوصی پیام‌های واریز و برداشت",
+            title = "دستیار بانکی جیبو",
+            subtitle = "ثبت آفلاین · مدیریت و بررسی گردش حساب",
             trailing = {
                 TextButton(onClick = onBack) { Text("بازگشت", color = JibikStyle.forest) }
             },
@@ -96,23 +98,17 @@ internal fun BankSmsScreen(
                 color = Color(0xFFE2F3E9), fontSize = 12.sp, lineHeight = 20.sp,
             )
         }
+        JibikSurfaceCard {
+            JibikSectionTitle("مرکز بررسی", "کارهای بانکی منتظر اقدام تو")
+            JibikFinancialDetail("پیام‌های منتظر بررسی", pendingItems.count { it.state == "PENDING" }.toString())
+            JibikFinancialDetail("ثبت‌های خودکار بدون توضیح", existingRecords.count(::needsBankAutoDetails).toString())
+            JibikStatusText("پردازش محلی · بدون اینترنت")
+        }
         JibikFormHint(
             "همه پردازش‌ها روی گوشی انجام می‌شود. متن پیام، نام افراد، " +
                 "موجودی بانک و رمزهای یک‌بارمصرف ذخیره یا به سرور ارسال نمی‌شوند."
         )
-        BankSenderSettingsPanel(accounts = accounts, busy = busy,
-            onScan = {
-                busy = true
-                scope.launch {
-                    try {
-                        val count = store.importBankSms(BankSmsInboxScanner.scan(context))
-                        pendingItems = store.bankSmsSuggestions()
-                        notice = "$count پیشنهاد جدید پیدا شد؛ هنوز هیچ مبلغی ثبت نشده است."
-                    } catch (e: kotlinx.coroutines.CancellationException) { throw e }
-                    catch (_: Exception) { notice = "اسکن انجام نشد؛ دسترسی و سرشماره‌ها را بررسی کن." }
-                    finally { busy = false }
-                }
-            })
+        BankSenderSettingsPanel(accounts = accounts, busy = busy, onScan = { scanDialog = true })
         LiquidGlassCard(tone = GlassTone.CRYSTAL) {
             JibikSectionTitle("آزمایش نمونه پیام",
                 "پیام نمونه را جای‌گذاری کن؛ متن آن ذخیره نمی‌شود")
@@ -293,6 +289,36 @@ internal fun BankSmsScreen(
             color = JibikStyle.forest, modifier = Modifier.size(24.dp)
         )
         notice?.let { JibikFormHint(it) }
+    }
+    if (scanDialog) BankHistoryPeriodDialog(onDismiss = { scanDialog = false }, onScan = { days ->
+        scanDialog = false
+        busy = true
+        scope.launch {
+            try {
+                val since = days?.let { System.currentTimeMillis() - it * 86_400_000L }
+                val matches = BankSmsInboxScanner.scan(context, limit = 500, receivedSince = since)
+                scanPreview = store.previewBankHistory(matches, context)
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { notice = "اسکن انجام نشد؛ دسترسی و سرشماره‌ها را بررسی کن." }
+            finally { busy = false }
+        }
+    })
+    scanPreview?.let { preview ->
+        BankHistoryPreviewDialog(preview, busy, onDismiss = { if (!busy) scanPreview = null },
+            onImport = { chosen ->
+                busy = true
+                scope.launch {
+                    try {
+                        val count = store.importConfirmedBankHistory(chosen, context)
+                        scanPreview = null
+                        pendingItems = store.bankSmsSuggestions()
+                        BankSmsUiEvents.changed()
+                        notice = "$count پیشنهاد جدید وارد صندوق بررسی شد؛ موجودی تغییر نکرد."
+                    } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (_: Exception) { scanPreview = null; notice = "ورود سوابق انجام نشد؛ دوباره اسکن کن." }
+                    finally { busy = false }
+                }
+            })
     }
     confirmingPair?.let { pair ->
         JibikModalDialog(onDismissRequest = { if (!busy) confirmingPair = null },

@@ -15,6 +15,8 @@ internal data class BankSmsMatch(
     val fingerprint: String,
     // Inbox receipt-time alias for older imports; never persisted as raw SMS.
     val alternateFingerprint: String? = null,
+    // Ephemeral scan preview only. Never written to the ledger or preferences.
+    val reportedBalanceToman: Long? = null,
 ) {
     val amountToman: Long? get() =
         if (amountRial > 0L && amountRial % 10L == 0L) amountRial / 10L else null

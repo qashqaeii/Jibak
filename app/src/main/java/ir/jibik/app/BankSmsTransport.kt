@@ -59,7 +59,8 @@ internal object BankSmsInboxScanner {
                         ?: continue
                     val alias = if (timestamp != received)
                         BankSmsParser.parse(address, message, received, salt, bankId)?.fingerprint else null
-                    matches.add(parsed.copy(alternateFingerprint = alias))
+                    matches.add(parsed.copy(alternateFingerprint = alias,
+                        reportedBalanceToman = bankReportedBalanceToman(message, parsed)))
                 }
             }
             matches.distinctBy { it.fingerprint }

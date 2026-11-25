@@ -548,6 +548,34 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
      * Intake is idempotent: matching duplicate messages from broadcast and inbox
      * become exactly one candidate. Only minimal metadata is persisted, no SMS body.
      */
+    suspend fun previewBankHistory(matches: List<BankSmsMatch>, context: Context): BankHistoryPreview =
+        withContext(Dispatchers.IO) {
+            require(matches.size <= 500)
+            val profiles = BankSenderRegistry.active(context)
+            val eligible = matches.distinctBy { it.fingerprint }.filter {
+                resolveBankSender(profiles, it.sender, it.bankId, it.accountLast4) != null && it.amountToman != null
+            }
+            val novel = database.withTransaction {
+                eligible.filter { bankSmsDao.find(it.fingerprint) == null &&
+                    it.alternateFingerprint?.let { alias -> bankSmsDao.find(alias) } == null }
+            }
+            val accounts = loadAccounts()
+            val records = load()
+            val balances = FinanceEngine.balances(accounts, records)
+            BankHistoryPreview(novel, eligible.size - novel.size,
+                latestBankComparisons(eligible, profiles, accounts, balances))
+        }
+
+    suspend fun importConfirmedBankHistory(matches: List<BankSmsMatch>, context: Context): Int =
+        withContext(Dispatchers.IO) {
+            check(BuildConfig.BANK_SMS_AVAILABLE && BankSmsSettings.permissionGranted(context))
+            val active = BankSenderRegistry.active(context)
+            require(matches.all { resolveBankSender(active, it.sender, it.bankId, it.accountLast4) != null }) {
+                "Sender mapping changed; scan again"
+            }
+            importBankSms(matches)
+        }
+
     suspend fun importBankSms(matches: List<BankSmsMatch>): Int =
         withContext(Dispatchers.IO) {
             require(matches.size <= 500)
