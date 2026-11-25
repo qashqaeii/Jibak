@@ -73,6 +73,7 @@ internal fun TransactionDetailDialog(
     obligationTitle: String? = null,
     revisions: List<LedgerRevision> = emptyList(),
     voided: Boolean = false,
+    onSchedule: (() -> Unit)? = null,
     onToggleVoid: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     onRepeat: (() -> Unit)? = null,
@@ -242,6 +243,7 @@ internal fun TransactionDetailDialog(
                         Text(if (voided) "بازگردانی تراکنش" else "ابطال تراکنش")
                     }
                 }
+                if (onSchedule != null) TextButton(onClick = onSchedule) { Text("تکرار ماهانهٔ این تراکنش") }
                 if (onEdit != null) TextButton(onClick = onEdit) { Text("اصلاح تراکنش") }
                 revisions.forEach { revision ->
                     val old = revision.previous

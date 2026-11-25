@@ -371,6 +371,7 @@ private fun JibikApp(
             showBankSms = true
         }
     }
+    var recurringSourceId by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedTransactionId by rememberSaveable { mutableStateOf<String?>(null) }
     var receiptRows by remember { mutableStateOf<List<PurchaseLine>?>(null) }
     var receiptLoadError by remember { mutableStateOf(false) }
@@ -545,7 +546,8 @@ private fun JibikApp(
                     val balances = remember(accountRows, ledger) { FinanceEngine.balances(accountRows, ledger) }
                     SpendableBalanceCard(accountRows, balances, goals.toList(), obligations.toList(),
                         obligationPayments.toList(), homeAmountsVisible, recurringRules, recurringDecisions)
-                    FinancialCalendar(store, accountRows, obligations.toList(), obligationPayments.toList(), calendarDay, onCalendarOpened) { retryLoad++ }
+                    FinancialCalendar(store, accountRows, obligations.toList(), obligationPayments.toList(), calendarDay, onCalendarOpened,
+                        records.firstOrNull { it.id == recurringSourceId }, { recurringSourceId = null }) { retryLoad++ }
                 },
                 summary = summary,
                 records = records,
@@ -755,6 +757,12 @@ private fun JibikApp(
                 },
                 revisions = revisions.filter { it.transactionId == id },
                 voided = voided != null,
+                onSchedule = if (voided == null && record.kind != LedgerKind.TRANSFER &&
+                    obligationPayments.none { it.transactionId == id }) ({
+                    recurringSourceId = id
+                    selectedTransactionId = null
+                    section = Section.HOME
+                }) else null,
                 onToggleVoid = if (!bankLinked && receiptRows != null && obligationPayments.none { it.transactionId == id } && !isSaving) ({
                     isSaving = true
                     scope.launch {

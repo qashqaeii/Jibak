@@ -18,7 +18,8 @@ private data class CalendarRow(val day: Long, val title: String, val amount: Lon
 @Composable
 internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
     obligations: List<FinancialObligationEntity>, payments: List<ObligationPaymentEntity>,
-    requestedDay: Long, onOpened: () -> Unit, onLedgerChange: () -> Unit) {
+    requestedDay: Long, onOpened: () -> Unit, source: ir.jibik.core.finance.LedgerRecord?,
+    onSourceUsed: () -> Unit, onLedgerChange: () -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
     LiquidGlassCard(onClick = { open = true }, tone = GlassTone.CRYSTAL) {
         JibikSectionTitle("تقویم مالی", "سررسیدها، حقوق و پرداخت‌های ماهانه")
@@ -31,6 +32,7 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
             onOpened()
         }
     }
+    LaunchedEffect(source?.id) { if (source != null) open = true }
     if (!open) return
     val month = remember(start) { currentJalaliMonth(start) }
     var mode by rememberSaveable { mutableStateOf("calendar") }
@@ -94,6 +96,17 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
     var estimate by rememberSaveable { mutableStateOf("") }
     var date by rememberSaveable { mutableStateOf("") }
     var account by rememberSaveable { mutableStateOf(accounts.firstOrNull()?.id.orEmpty()) }
+    LaunchedEffect(source?.id) {
+        if (source != null) {
+            income = source.kind == ir.jibik.core.finance.LedgerKind.INCOME
+            title = source.note.ifBlank { source.category }.take(70)
+            account = (source.fromAccountId ?: source.toAccountId).orEmpty()
+            estimate = source.amountToman.toString()
+            date = formatJalaliDueDate(offsetJalaliMonth(source.timestampMillis, 1))
+            mode = "new"
+            onSourceUsed()
+        }
+    }
     fun back() { if (mode == "calendar") open = false else mode = "calendar" }
     JibikModalDialog(
         modifier = Modifier.jibikDialogSurface(), properties = JibikWideDialogProperties,
