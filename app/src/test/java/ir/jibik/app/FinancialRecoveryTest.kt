@@ -63,6 +63,64 @@ class FinancialRecoveryTest {
         }
     }
 
+    @Test fun envelopePriorityAndPlanEditsKeepMoneyAndLegacyBackupIntact() = runBlocking {
+        val ctx: Context = RuntimeEnvironment.getApplication()
+        JibikDatabase.open(ctx, "priority-source").withOpenDatabase { db ->
+            val store = LocalLedgerStore(ctx, db)
+            val today = requireNotNull(parseJalaliDueDate("1405/09/01"))
+            store.loadAccounts()
+            store.addAccount(Account("bank", "بانک", 1000))
+            val first = MoneyEnvelope("a", "سفر", "bank", 800, createdAtMillis = today)
+            val second = MoneyEnvelope("b", "اضطراری", "bank", 800, createdAtMillis = today + 1)
+            store.addEnvelope(first); store.addEnvelope(second)
+            store.setEnvelopeReserve(first.id, 0, 600)
+            store.setEnvelopeReserve(second.id, 0, 400)
+            store.append(LedgerRecord("expense", LedgerKind.EXPENSE, 300, fromAccountId = "bank",
+                category = "سایر هزینه‌ها", timestampMillis = today))
+            val balances = FinanceEngine.balances(store.loadAccounts(), store.load())
+            val old = store.loadEnvelopes().first { it.id == second.id }
+            val before = store.backup()
+            assertTrue(runCatching { store.editEnvelope(old, "اضطراری", 399, 2, 100) }.isFailure)
+            store.editEnvelope(old, "صندوق اضطراری", 900, 2, 100)
+            assertTrue(runCatching { store.editEnvelope(old, "قدیمی", 900, 1, 100) }.isFailure)
+            val funding = envelopeFunding(balances, emptyList(), store.loadEnvelopes())
+            assertEquals(listOf("b", "a"), funding.map { it.envelope.id })
+            assertEquals(listOf(400L, 300L), funding.map { it.fundedToman })
+            assertEquals(balances, FinanceEngine.balances(store.loadAccounts(), store.load()))
+            assertTrue(store.envelopeHistory(second.id).first().details.contains("اولویت"))
+            val backup = store.backup()
+            JibikDatabase.open(ctx, "priority-target").withOpenDatabase { targetDb ->
+                val target = LocalLedgerStore(ctx, targetDb)
+                target.loadAccounts(); target.restoreBackup(backup)
+                assertEquals(store.loadEnvelopes(), target.loadEnvelopes())
+                assertEquals(store.envelopeHistory(second.id), target.envelopeHistory(second.id))
+            }
+            val oldBackup = org.json.JSONObject(before.toString()).put("version", 6)
+            for ((table, removed) in listOf("money_envelopes" to setOf("priority", "monthlyPlanToman"),
+                "envelope_events" to setOf("details"))) {
+                val sheet = oldBackup.getJSONObject(table)
+                val names = sheet.getJSONArray("columns")
+                val retained = (0 until names.length()).filter { names.getString(it) !in removed }
+                val columns = org.json.JSONArray()
+                retained.forEach { columns.put(names.getString(it)) }
+                val rows = org.json.JSONArray()
+                val sourceRows = sheet.getJSONArray("rows")
+                for (i in 0 until sourceRows.length()) {
+                    val row = org.json.JSONArray()
+                    retained.forEach { row.put(sourceRows.getJSONArray(i).get(it)) }
+                    rows.put(row)
+                }
+                sheet.put("columns", columns).put("rows", rows)
+            }
+            JibikDatabase.open(ctx, "priority-legacy").withOpenDatabase { targetDb ->
+                val target = LocalLedgerStore(ctx, targetDb)
+                target.loadAccounts(); target.restoreBackup(oldBackup)
+                assertTrue(target.loadEnvelopes().all { it.priority == 1 && it.monthlyPlanToman == 0L })
+                assertEquals(listOf(600L, 100L), envelopeFunding(balances, emptyList(), target.loadEnvelopes()).map { it.fundedToman })
+            }
+        }
+    }
+
     @Test fun virtualEnvelopesReserveOnlyExistingFundsAndRestoreAudit() = runBlocking {
         val ctx: Context = RuntimeEnvironment.getApplication()
         JibikDatabase.open(ctx, "envelope-source").withOpenDatabase { db ->

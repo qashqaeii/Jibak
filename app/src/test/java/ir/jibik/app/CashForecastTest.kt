@@ -37,6 +37,11 @@ class CashForecastTest {
             listOf(repeat), emptyList(), emptyList(), today, end)
         assertEquals((-100).toBigInteger(), f.available)
         assertEquals(due, f.firstDeficitDay)
+        assertEquals(today, f.points.first().day)
+        assertEquals(day("1405/08/19"), f.points.last().day)
+        assertEquals(f.available, f.points.last().available)
+        assertTrue(f.points.any { it.day == due && it.available.signum() < 0 })
+        assertTrue(f.points.zipWithNext().all { (a, b) -> a.day < b.day && a.available >= b.available })
         assertEquals(0.toBigInteger(), f.dailyLimit)
         val overdue = loan.copy(dueAtMillis = day("1405/08/01"), totalToman = 1200)
         assertEquals(today, cashForecast(mapOf("wallet" to 1000L), emptyList(), listOf(overdue), emptyList(),
@@ -58,6 +63,17 @@ class CashForecastTest {
         val tooMuch = simulatePurchase(f, "wallet", 250, balances, emptyList(), listOf(envelope))
         assertEquals(50.toBigInteger(), tooMuch.planShortfall)
         assertFalse(tooMuch.fits)
+    }
+
+    @Test fun goalEstimateUsesOnlyFundedCashAndExplicitMonthlyPlan() {
+        val f = goalEstimate(1000, 450, 200, today)
+        assertEquals(550L, f.remaining)
+        assertEquals(3L, f.months)
+        assertEquals(day("1405/11/10"), f.completionDay)
+        assertNull(goalEstimate(1000, 450, 0, today).months)
+        assertEquals(today, goalEstimate(1000, 1000, 0, today).completionDay)
+        assertEquals(Long.MAX_VALUE, goalEstimate(Long.MAX_VALUE, 0, 1, today).months)
+        assertNull(goalEstimate(Long.MAX_VALUE, 0, 1, today).completionDay)
     }
 
     @Test fun zeroBalanceIsNotDeficitAndSingleDayIsIncluded() {
