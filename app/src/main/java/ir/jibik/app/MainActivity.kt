@@ -580,15 +580,15 @@ private fun JibikApp(
                     val accountRows = accounts.toList()
                     val ledger = records.toList()
                     val balances = remember(accountRows, ledger) { FinanceEngine.balances(accountRows, ledger) }
-                    SpendableBalanceCard(accountRows, balances, goals.toList(), obligations.toList(),
+                    SpendableBalanceCard(accountRows.filterNot { it.archived }, balances, goals.toList(), obligations.toList(),
                         obligationPayments.toList(), homeAmountsVisible, recurringRules, recurringDecisions,
                         envelopes = envelopes, onEnvelopes = { section = Section.ACCOUNTS; showObligations = false; showCategoryManager = false; showGoals = true })
-                    FinancialReviewInbox(store, accountRows, ledger,
+                    FinancialReviewInbox(store, accountRows.filterNot { it.archived }, ledger,
                         onBank = { section = Section.TRANSACTIONS; showBankSms = true },
                         obligations = obligations.toList(), payments = obligationPayments.toList(),
                         customCategories = customCategories.toList(), showAmounts = homeAmountsVisible,
                          onChanged = { retryLoad++ })
-                    FinancialCalendar(store, accountRows, obligations.toList(), obligationPayments.toList(), calendarDay, onCalendarOpened,
+                    FinancialCalendar(store, accountRows.filterNot { it.archived }, obligations.toList(), obligationPayments.toList(), calendarDay, onCalendarOpened,
                         records.firstOrNull { it.id == recurringSourceId }, { recurringSourceId = null },
                         records = ledger, allDecisions = recurringDecisions, customCategories = customCategories.toList(),
                         onPayObligation = { settlingObligationId = it }) { retryLoad++ }
@@ -622,7 +622,7 @@ private fun JibikApp(
             Section.TRANSACTIONS -> if (showBankSms) {
                 BankSmsScreen(
                     store = store,
-                    accounts = accounts,
+                    accounts = accounts.filterNot { it.archived },
                     customCategories = customCategories,
                     existingRecords = records,
                     onBack = { showBankSms = false },
@@ -647,6 +647,7 @@ private fun JibikApp(
                 onBankSms = { showBankSms = true },
             )
             Section.BUDGET -> Budget(
+                weeklyPanel = { WeeklyBudgetPanel(store, records.toList()) },
                 spent = monthTotals.expenseToman,
                 budget = budget,
                 monthTitle = currentMonth.title,
@@ -678,7 +679,7 @@ private fun JibikApp(
             )
             Section.REPORTS -> if (showAssets) AssetsScreen(
                 store = store, assets = assets, balances = FinanceEngine.balances(accounts, records.toList()),
-                obligations = obligations.toList(), payments = obligationPayments.toList(), accounts = accounts.toList(),
+                obligations = obligations.toList(), payments = obligationPayments.toList(), accounts = accounts.filterNot { it.archived },
                 modifier = Modifier.padding(insets), onBack = { showAssets = false },
                 onChanged = { assets = it; retryLoad++ },
             ) else ReportsScreen(
@@ -707,6 +708,7 @@ private fun JibikApp(
             )
             Section.ACCOUNTS -> when {
                 showObligations -> ObligationsScreen(
+                    store = store,
                     obligations = obligations,
                     payments = obligationPayments,
                     modifier = Modifier.padding(insets),
@@ -766,7 +768,7 @@ private fun JibikApp(
                 showGoals -> Box(Modifier.padding(insets)) {
                     GoalsScreen(
                         goals = goals,
-                        accounts = accounts,
+                        accounts = accounts.filterNot { it.archived },
                         balances = FinanceEngine.balances(accounts, records.toList()),
                         envelopes = envelopes, store = store,
                         onEnvelopesChanged = { envelopes = it },
@@ -781,6 +783,7 @@ private fun JibikApp(
                     )
                 }
                 else -> AccountsScreen(
+                    store = store, onChanged = { retryLoad++ },
                     accounts = accounts,
                     balances = FinanceEngine.balances(accounts, records.toList()),
                     modifier = Modifier.padding(insets),
@@ -907,7 +910,7 @@ private fun JibikApp(
             SettleObligationDialog(
                 obligation = obligation,
                 payments = obligationPayments,
-                accounts = accounts,
+                accounts = accounts.filterNot { it.archived },
                 records = records.filter { record -> recurringDecisions.none { it.transactionId == record.id } },
                 isSaving = isSaving,
                 onDismiss = { if (!isSaving) settlingObligationId = null },
@@ -966,7 +969,7 @@ private fun JibikApp(
     }
     if (showNewGoal) {
         NewGoalDialog(
-            accounts = accounts.filter { account -> envelopes.none { it.accountId == account.id } },
+            accounts = accounts.filter { account -> !account.archived && envelopes.none { it.accountId == account.id } },
             goals = goals,
             onDismiss = { if (!isSaving) showNewGoal = false },
             isSaving = isSaving,
@@ -994,7 +997,7 @@ private fun JibikApp(
     val editingReceiptLines = receiptEditId?.let { savedReceiptLines[it] }
     if (showItemizedPurchase && (receiptEditId == null || (editingReceipt != null && !editingReceiptLines.isNullOrEmpty()))) {
         ItemizedPurchaseDialog(
-            accounts = accounts,
+            accounts = accounts.filterNot { it.archived },
             customCategories = customCategories,
             onDismiss = { if (!isSaving) { showItemizedPurchase = false; receiptEditId = null } },
             original = editingReceipt,
@@ -1079,7 +1082,7 @@ private fun JibikApp(
     }
     if (showAdd) {
         AddTransactionDialog(
-            accounts = accounts,
+            accounts = accounts.filterNot { it.archived },
             customCategories = customCategories,
             initialKind = addKind,
             initialTargetAccountId = addTargetAccountId,
@@ -2016,6 +2019,7 @@ internal fun jibikBudgetGuidance(spent: Long, limit: Long): String {
 
 @Composable
 private fun Budget(
+    weeklyPanel: @Composable () -> Unit,
     spent: Long,
     budget: Long,
     monthTitle: String,
@@ -2091,6 +2095,7 @@ private fun Budget(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+        weeklyPanel()
         CategoryBudgetsPanel(
             budgets = categoryBudgets,
             usage = categoryUsage,

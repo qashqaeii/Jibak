@@ -84,8 +84,8 @@ internal fun AssetsScreen(store: LocalLedgerStore, assets: List<AssetPosition>,
                 Text(formatToman(item.valueToman), style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.ExtraBold, color = JibikStyle.forest)
                 Text("آخرین ارزش‌گذاری: " + formatJalaliDueDate(item.valuationAtMillis), color = JibikStyle.muted)
-                item.valuationChange?.let { JibikFinancialDetail("تغییر نسبت به بهای ثبت‌شده", forecastMoney(it)) }
-                Text(if (item.archived) "مشاهده سوابق و بازیابی" else "جزئیات و به‌روزرسانی ارزش", color = JibikStyle.forest)
+                item.valuationChange?.let { JibikFinancialDetail(if (item.sold) "اختلاف دریافتی فروش و بهای خرید" else "تغییر نسبت به بهای ثبت‌شده", forecastMoney(it)) }
+                Text(when { item.sold -> "فروخته‌شده · مشاهده سوابق"; item.archived -> "مشاهده سوابق و بازیابی"; else -> "جزئیات و به‌روزرسانی ارزش" }, color = JibikStyle.forest)
             }
         }
         if (error.isNotBlank() && !create && selected == null) JibikFormHint(error, isWarning = true)

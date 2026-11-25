@@ -41,6 +41,7 @@ private fun obligationKindName(kind: String): String = when (kind) {
 /** Dedicated offline liabilities workspace. Creating a promise never posts money. */
 @Composable
 internal fun ObligationsScreen(
+    store: LocalLedgerStore,
     obligations: List<FinancialObligationEntity>,
     payments: List<ObligationPaymentEntity>,
     onBack: () -> Unit,
@@ -56,6 +57,7 @@ internal fun ObligationsScreen(
     val now = System.currentTimeMillis()
     var expandedPaymentId by rememberSaveable { mutableStateOf("") }
     var showingHistoryId by rememberSaveable { mutableStateOf("") }
+    var loanId by rememberSaveable { mutableStateOf<String?>(null) }
     val active = obligations.filter { !obligationProgress(it, payments).settled }
     val due = active.count { item ->
         val installment = nextUnpaidInstallment(item, payments)
@@ -212,6 +214,7 @@ internal fun ObligationsScreen(
                     Text(item.note, fontSize = 12.sp,
                         color = JibikStyle.muted, maxLines = 3)
                 }
+                if (item.kind == "LOAN") TextButton(onClick = { loanId = item.id }, enabled = !isSaving) { Text("اصل و سود وام") }
                 val itemPayments = payments.filter { it.obligationId == item.id }
                 Text(itemPayments.size.toString() + " پرداخت/دریافت ثبت‌شده",
                     color = JibikStyle.muted, fontSize = 11.sp)
@@ -284,6 +287,7 @@ internal fun ObligationsScreen(
             }
         }
     }
+    loanId?.let { id -> LoanManagementDialog(store, id, onDismiss = { loanId = null }) }
 }
 
 @Composable

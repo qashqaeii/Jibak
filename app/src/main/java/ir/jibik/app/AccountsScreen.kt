@@ -68,6 +68,8 @@ internal fun parseAccountAmount(raw: String): Long? {
 internal fun AccountsScreen(
     accounts: List<Account>,
     balances: Map<String, Long>,
+    store: LocalLedgerStore,
+    onChanged: () -> Unit,
     modifier: Modifier = Modifier,
     onAdd: () -> Unit,
     onTransfer: () -> Unit,
@@ -75,9 +77,10 @@ internal fun AccountsScreen(
     onCategories: () -> Unit,
     onObligations: () -> Unit,
 ) {
-    val totalBalance = balances.values.fold(0L) { total, value ->
-        Math.addExact(total, value)
-    }
+    val totalBalance = balances.values.fold(java.math.BigInteger.ZERO) { total, value -> total + value.toBigInteger() }
+    var showArchived by rememberSaveable { mutableStateOf(false) }
+    var selectedAccount by rememberSaveable { mutableStateOf<String?>(null) }
+    val active = accounts.filterNot { it.archived }
     Column(
         modifier.fillMaxSize().liquidBackdrop()
             .verticalScroll(rememberScrollState())
@@ -90,7 +93,7 @@ internal fun AccountsScreen(
         )
         JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.ACCOUNTS) {
             Text("موجودی کل حساب‌ها", fontSize = 13.sp, color = Color(0xFFDAF1E7))
-            JibikHeroAmount(accountMoney(totalBalance))
+            JibikHeroAmount(forecastMoney(totalBalance))
             Text(
                 "${accounts.size} حساب ثبت‌شده · بدون دوباره‌شماری انتقال‌ها",
                 fontSize = 12.sp, color = Color(0xFFD4EEE6),
@@ -109,7 +112,7 @@ internal fun AccountsScreen(
             LiquidGlassButton(
                 text = "انتقال پول",
                 onClick = onTransfer,
-                enabled = accounts.size > 1,
+                enabled = active.size > 1,
                 tone = GlassTone.CRYSTAL,
                 modifier = Modifier.weight(1f).heightIn(min = 54.dp),
             )
@@ -118,10 +121,13 @@ internal fun AccountsScreen(
             title = "حساب‌های ثبت‌شده",
             subtitle = "جزئیات موجودی هر حساب",
         )
-        accounts.forEachIndexed { index, account ->
+        JibikSegmentedControl(listOf(false to "فعال", true to "بایگانی"), showArchived, onSelected = { showArchived = it })
+        val displayed = accounts.filter { it.archived == showArchived }
+        if (displayed.isEmpty()) JibikFormHint("حسابی در این بخش نیست.")
+        displayed.forEach { account ->
             LiquidGlassCard(
                 modifier = Modifier.fillMaxWidth(),
-                tone = GlassTone.CRYSTAL,
+                tone = GlassTone.CRYSTAL, onClick = { selectedAccount = account.id },
             ) {
                 Column(
                     Modifier.fillMaxWidth(),
@@ -154,7 +160,7 @@ internal fun AccountsScreen(
                             }
                         }
                         Text(
-                            if (account.id == "wallet") "اصلی" else "فعال",
+                            if (account.id == "wallet") "اصلی" else if (account.archived) "بایگانی" else "فعال",
                             fontSize = 11.sp, color = Green,
                         )
                     }
@@ -227,6 +233,10 @@ internal fun AccountsScreen(
             }
         }
         Spacer(Modifier.height(12.dp))
+    }
+    accounts.firstOrNull { it.id == selectedAccount }?.let { account ->
+        AccountManagementDialog(store, account, balances.getValue(account.id), onDismiss = { selectedAccount = null },
+            onChanged = { selectedAccount = null; onChanged() })
     }
 }
 

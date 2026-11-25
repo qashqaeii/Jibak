@@ -166,16 +166,17 @@ internal fun JibikAccountChoice(
     emptyHint: String = "حساب قابل انتخابی وجود ندارد",
     enabled: Boolean = true,
 ) {
+    val eligible = accounts.filterNot { it.archived }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Text(title, color = JibikStyle.muted, fontSize = 12.sp)
-        if (accounts.isEmpty()) {
+        if (eligible.isEmpty()) {
             Text(emptyHint, color = JibikStyle.coral, fontSize = 12.sp)
         } else {
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                accounts.forEach { account ->
+                eligible.forEach { account ->
                     JibikGlassChip(
                         text = account.title,
                         selected = selectedId == account.id,
