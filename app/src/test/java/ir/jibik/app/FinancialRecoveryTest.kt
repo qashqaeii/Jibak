@@ -14,12 +14,16 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [32])
 class FinancialRecoveryTest {
+    private inline fun JibikDatabase.withOpenDatabase(block: (JibikDatabase) -> Unit) {
+        try { block(this) } finally { close() }
+    }
+
     @Test fun migrateCorrectLinkAndRestoreWithoutChangingBalances() = runBlocking {
-        val ctx: Context = RuntimeEnvironment.getApplication()
+        val ctx: Context = RuntimeEnvironment.getApplication<android.app.Application>()
         val name = "recovery-test"
         val record = LedgerRecord("purchase", LedgerKind.EXPENSE, 30, fromAccountId = "wallet",
             category = "خرید", timestampMillis = 1000)
-        JibikDatabase.open(ctx, name).use { db ->
+        JibikDatabase.open(ctx, name).withOpenDatabase { db ->
             val store = LocalLedgerStore(ctx, db)
             store.append(record)
         }
@@ -30,7 +34,7 @@ class FinancialRecoveryTest {
             it.execSQL("DROP TABLE ledger_voids")
             it.version = 8
         }
-        JibikDatabase.open(ctx, name).use { db ->
+        JibikDatabase.open(ctx, name).withOpenDatabase { db ->
             val source = LocalLedgerStore(ctx, db)
             val corrected = record.copy(amountToman = 25)
             source.correct(record, corrected)
@@ -50,7 +54,7 @@ class FinancialRecoveryTest {
             val bytes = FinancialBackup.encrypt(source.backup(), pass)
             assertTrue(runCatching { FinancialBackup.decrypt(bytes, "wrong-password".toCharArray()) }.isFailure)
             val backup = FinancialBackup.decrypt(bytes, pass)
-            JibikDatabase.open(ctx, "restored").use { targetDb ->
+            JibikDatabase.open(ctx, "restored").withOpenDatabase { targetDb ->
                 val target = LocalLedgerStore(ctx, targetDb)
                 target.loadAccounts()
                 val damaged = org.json.JSONObject(backup.toString())
