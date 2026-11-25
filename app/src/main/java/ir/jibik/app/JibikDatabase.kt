@@ -63,6 +63,15 @@ internal data class LedgerRevision(
     @androidx.room.Embedded(prefix = "old_") val previous: LedgerEntity,
 )
 
+@Entity(tableName = "financial_edit_history", indices = [Index("transactionId")])
+internal data class FinancialEditHistory(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val transactionId: String,
+    val atMillis: Long,
+    val action: String,
+    val details: String,
+)
+
 @Entity(tableName = "monthly_budget")
 internal data class MonthlyBudget(@PrimaryKey val id: Int = 1, val amount: Long)
 
@@ -100,6 +109,12 @@ internal interface LedgerDao {
 
     @Insert
     suspend fun recordRevision(revision: LedgerRevision)
+
+    @Insert
+    suspend fun recordFinancialEdit(row: FinancialEditHistory)
+
+    @Query("SELECT * FROM financial_edit_history WHERE transactionId = :id ORDER BY id DESC")
+    suspend fun financialEdits(id: String): List<FinancialEditHistory>
 
     @Query("SELECT * FROM ledger_revisions WHERE transactionId = :id ORDER BY revisionId DESC")
     suspend fun revisions(id: String): List<LedgerRevision>
@@ -141,6 +156,9 @@ internal interface PurchaseLineDao {
 
     @Query("SELECT * FROM purchase_lines WHERE transactionId = :transactionId ORDER BY lineIndex")
     suspend fun forTransaction(transactionId: String): List<PurchaseLineEntity>
+
+    @Query("DELETE FROM purchase_lines WHERE transactionId = :transactionId")
+    suspend fun removeForTransaction(transactionId: String): Int
 
     @Query("SELECT * FROM purchase_lines ORDER BY transactionId, lineIndex")
     suspend fun all(): List<PurchaseLineEntity>
@@ -251,6 +269,9 @@ internal interface ObligationPaymentDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(row: ObligationPaymentEntity)
+
+    @Query("DELETE FROM obligation_payments WHERE transactionId = :id")
+    suspend fun detach(id: String): Int
 }
 
 /** Opt-in bank SMS inbox: only verified transaction metadata, never raw SMS bodies. */
@@ -290,6 +311,12 @@ internal interface BankSmsCandidateDao {
     @Query("SELECT EXISTS(SELECT 1 FROM bank_sms_candidates WHERE linkedTransactionId = :id)")
     suspend fun isLinked(id: String): Boolean
 
+    @Query("SELECT * FROM bank_sms_candidates WHERE linkedTransactionId = :id")
+    suspend fun linked(id: String): List<BankSmsCandidateEntity>
+
+    @Query("UPDATE bank_sms_candidates SET state = 'PENDING', linkedTransactionId = NULL WHERE linkedTransactionId = :id")
+    suspend fun detach(id: String): Int
+
     @Query("DELETE FROM bank_sms_candidates WHERE state != 'PENDING' AND receivedAtMillis < :olderThan")
     suspend fun purgeOlderHandled(olderThan: Long): Int
 }
@@ -328,9 +355,9 @@ internal interface SavingsGoalDao {
         PurchaseLineEntity::class, SavingsGoalEntity::class,
         CustomCategoryEntity::class, CategoryBudgetEntity::class,
         FinancialObligationEntity::class, ObligationPaymentEntity::class,
-        BankSmsCandidateEntity::class, LedgerRevision::class, MonthlyBudget::class, LedgerVoid::class, RecurringRule::class, RecurringDecision::class,
+        BankSmsCandidateEntity::class, LedgerRevision::class, MonthlyBudget::class, LedgerVoid::class, RecurringRule::class, RecurringDecision::class, FinancialEditHistory::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = false,
 )
 internal abstract class JibikDatabase : RoomDatabase() {
@@ -508,6 +535,13 @@ internal abstract class JibikDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE financial_edit_history (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, transactionId TEXT NOT NULL, atMillis INTEGER NOT NULL, action TEXT NOT NULL, details TEXT NOT NULL)")
+                db.execSQL("CREATE INDEX index_financial_edit_history_transactionId ON financial_edit_history(transactionId)")
+            }
+        }
+
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
                 instance ?: open(context, "jibik_ledger_v1.db").also { instance = it }
@@ -520,7 +554,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
                     name,
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
+                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
                 ).build()
     }
 }

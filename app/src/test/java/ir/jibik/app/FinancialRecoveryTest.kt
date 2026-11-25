@@ -48,6 +48,43 @@ class FinancialRecoveryTest {
         }
     }
 
+    @Test fun receiptCorrectionAndDetachingKeepAuditAndExactBalances() = runBlocking {
+        val ctx: Context = RuntimeEnvironment.getApplication()
+        JibikDatabase.open(ctx, "receipt-edit").withOpenDatabase { db ->
+            val store = LocalLedgerStore(ctx, db)
+            val day = requireNotNull(parseJalaliDueDate("۱۴۰۳/۰۶/۱۵"))
+            val original = LedgerRecord("receipt", LedgerKind.EXPENSE, 30, fromAccountId = "wallet",
+                category = "خرید", timestampMillis = day)
+            val old = listOf(PurchaseLine("نان", "خوراک", 3, 10))
+            val changed = listOf(PurchaseLine("نان", "خوراک", 2, 10))
+            store.appendItemizedPurchase(original, old)
+            store.addObligation(FinancialObligationEntity("bill", "قبض", "BILL", 100, day, 1, "", day))
+            store.linkObligationPayment("bill", "wallet", original.id)
+            val before = FinanceEngine.balances(store.loadAccounts(), store.load())
+            assertTrue(runCatching { store.correctReceipt(original, original.copy(amountToman = 20), old, changed) }.isFailure)
+            store.detachPaymentLinks(original)
+            assertEquals(before, FinanceEngine.balances(store.loadAccounts(), store.load()))
+            assertTrue(store.loadObligationPayments().isEmpty())
+            assertTrue(runCatching { store.correctReceipt(original, original.copy(amountToman = 21), old, changed) }.isFailure)
+            assertEquals(old, store.loadPurchaseLines(original.id))
+            store.correctReceipt(original, original.copy(amountToman = 20), old, changed)
+            assertEquals(changed, store.loadPurchaseLines(original.id))
+            assertEquals(-20L, FinanceEngine.balances(store.loadAccounts(), store.load()).getValue("wallet"))
+            assertEquals(2, store.financialEdits(original.id).size)
+            assertEquals(original, store.revisions(original.id).single().previous.toRecord())
+            assertTrue(runCatching { store.correctReceipt(original, original.copy(amountToman = 20), old, changed) }.isFailure)
+            val backup = store.backup()
+            JibikDatabase.open(ctx, "receipt-edit-restore").withOpenDatabase { targetDb ->
+                val target = LocalLedgerStore(ctx, targetDb)
+                target.loadAccounts()
+                target.restoreBackup(backup)
+                assertEquals(store.financialEdits(original.id), target.financialEdits(original.id))
+                assertEquals(store.load(), target.load())
+                assertEquals(changed, target.loadPurchaseLines(original.id))
+            }
+        }
+    }
+
     @Test fun migrateCorrectLinkAndRestoreWithoutChangingBalances() = runBlocking {
         val ctx: Context = RuntimeEnvironment.getApplication()
         val name = "recovery-test"
@@ -59,6 +96,7 @@ class FinancialRecoveryTest {
         }
         // Construct the v8 layout and reopen through the production migration chain.
         SQLiteDatabase.openDatabase(ctx.getDatabasePath(name).path, null, SQLiteDatabase.OPEN_READWRITE).use {
+            it.execSQL("DROP TABLE financial_edit_history")
             it.execSQL("DROP TABLE ledger_revisions")
             it.execSQL("DROP TABLE monthly_budget")
             it.execSQL("DROP TABLE ledger_voids")

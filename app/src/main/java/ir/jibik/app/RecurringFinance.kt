@@ -20,6 +20,10 @@ internal interface RecurringDao {
     suspend fun decisions(start: Long, end: Long): List<RecurringDecision>
     @Query("SELECT EXISTS(SELECT 1 FROM recurring_decisions WHERE transactionId = :transactionId)")
     suspend fun isLinked(transactionId: String): Boolean
+    @Query("SELECT * FROM recurring_decisions WHERE transactionId = :transactionId")
+    suspend fun linked(transactionId: String): List<RecurringDecision>
+    @Query("DELETE FROM recurring_decisions WHERE transactionId = :transactionId")
+    suspend fun detach(transactionId: String): Int
     @Insert suspend fun add(rule: RecurringRule)
     @Insert suspend fun decide(row: RecurringDecision)
     @Query("UPDATE recurring_rules SET stoppedAt = :day WHERE id = :id AND stoppedAt IS NULL")

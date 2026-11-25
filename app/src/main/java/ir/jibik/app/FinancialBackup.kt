@@ -16,7 +16,7 @@ import javax.crypto.spec.SecretKeySpec
 internal object FinancialBackup {
     val tables = listOf("financial_accounts", "ledger_records", "custom_categories",
         "category_budgets", "financial_obligations", "savings_goals", "purchase_lines",
-        "obligation_payments", "bank_sms_candidates", "ledger_revisions", "ledger_voids", "recurring_rules", "recurring_decisions")
+        "obligation_payments", "bank_sms_candidates", "ledger_revisions", "ledger_voids", "recurring_rules", "recurring_decisions", "financial_edit_history")
     private val magic = "JIBIKBAK1".toByteArray(Charsets.US_ASCII)
     const val maxBytes = 32 * 1024 * 1024
 
@@ -25,7 +25,7 @@ internal object FinancialBackup {
 
     suspend fun snapshot(room: JibikDatabase, budget: Long): JSONObject = room.withTransaction {
         val db = room.openHelper.writableDatabase
-        val root = JSONObject().put("version", 3).put("budget", budget)
+        val root = JSONObject().put("version", 4).put("budget", budget)
         tables.forEach { table ->
             db.query("SELECT * FROM $table").use { rows ->
                 val data = JSONArray()
@@ -49,7 +49,7 @@ internal object FinancialBackup {
     }
 
     suspend fun restore(room: JibikDatabase, root: JSONObject) = room.withTransaction {
-        require(root.getInt("version") in 1..3 && root.getLong("budget") >= 0)
+        require(root.getInt("version") in 1..4 && root.getLong("budget") >= 0)
         val db = room.openHelper.writableDatabase
         // Restore on a fresh ledger only. Recheck inside the write transaction.
         tables.forEach { table ->
@@ -59,6 +59,7 @@ internal object FinancialBackup {
         }
         db.execSQL("DELETE FROM financial_accounts")
         tables.forEach { table ->
+            if (root.getInt("version") < 4 && table == "financial_edit_history") return@forEach
             if (root.getInt("version") < 3 && table.startsWith("recurring_")) return@forEach
             if (root.getInt("version") == 1 && table == "ledger_voids") return@forEach
             val sheet = root.getJSONObject(table)
@@ -101,8 +102,8 @@ internal object FinancialBackup {
         val clear = cipher(password, header, Cipher.DECRYPT_MODE).doFinal(data, size, data.size - size)
         return try {
             JSONObject(clear.toString(Charsets.UTF_8)).also { root ->
-                require(root.getInt("version") in 1..3 && root.getLong("budget") >= 0)
-                tables.filter { (!it.startsWith("recurring_") || root.getInt("version") >= 3) && (it != "ledger_voids" || root.getInt("version") >= 2) }.forEach { root.getJSONObject(it).getJSONArray("rows") }
+                require(root.getInt("version") in 1..4 && root.getLong("budget") >= 0)
+                tables.filter { (it != "financial_edit_history" || root.getInt("version") >= 4) && (!it.startsWith("recurring_") || root.getInt("version") >= 3) && (it != "ledger_voids" || root.getInt("version") >= 2) }.forEach { root.getJSONObject(it).getJSONArray("rows") }
             }
         } finally { clear.fill(0) }
     }

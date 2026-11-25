@@ -195,6 +195,72 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
     }
 
     suspend fun revisions(id: String) = withContext(Dispatchers.IO) { dao.revisions(id) }
+    suspend fun financialEdits(id: String) = withContext(Dispatchers.IO) { dao.financialEdits(id) }
+
+    /** Reopen linked commitments and bank suggestions without moving money. */
+    suspend fun detachPaymentLinks(record: LedgerRecord) = database.withTransaction {
+        val saved = dao.find(record.id)?.toRecord()
+            ?: dao.voided().firstOrNull { it.id == record.id }?.toRecord()
+        check(saved == record) { "Transaction changed" }
+        val obligations = obligationPaymentDao.list().filter { it.transactionId == record.id }
+        val recurring = database.recurringDao().linked(record.id)
+        val banks = bankSmsDao.linked(record.id)
+        check(obligations.isNotEmpty() || recurring.isNotEmpty() || banks.isNotEmpty())
+        val obligationTitles = obligationDao.list().associate { it.id to it.title }
+        val ruleTitles = database.recurringDao().rules().associate { it.id to it.title }
+        val details = buildString {
+            obligations.forEach { row ->
+                appendLine("تعهد: " + obligationTitles[row.obligationId].orEmpty() + " · " + row.obligationId + " · " + row.amountToman + " تومان · " + row.paidAtMillis)
+            }
+            recurring.forEach { row ->
+                appendLine("نوبت: " + ruleTitles[row.ruleId].orEmpty() + " · " + row.ruleId + " · " + formatJalaliDueDate(row.day) + " · " + row.day + " · " + row.actual)
+            }
+            banks.forEach { row ->
+                appendLine("پیام بانکی: " + row.bankTitle + " · " + row.id + " · " + row.amountRial + " ریال · " + row.receivedAtMillis)
+            }
+        }
+        dao.recordFinancialEdit(FinancialEditHistory(transactionId = record.id,
+            atMillis = System.currentTimeMillis(), action = "DETACH", details = details))
+        check(obligationPaymentDao.detach(record.id) == obligations.size)
+        check(database.recurringDao().detach(record.id) == recurring.size)
+        check(bankSmsDao.detach(record.id) == banks.size)
+    }
+
+    suspend fun correctReceipt(original: LedgerRecord, corrected: LedgerRecord,
+        oldLines: List<PurchaseLine>, lines: List<PurchaseLine>) = database.withTransaction {
+        require(original.id == corrected.id && original.kind == LedgerKind.EXPENSE)
+        validateItemizedPurchase(corrected, lines)
+        val previous = requireNotNull(dao.find(original.id))
+        check(previous.toRecord() == original)
+        check(!bankSmsDao.isLinked(original.id) && !database.recurringDao().isLinked(original.id))
+        check(obligationPaymentDao.list().none { it.transactionId == original.id })
+        val purchaseDao = database.purchaseLineDao()
+        val stored = purchaseDao.forTransaction(original.id).map {
+            PurchaseLine(it.title, it.category, it.quantity, it.unitPriceToman, it.unit)
+        }
+        check(stored.isNotEmpty() && stored == oldLines) { "Receipt changed" }
+        val normalized = lines.map { it.copy(title = it.title.trim(), category = it.category.trim()) }
+        val categories = customCategoryDao.list()
+        require(normalized.all { line -> stored.any { it.category == line.category } ||
+            isSelectableCategory(line.category, false, categories) })
+        if (original != corrected || stored != normalized) {
+            FinanceEngine.balances(accountDao.list().map { it.toAccount() },
+                dao.getAll().map { if (it.id == original.id) corrected else it.toRecord() })
+            val now = System.currentTimeMillis()
+            dao.recordRevision(LedgerRevision(transactionId = original.id, editedAt = now, previous = previous))
+            val details = stored.joinToString("\n") {
+                it.title + " · " + it.category + " · " + it.quantity + " " + it.unit + " × " + it.unitPriceToman + " تومان"
+            }
+            dao.recordFinancialEdit(FinancialEditHistory(transactionId = original.id,
+                atMillis = now, action = "RECEIPT", details = details))
+            check(dao.update(corrected.toEntity()) == 1)
+            check(purchaseDao.removeForTransaction(original.id) == stored.size)
+            purchaseDao.insertAll(normalized.mapIndexed { index, line ->
+                PurchaseLineEntity(original.id, index, line.title, line.category, line.quantity,
+                    line.unitPriceToman, line.unit)
+            })
+        }
+    }
 
     suspend fun correct(original: LedgerRecord, corrected: LedgerRecord) = withContext(Dispatchers.IO) {
         require(original.id == corrected.id)
