@@ -299,6 +299,9 @@ internal interface BankSmsCandidateDao {
     @Query("SELECT * FROM bank_sms_candidates WHERE state = 'PENDING' ORDER BY receivedAtMillis DESC, id DESC")
     suspend fun pending(): List<BankSmsCandidateEntity>
 
+    @Query("SELECT DISTINCT linkedTransactionId FROM bank_sms_candidates WHERE linkedTransactionId IS NOT NULL")
+    suspend fun linkedTransactionIds(): List<String>
+
     @Query("SELECT * FROM bank_sms_candidates WHERE id = :id LIMIT 1")
     suspend fun find(id: String): BankSmsCandidateEntity?
 

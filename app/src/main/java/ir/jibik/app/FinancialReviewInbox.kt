@@ -21,6 +21,7 @@ internal fun FinancialReviewInbox(store: LocalLedgerStore, accounts: List<Accoun
     var rules by remember { mutableStateOf(emptyList<RecurringRule>()) }
     var decisions by remember { mutableStateOf(emptyList<RecurringDecision>()) }
     var bank by remember { mutableStateOf(emptyList<BankSmsCandidateEntity>()) }
+    var bankLinkedIds by remember { mutableStateOf(emptySet<String>()) }
     var reload by remember { mutableIntStateOf(0) }
     var selected by remember { mutableStateOf<Pair<RecurringRule, Long>?>(null) }
     var amount by remember { mutableStateOf("") }
@@ -37,6 +38,7 @@ internal fun FinancialReviewInbox(store: LocalLedgerStore, accounts: List<Accoun
             rules = store.recurringRules()
             decisions = store.allRecurringDecisions()
             bank = store.pendingBankSmsSuggestions()
+            bankLinkedIds = store.bankLinkedTransactionIds()
             loaded = true
         } catch (e: CancellationException) { throw e }
         catch (_: Exception) { loaded = false; error = "صندوق بررسی بارگذاری نشد." }
@@ -108,7 +110,7 @@ internal fun FinancialReviewInbox(store: LocalLedgerStore, accounts: List<Accoun
                                 (it.fromAccountId ?: it.toAccountId) == rule.accountId &&
                                 kotlin.math.abs(it.timestampMillis - day) < 36L * 60 * 60 * 1000
                         }
-                        if (showAmounts && matches.isNotEmpty()) JibikFormHint("پرداخت مشابه پیدا شد؛ برای جلوگیری از ثبت دوباره، مورد درست را انتخاب کن.")
+                        if (matches.isNotEmpty()) JibikFormHint("پرداخت مشابه پیدا شد؛ برای جلوگیری از ثبت دوباره، مورد درست را انتخاب کن.")
                         (if (showAmounts) matches else emptyList()).forEach { match ->
                             TextButton(enabled = loaded && !busy, onClick = {
                                 submit { store.linkRecurring(rule.id, day, match) }
@@ -148,22 +150,37 @@ internal fun FinancialReviewInbox(store: LocalLedgerStore, accounts: List<Accoun
             onDismiss = { if (!busy) { selectedBank = null; error = "" } },
             onConfirm = { record, link -> submit {
                 if (link) store.linkBankSms(item.id, record) else store.registerBankSms(item.id, record)
-            } }, error = error)
+            } }, error = error, linkedIds = bankLinkedIds)
     }
     selected?.let { (rule, day) ->
         val parsed = parseTomanDraft(amount)
+        val matches = records.filter {
+            it.id !in usedIds &&
+                it.kind == (if (rule.income) LedgerKind.INCOME else LedgerKind.EXPENSE) &&
+                (it.fromAccountId ?: it.toAccountId) == rule.accountId &&
+                kotlin.math.abs(it.timestampMillis - day) < 36L * 60 * 60 * 1000
+        }.sortedBy { if (it.amountToman == rule.amount) 0 else 1 }
         JibikModalDialog(
             modifier = Modifier.jibikDialogSurface(), properties = JibikWideDialogProperties,
             onDismissRequest = { if (!busy) selected = null },
             title = { JibikDialogHeading("تأیید نوبت", rule.title) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    JibikTomanField(amount, { amount = it }, "مبلغ واقعی")
+                Column(Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(formatJalaliDueDate(day) + " · " + accounts.firstOrNull { it.id == rule.accountId }?.title.orEmpty())
+                    if (matches.isNotEmpty()) JibikFormHint("اگر این نوبت قبلاً پرداخت شده، تراکنش موجود را انتخاب کن؛ مبلغ دوباره از حساب کم نمی‌شود.")
+                    matches.forEach { match ->
+                        TextButton(enabled = loaded && !busy, onClick = { submit { store.linkRecurring(rule.id, day, match) } }) {
+                            Text(listOf("اتصال", formatToman(match.amountToman), formatJalaliDueDate(match.timestampMillis),
+                                match.note, match.id.take(8)).filter { it.isNotBlank() }.joinToString(" · "))
+                        }
+                    }
+                    JibikTomanField(amount, { amount = it }, "مبلغ پرداخت جدید", enabled = !busy)
                     if (error.isNotEmpty()) JibikFormHint(error, isWarning = true)
                     if (!loaded) TextButton(onClick = { error = ""; reload++ }) { Text("تلاش دوباره") }
                 }
             },
-            confirmButton = { LiquidGlassButton("ثبت", enabled = loaded && !busy && parsed != null && parsed > 0, onClick = {
+            confirmButton = { LiquidGlassButton("ثبت پرداخت جدید", enabled = loaded && !busy && parsed != null && parsed > 0, onClick = {
                 submit { store.decideRecurring(rule.id, day, requireNotNull(parsed)) }
             }) },
             dismissButton = { TextButton(enabled = !busy, onClick = { selected = null }) { Text("انصراف") } },

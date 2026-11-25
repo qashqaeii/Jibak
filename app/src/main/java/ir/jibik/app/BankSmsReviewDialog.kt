@@ -36,6 +36,7 @@ internal fun BankSmsReviewDialog(
     onDismiss: () -> Unit,
     onConfirm: (LedgerRecord, Boolean) -> Unit,
     error: String = "",
+    linkedIds: Set<String> = emptySet(),
 ) {
     val income = candidate.income
     var accountId by remember(candidate.id) {
@@ -49,7 +50,7 @@ internal fun BankSmsReviewDialog(
     val amount = candidate.amountRial.takeIf { it > 0L && it % 10L == 0L }
         ?.div(10L)
     val matches = existingRecords.filter {
-        it.kind == (if (income) LedgerKind.INCOME else LedgerKind.EXPENSE) &&
+        it.id !in linkedIds && it.kind == (if (income) LedgerKind.INCOME else LedgerKind.EXPENSE) &&
             it.amountToman == amount &&
             (if (income) it.toAccountId else it.fromAccountId) == accountId &&
             kotlin.math.abs(it.timestampMillis - candidate.receivedAtMillis) < 900_000L
