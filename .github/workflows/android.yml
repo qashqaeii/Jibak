@@ -121,7 +121,7 @@ jobs:
             "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "${apks[0]}" | sed -n '1p'
           } > app/build/outputs/apk/debug/update-identity.txt
           if [[ "$stable" != true ]]; then
-            echo "Primary APK is not distributed: persistent signing is missing." >> "$GITHUB_STEP_SUMMARY"
+            echo "Development APK only: fresh installation; in-place updates are not guaranteed." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Persistent test-channel signing verified. Prior APK must have the same certificate." >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -133,6 +133,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Jibik-update-signed-apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/debug/*.apk.sha256
+            app/build/outputs/apk/debug/update-identity.txt
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload fresh-install development APK
+        if: success() && steps.signing.outputs.stable == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Jibik-dev-fresh-install-only
           path: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/debug/*.apk.sha256
@@ -166,6 +177,17 @@ jobs:
           path: app/build/outputs/apk/smsDebug/
           if-no-files-found: error
           retention-days: 14
+      - name: Upload fresh-install bank SMS development APK
+        if: success() && steps.signing.outputs.stable == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Jibik-bank-sms-dev-fresh-install-only
+          path: |
+            app/build/outputs/apk/smsDebug/*.apk
+            app/build/outputs/apk/smsDebug/*.apk.sha256
+            app/build/outputs/apk/smsDebug/update-identity.txt
+          if-no-files-found: error
+          retention-days: 14
       - name: Build isolated recovery APK
         if: success() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: gradle --no-daemon :app:assembleRecoveryDebug --stacktrace
@@ -185,8 +207,8 @@ jobs:
           sha256sum "${apks[0]}" > "${apks[0]}.sha256"
           printf '%s\n' 'RECOVERY ONLY: independent package ir.jibik.app.recovery.' 'Install alongside the old app; restore encrypted backup and compare data.' 'Never uninstall the old app until recovery has been verified.' > app/build/outputs/apk/recoveryDebug/RECOVERY-README.txt
           if [[ "${{ steps.signing.outputs.stable }}" != true ]]; then
-            echo "::warning::Primary APK distribution blocked: permanent signing is not configured. Only the separate recovery APK is published."
-            echo "Primary APK distribution blocked: permanent signing is missing. Recovery APK uses a separate application ID." >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::Permanent signing is not configured. Development APKs are for fresh installation only; do not uninstall an app with valuable data."
+            echo "Development and separate recovery APKs available. Production/update signing remains unconfigured." >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Upload isolated recovery APK
         if: success() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
