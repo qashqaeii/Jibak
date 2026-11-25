@@ -105,7 +105,8 @@ internal class BankSmsReceiver : BroadcastReceiver() {
                         val posted = if (current != null && template != null && template in current.autoTemplates)
                             runCatching { store.tryAutoPostBankSms(match, current, template, context) }.getOrNull()
                         else null
-                        BankSmsNotifications.show(context, autoPosted = posted != null)
+                        BankSmsUiEvents.changed()
+                        BankSmsNotifications.show(context, autoTransactionId = posted?.id)
                     }
                 }
             } catch (_: Exception) {
@@ -118,7 +119,7 @@ internal class BankSmsReceiver : BroadcastReceiver() {
 }
 
 internal object BankSmsNotifications {
-    fun show(context: Context, autoPosted: Boolean = false) {
+    fun show(context: Context, autoTransactionId: String? = null) {
         if (android.os.Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS,
@@ -143,23 +144,74 @@ internal object BankSmsNotifications {
             context, 281, open,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = NotificationCompat.Builder(context, BankSmsSettings.CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, BankSmsSettings.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_jibik_due_notification)
             .setContentTitle("جیبو • پیام بانکی شناسایی شد")
-            .setContentText(if (autoPosted) "تراکنش ثبت شد؛ بابت چه چیزی بود؟ برای تکمیل وارد جیبیک شو."
+            .setContentText(if (autoTransactionId != null) "تراکنش ثبت شد؛ بابت چه چیزی بود؟"
                 else "برای بررسی و ثبت اختیاری تراکنش وارد جیبیک شو.")
             .setContentIntent(click)
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .build()
-        NotificationManagerCompat.from(context).notify(
-            BankSmsSettings.NOTIFICATION_ID, notification,
-        )
+        if (autoTransactionId != null && !context.getSharedPreferences("app_protection", Context.MODE_PRIVATE).getBoolean("enabled", false)) {
+            val reply = Intent(context, BankAutoReplyReceiver::class.java).apply {
+                action = BankAutoReplyReceiver.ACTION
+                data = android.net.Uri.Builder().scheme("jibik").authority("bank-reply").appendPath(autoTransactionId).build()
+                putExtra(BankAutoReplyReceiver.TRANSACTION, autoTransactionId)
+            }
+            val mutableFlag = if (android.os.Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
+            val pending = PendingIntent.getBroadcast(context, 0, reply, PendingIntent.FLAG_UPDATE_CURRENT or mutableFlag)
+            val input = androidx.core.app.RemoteInput.Builder(BankAutoReplyReceiver.NOTE)
+                .setLabel("بابت چه چیزی بود؟").build()
+            builder.addAction(NotificationCompat.Action.Builder(0, "نوشتن توضیح", pending)
+                .addRemoteInput(input).setAllowGeneratedReplies(false).build())
+        }
+        val manager = NotificationManagerCompat.from(context)
+        if (autoTransactionId == null) manager.notify(BankSmsSettings.NOTIFICATION_ID, builder.build())
+        else manager.notify(autoTransactionId, BankSmsSettings.NOTIFICATION_ID, builder.build())
     }
 
     fun clear(context: Context) {
         NotificationManagerCompat.from(context).cancel(BankSmsSettings.NOTIFICATION_ID)
+    }
+}
+
+/** Foreground UI observes changes from the background receiver without polling SMS. */
+internal object BankSmsUiEvents {
+    private val revision = kotlinx.coroutines.flow.MutableStateFlow(0L)
+    val changes: kotlinx.coroutines.flow.StateFlow<Long> = revision
+    @Synchronized fun changed() { revision.value += 1L }
+}
+
+/** Explicit, non-exported RemoteInput target. No financial values are editable. */
+internal class BankAutoReplyReceiver : BroadcastReceiver() {
+    companion object {
+        const val ACTION = "ir.jibik.app.BANK_AUTO_REPLY"
+        const val TRANSACTION = "transaction"
+        const val NOTE = "bank_auto_note"
+    }
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != ACTION) return
+        val id = intent.getStringExtra(TRANSACTION) ?: return
+        if (!id.startsWith(BANK_AUTO_PREFIX) || intent.data?.lastPathSegment != id) return
+        val note = androidx.core.app.RemoteInput.getResultsFromIntent(intent)
+            ?.getCharSequence(NOTE)?.toString()?.trim() ?: return
+        if (note.length !in 1..250) return
+        // A stale notification cannot bypass a lock enabled after it was issued.
+        if (context.getSharedPreferences("app_protection", Context.MODE_PRIVATE).getBoolean("enabled", false) ||
+            context.getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked) return
+        val result = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                val store = LocalLedgerStore(context)
+                val row = store.load().firstOrNull { it.id == id && needsBankAutoDetails(it) } ?: return@launch
+                store.completeBankAutoDetails(id, note, row.category)
+                BankSmsUiEvents.changed()
+                NotificationManagerCompat.from(context).cancel(id, BankSmsSettings.NOTIFICATION_ID)
+            } catch (_: Exception) {
+                // Failed reply stays pending in the app; do not create a replacement transaction.
+            } finally { result.finish() }
+        }
     }
 }

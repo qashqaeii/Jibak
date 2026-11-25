@@ -3,6 +3,7 @@
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <application>
+        <receiver android:name=".BankAutoReplyReceiver" android:exported="false" />
         <receiver android:name=".BankSmsReceiver"
             android:exported="true" android:permission="android.permission.BROADCAST_SMS">
             <intent-filter>

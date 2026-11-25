@@ -62,7 +62,8 @@ internal fun BankSmsScreen(
     var linkedIds by remember { mutableStateOf(emptySet<String>()) }
     var completing by remember { mutableStateOf<LedgerRecord?>(null) }
 
-    LaunchedEffect(Unit) {
+    val bankRevision by BankSmsUiEvents.changes.collectAsState()
+    LaunchedEffect(bankRevision) {
         runCatching { pendingItems = store.bankSmsSuggestions(); linkedIds = store.bankLinkedTransactionIds() }
             .onFailure { notice = "صف پیام‌های بانکی بارگذاری نشد." }
     }
@@ -254,6 +255,8 @@ internal fun BankSmsScreen(
                     try {
                         val updated = store.completeBankAutoDetails(row.id, note, category)
                         completing = null
+                        androidx.core.app.NotificationManagerCompat.from(context).cancel(row.id, BankSmsSettings.NOTIFICATION_ID)
+                        BankSmsUiEvents.changed()
                         onRegistered(updated)
                         notice = "توضیح و دسته‌بندی ذخیره شد؛ مبلغ و حساب تغییر نکرد."
                     } catch (e: kotlinx.coroutines.CancellationException) { throw e }

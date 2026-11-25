@@ -66,6 +66,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -329,7 +330,8 @@ private fun JibikApp(
     var storageError by remember { mutableStateOf<String?>(null) }
     var isSaving by remember { mutableStateOf(false) }
     var budget by remember { mutableStateOf(0L) }
-    LaunchedEffect(store, retryLoad) {
+    val bankRevision by BankSmsUiEvents.changes.collectAsState()
+    LaunchedEffect(store, retryLoad, bankRevision, bankSmsOpenSignal) {
         try {
             budget = store.budgetToman()
             val persisted = store.load()
