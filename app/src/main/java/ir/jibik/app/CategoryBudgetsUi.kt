@@ -115,7 +115,7 @@ internal fun CategoryBudgetsPanel(
         }
     }
     pendingDelete?.let { path ->
-        AlertDialog(
+        JibikModalDialog(
         properties = JibikWideDialogProperties,
             modifier = Modifier.jibikDialogSurface(),
             containerColor = Color.Transparent,
@@ -169,7 +169,7 @@ internal fun CategoryBudgetDialog(
         isSelectableCategory(category, false, customCategories)
     val duplicates = previous == null &&
         existingBudgets.any { it.categoryPath == category }
-    AlertDialog(
+    JibikModalDialog(
         properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
