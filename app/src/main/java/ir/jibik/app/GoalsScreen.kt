@@ -211,6 +211,7 @@ internal fun NewGoalDialog(
         eligible.any { it.id == accountId }
 
     AlertDialog(
+        properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
