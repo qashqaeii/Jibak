@@ -594,10 +594,12 @@ private fun JibikApp(
                     customCategories = customCategories,
                     existingRecords = records,
                     onBack = { showBankSms = false },
-                    onRegistered = { record ->
-                        records.add(0, record)
+                    obligations = obligations.toList(), payments = obligationPayments.toList(),
+                    rules = recurringRules, decisions = recurringDecisions,
+                    onRegistered = {
+                        retryLoad++
                         scope.launch {
-                            notifications.showSnackbar("تراکنش بانکی ثبت شد.")
+                            notifications.showSnackbar("بررسی پیام بانکی انجام شد.")
                         }
                     },
                     modifier = Modifier.padding(insets),

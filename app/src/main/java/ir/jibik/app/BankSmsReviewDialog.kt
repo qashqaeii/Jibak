@@ -34,9 +34,10 @@ internal fun BankSmsReviewDialog(
     existingRecords: List<LedgerRecord>,
     busy: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (LedgerRecord, Boolean) -> Unit,
+    onConfirm: (LedgerRecord, Boolean, BankPaymentTarget?) -> Unit,
     error: String = "",
     linkedIds: Set<String> = emptySet(),
+    targetsFor: (LedgerRecord) -> List<BankPaymentOption> = { emptyList() },
 ) {
     val income = candidate.income
     var accountId by remember(candidate.id) {
@@ -55,9 +56,24 @@ internal fun BankSmsReviewDialog(
             (if (income) it.toAccountId else it.fromAccountId) == accountId &&
             kotlin.math.abs(it.timestampMillis - candidate.receivedAtMillis) < 900_000L
     }
-    val valid = !busy && amount != null && amount > 0L &&
+    var existingId by remember(candidate.id, accountId) { mutableStateOf<String?>(null) }
+    var explicitNew by remember(candidate.id, accountId) { mutableStateOf(false) }
+    var target by remember(candidate.id, accountId, existingId) { mutableStateOf<BankPaymentTarget?>(null) }
+    val selected = matches.firstOrNull { it.id == existingId }
+    val draft = amount?.let { exact ->
+        LedgerRecord(
+            id = "preview", kind = if (income) LedgerKind.INCOME else LedgerKind.EXPENSE,
+            amountToman = exact, fromAccountId = accountId.takeUnless { income },
+            toAccountId = accountId.takeIf { income }, category = category,
+            note = note.trim(), timestampMillis = candidate.receivedAtMillis,
+        )
+    }
+    val options = (selected ?: draft)?.let(targetsFor).orEmpty()
+    val validTarget = target == null || options.any { it.target == target }
+    val valid = !busy && amount != null && amount > 0L && validTarget &&
         accounts.any { it.id == accountId } &&
-        isSelectableCategory(category, income, customCategories)
+        (selected != null || (existingId == null && (matches.isEmpty() || explicitNew) &&
+            isSelectableCategory(category, income, customCategories)))
 
     JibikModalDialog(
         properties = JibikWideDialogProperties,
@@ -101,10 +117,15 @@ internal fun BankSmsReviewDialog(
                         isWarning = true,
                     )
                     matches.forEach { match ->
-                        TextButton(enabled = !busy, onClick = { onConfirm(match, true) }) {
-                            Text("اتصال به " + listOf(match.category, match.note,
-                                formatToman(match.amountToman)).filter { it.isNotBlank() }.joinToString(" · "))
+                        TextButton(enabled = !busy, onClick = { existingId = match.id; explicitNew = false; target = null }) {
+                            Text((if (existingId == match.id) "✓ انتخاب شده" else "انتخاب تراکنش") + " · " +
+                                listOf(match.category, match.note, formatToman(match.amountToman),
+                                    formatJalaliDueDate(match.timestampMillis), match.id.take(8))
+                                    .filter { it.isNotBlank() }.joinToString(" · "))
                         }
+                    }
+                    TextButton(enabled = !busy, onClick = { existingId = null; explicitNew = true; target = null }) {
+                        Text(if (explicitNew) "✓ ثبت جدید انتخاب شد" else "این پیام مربوط به پرداخت دیگری است؛ ثبت جدید")
                     }
                 }
                 JibikFormHint(
@@ -118,6 +139,7 @@ internal fun BankSmsReviewDialog(
                     onSelect = { accountId = it },
                     enabled = !busy,
                 )
+                if (selected == null) {
                 LiquidGlassCard(
                     onClick = if (busy) null else ({ choosingCategory = true }),
                     tone = GlassTone.CRYSTAL,
@@ -132,30 +154,30 @@ internal fun BankSmsReviewDialog(
                     modifier = Modifier.fillMaxWidth(), maxLines = 3,
                     enabled = !busy,
                 )
-                JibikFormHint(
-                    "با تأیید دقیقاً یک تراکنش با مبلغ پیامک ثبت می‌شود. " +
-                        "جیبیک هیچ واریز یا برداشتی را خودکار ثبت نمی‌کند."
-                )
+                }
+                JibikSectionTitle("ارتباط با برنامه مالی", "اختیاری · فقط یک مورد")
+                TextButton(enabled = !busy, onClick = { target = null }) {
+                    Text(if (target == null) "✓ فقط بررسی پیام" else "بدون اتصال به تعهد یا نوبت")
+                }
+                options.forEach { option ->
+                    TextButton(enabled = !busy, onClick = { target = option.target }) {
+                        Text((if (target == option.target) "✓ " else "") + option.label)
+                    }
+                }
+                if (options.isEmpty()) JibikFormHint("تعهد یا نوبت قابل اتصال پیدا نشد؛ ممکن است پرداخت قبلاً تعیین تکلیف شده باشد.")
+                if (!validTarget) JibikFormHint("وضعیت مورد انتخابی تغییر کرده است؛ دوباره انتخاب کن.", isWarning = true)
+                JibikFormHint(if (selected != null)
+                    "با تأیید، پیام و مورد انتخابی به تراکنش قبلی متصل می‌شوند؛ مانده حساب تغییر نمی‌کند."
+                    else "با تأیید، فقط یک تراکنش ثبت می‌شود و مورد انتخابی در همان عملیات تعیین تکلیف می‌شود.")
             }
         },
         confirmButton = {
             LiquidGlassButton(
-                text = if (busy) "در حال ثبت..." else "تأیید و ثبت تراکنش",
+                text = if (busy) "در حال ثبت..." else if (selected != null) "تأیید اتصال" else "تأیید و ثبت تراکنش",
                 enabled = valid, tone = GlassTone.EMERALD,
                 onClick = {
-                    val exact = amount ?: return@LiquidGlassButton
-                    onConfirm(
-                        LedgerRecord(
-                            id = UUID.randomUUID().toString(),
-                            kind = if (income) LedgerKind.INCOME else LedgerKind.EXPENSE,
-                            amountToman = exact,
-                            fromAccountId = if (income) null else accountId,
-                            toAccountId = if (income) accountId else null,
-                            category = category,
-                            note = note.trim(),
-                            timestampMillis = candidate.receivedAtMillis,
-                        ), false
-                    )
+                    val record = selected ?: draft?.copy(id = UUID.randomUUID().toString()) ?: return@LiquidGlassButton
+                    onConfirm(record, selected != null, target)
                 },
             )
         },

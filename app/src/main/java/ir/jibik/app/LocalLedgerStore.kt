@@ -524,6 +524,26 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         record
     }
 
+    /** Bank evidence and at most one independent commitment share one ledger movement.
+     * Migration is completed before the outer write transaction; any failed link rolls back
+     * the new ledger row and SMS approval together.
+     */
+    suspend fun reconcileBankPayment(id: String, record: LedgerRecord, existing: Boolean,
+        target: BankPaymentTarget?): LedgerRecord = withContext(Dispatchers.IO) {
+        ensureDefaultWallet()
+        migrateLegacyIfNeeded()
+        database.withTransaction {
+            val posted = if (existing) linkBankSms(id, record) else registerBankSms(id, record)
+            when (target) {
+                is BankPaymentTarget.Obligation -> linkObligationPayment(target.id,
+                    requireNotNull(posted.fromAccountId ?: posted.toAccountId), posted.id)
+                is BankPaymentTarget.Recurring -> linkRecurring(target.id, target.day, posted)
+                null -> Unit
+            }
+            posted
+        }
+    }
+
     suspend fun clearOldBankSmsHistory() = withContext(Dispatchers.IO) {
         bankSmsDao.purgeOlderHandled(
             System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000

@@ -41,6 +41,10 @@ internal fun BankSmsScreen(
     existingRecords: List<LedgerRecord>,
     onBack: () -> Unit,
     onRegistered: (LedgerRecord) -> Unit,
+    obligations: List<FinancialObligationEntity> = emptyList(),
+    payments: List<ObligationPaymentEntity> = emptyList(),
+    rules: List<RecurringRule> = emptyList(),
+    decisions: List<RecurringDecision> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -54,9 +58,11 @@ internal fun BankSmsScreen(
     var selected by remember { mutableStateOf<BankSmsCandidateEntity?>(null) }
     var busy by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
+    var reviewError by remember { mutableStateOf("") }
+    var linkedIds by remember { mutableStateOf(emptySet<String>()) }
 
     LaunchedEffect(Unit) {
-        runCatching { pendingItems = store.bankSmsSuggestions() }
+        runCatching { pendingItems = store.bankSmsSuggestions(); linkedIds = store.bankLinkedTransactionIds() }
             .onFailure { notice = "صف پیام‌های بانکی بارگذاری نشد." }
     }
 
@@ -231,7 +237,7 @@ internal fun BankSmsScreen(
                         enabled = !busy,
                         modifier = Modifier.weight(1f),
                         tone = GlassTone.EMERALD,
-                        onClick = { selected = item },
+                        onClick = { reviewError = ""; selected = item },
                     )
                     TextButton(
                         enabled = !busy,
@@ -276,19 +282,22 @@ internal fun BankSmsScreen(
             existingRecords = existingRecords,
             busy = busy,
             onDismiss = { if (!busy) selected = null },
-            onConfirm = { record, link ->
-                busy = true
+            error = reviewError, linkedIds = linkedIds,
+            targetsFor = { record -> bankPaymentOptions(record, obligations, payments, rules, decisions, System.currentTimeMillis()) },
+            onConfirm = { record, link, target ->
+                busy = true; reviewError = ""
                 scope.launch {
                     try {
-                        val posted = if (link) store.linkBankSms(candidate.id, record)
-                            else store.registerBankSms(candidate.id, record)
-                        pendingItems = store.bankSmsSuggestions()
+                        val posted = store.reconcileBankPayment(candidate.id, record, link, target)
                         selected = null
-                        if (!link) onRegistered(posted)
+                        onRegistered(posted)
+                        pendingItems = store.bankSmsSuggestions()
+                        linkedIds = store.bankLinkedTransactionIds()
                         BankSmsNotifications.clear(context)
                         notice = if (link) "پیام به تراکنش قبلی متصل شد." else "تراکنش پس از تأیید ثبت شد."
                     } catch (_: Exception) {
-                        notice = "ثبت ناموفق بود؛ حساب و تکراری‌نبودن پیام را بررسی کن."
+                        reviewError = "عملیات کامل نشد؛ وضعیت پرداخت و پیام را دوباره بررسی کن."
+                        notice = reviewError
                     } finally { busy = false }
                 }
             },

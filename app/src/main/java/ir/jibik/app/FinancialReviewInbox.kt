@@ -148,9 +148,10 @@ internal fun FinancialReviewInbox(store: LocalLedgerStore, accounts: List<Accoun
     selectedBank?.let { item ->
         BankSmsReviewDialog(item, accounts, customCategories, records, busy,
             onDismiss = { if (!busy) { selectedBank = null; error = "" } },
-            onConfirm = { record, link -> submit {
-                if (link) store.linkBankSms(item.id, record) else store.registerBankSms(item.id, record)
-            } }, error = error, linkedIds = bankLinkedIds)
+            onConfirm = { record, link, target -> submit {
+                store.reconcileBankPayment(item.id, record, link, target)
+            } }, error = error, linkedIds = bankLinkedIds,
+            targetsFor = { record -> bankPaymentOptions(record, obligations, payments, rules, decisions, System.currentTimeMillis()) })
     }
     selected?.let { (rule, day) ->
         val parsed = parseTomanDraft(amount)
