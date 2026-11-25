@@ -38,13 +38,12 @@ internal fun SpendableBalanceCard(
     val result = remember(balances, goals, obligations, payments, end, envelopes) {
         spendableBalance(balances, goals, obligations, payments, end, envelopes)
     }
-    val recurring = remember(rules, decisions, end) {
-        rules.filter { !it.income }.mapNotNull { rule ->
-            val count = pendingOccurrenceCount(rule, decisions, end)
-            if (count > 0) rule.title to rule.amount.toBigInteger() * count.toBigInteger() else null
-        }
-    }
+    val recurring = remember(rules, decisions, end) { recurringCashReserves(rules, decisions, end) }
     val available = recurring.fold(result.available) { sum, item -> sum - item.second }
+    val forecast = remember(balances, goals, obligations, payments, rules, decisions, envelopes, today, end) {
+        cashForecast(balances, goals, obligations, payments, rules, decisions, envelopes, today, end)
+    }
+    var simulation by rememberSaveable { mutableStateOf(false) }
     var details by rememberSaveable { mutableStateOf(false) }
     var editing by rememberSaveable { mutableStateOf(false) }
     var draft by rememberSaveable { mutableStateOf("") }
@@ -55,10 +54,14 @@ internal fun SpendableBalanceCard(
     LiquidGlassCard(onClick = { details = true }, tone = GlassTone.CRYSTAL) {
         JibikSectionTitle(label, "تا $date")
         Text(amount, style = MaterialTheme.typography.titleLarge)
+        if (visible) {
+            JibikFinancialDetail("سقف پیشنهادی خرج روزانه", forecastMoney(forecast.dailyLimit), emphasis = true)
+            forecast.firstDeficitDay?.let { JibikFormHint("کسری پیش‌بینی‌شده از " + formatJalaliDueDate(it), isWarning = true) }
+        }
         Text("مشاهدهٔ محاسبه و تغییر تاریخ", color = JibikStyle.muted)
         if (result.envelopes.any { it.shortfallToman > 0 }) JibikFormHint("بخشی از پاکت‌ها پشتوانه کافی ندارند.", isWarning = true)
     }
-    if (details) JibikModalDialog(
+    if (details && !simulation) JibikModalDialog(
         modifier = Modifier.jibikDialogSurface(), properties = JibikWideDialogProperties,
         onDismissRequest = { details = false; editing = false },
         title = { JibikDialogHeading(label, "تا پایان روز $date") },
@@ -68,6 +71,15 @@ internal fun SpendableBalanceCard(
                 Text(amount, style = MaterialTheme.typography.titleLarge)
                 Text("از ماندهٔ فعلی حساب‌ها، پس‌انداز هدف‌ها تا سقف هر هدف و تعهدات پرداخت‌نشده تا این تاریخ کم می‌شود. حقوق آینده و طلب‌ها پس از دریافت وارد مانده می‌شوند.")
                 if (visible) {
+                    JibikSurfaceCard {
+                        JibikSectionTitle("برنامه خرج", "${forecast.days} روز، شامل امروز")
+                        JibikFinancialDetail("سقف پیشنهادی روزانه", forecastMoney(forecast.dailyLimit), emphasis = true)
+                        forecast.firstDeficitDay?.let {
+                            JibikFormHint("اولین کسری پیش‌بینی‌شده: " + formatJalaliDueDate(it), isWarning = true)
+                        }
+                        JibikFormHint("این سقف میانگین محافظه‌کارانه تا تاریخ انتخابی است؛ درآمد آینده، خریدهای ثبت‌نشده و تغییر قیمت‌ها در آن لحاظ نمی‌شوند.")
+                        LiquidGlassButton("قبل از خرید بررسی کن", onClick = { simulation = true }, enabled = accounts.isNotEmpty())
+                    }
                     Text("موجودی حساب‌ها", style = MaterialTheme.typography.titleMedium)
                     accounts.forEach { Text(it.title + " · " + formatToman(balances.getOrDefault(it.id, 0))) }
                     Text("پس‌انداز کنارگذاشته‌شده", style = MaterialTheme.typography.titleMedium)
@@ -107,4 +119,9 @@ internal fun SpendableBalanceCard(
         },
         confirmButton = { LiquidGlassButton(text = "بستن", onClick = { details = false; editing = false }) },
     )
+    if (simulation && visible) PurchaseSimulationDialog(
+        accounts = accounts, balances = balances, goals = goals, envelopes = envelopes,
+        forecast = forecast, onDismiss = { simulation = false },
+    )
+    LaunchedEffect(visible) { if (!visible) simulation = false }
 }
