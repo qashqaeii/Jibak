@@ -62,7 +62,9 @@ class EncryptedLedgerPilotTest {
                 } finally { target.close() }
             } finally { key.fill(0) }
             assertTrue(targetFile.exists())
-            val header = targetFile.inputStream().use { it.readNBytes(16) }
+            val header = ByteArray(16).also { bytes ->
+                java.io.DataInputStream(targetFile.inputStream()).use { it.readFully(bytes) }
+            }
             assertFalse(header.contentEquals("SQLite format 3\u0000".toByteArray(Charsets.US_ASCII)))
             val wrong = ByteArray(32).also(java.security.SecureRandom()::nextBytes)
             val rejected = openEncrypted(wrong)

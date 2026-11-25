@@ -1227,7 +1227,7 @@ private fun WelcomeScreen(onStart: () -> Unit, error: String? = null) {
         val wide = maxWidth >= 700.dp && LocalDensity.current.fontScale < 1.3f
         val side = if (compact) 20.dp else 28.dp
         Column(
-            Modifier.fillMaxSize().widthIn(max = if (wide) 960.dp else 560.dp)
+            Modifier.widthIn(max = if (wide) 960.dp else 560.dp).fillMaxSize()
                 .align(Alignment.Center).padding(horizontal = side),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -1274,24 +1274,40 @@ private fun WelcomeScreen(onStart: () -> Unit, error: String? = null) {
 
 @Composable
 private fun WelcomeHero(compact: Boolean) {
-    Box(Modifier.fillMaxWidth().height(if (compact) 180.dp else 260.dp)
+    val largeText = LocalDensity.current.fontScale >= 1.3f
+    Box(Modifier.fillMaxWidth().heightIn(min = if (compact) 180.dp else 260.dp)
         .clip(RoundedCornerShape(28.dp)).background(Color(0xFF07574C))) {
-        Canvas(Modifier.fillMaxSize()) {
+        Canvas(Modifier.matchParentSize()) {
             val r = size.minDimension
             drawCircle(Color(0xFF176C5C), r * .63f, Offset(size.width * .77f, size.height * .55f))
             drawCircle(Color(0xFF20816B), r * .43f, Offset(size.width * .77f, size.height * .55f))
             drawCircle(Color(0xFFDAF0DD).copy(alpha = .10f), r * .28f, Offset(size.width * .06f, size.height * .95f))
         }
-        Row(Modifier.fillMaxSize().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("همراه مالی تو", color = Color(0xFFD1EEE0), fontSize = 12.sp)
-                Text("سلام، من\nجیبو هستم!", color = Color.White,
-                    fontSize = if (compact) 22.sp else 30.sp, lineHeight = if (compact) 30.sp else 39.sp,
-                    fontWeight = FontWeight.ExtraBold)
-                Text("قدم‌به‌قدم کنار تو", color = Color(0xFFD1EEE0), fontSize = 11.sp)
+        if (largeText) {
+            Column(Modifier.fillMaxWidth().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                JiboMascot(Modifier.size(108.dp))
+                WelcomeHeroCopy(compact, centered = true)
             }
-            JiboMascot(Modifier.weight(1f).height(if (compact) 140.dp else 214.dp))
+        } else {
+            Row(Modifier.fillMaxWidth().align(Alignment.Center).padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) { WelcomeHeroCopy(compact, centered = false) }
+                JiboMascot(Modifier.weight(1f).height(if (compact) 140.dp else 214.dp))
+            }
         }
+    }
+}
+
+@Composable
+private fun WelcomeHeroCopy(compact: Boolean, centered: Boolean) {
+    Column(horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start,
+        verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        val align = if (centered) TextAlign.Center else TextAlign.Start
+        Text("همراه مالی تو", color = Color(0xFFD1EEE0), fontSize = 12.sp, textAlign = align)
+        Text("سلام، من\nجیبو هستم!", color = Color.White,
+            fontSize = if (compact) 22.sp else 30.sp, lineHeight = if (compact) 30.sp else 39.sp,
+            fontWeight = FontWeight.ExtraBold, textAlign = align)
+        Text("قدم‌به‌قدم کنار تو", color = Color(0xFFD1EEE0), fontSize = 11.sp, textAlign = align)
     }
 }
 
