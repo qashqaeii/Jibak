@@ -116,11 +116,11 @@ internal fun CategoryBudgetsPanel(
     }
     pendingDelete?.let { path ->
         AlertDialog(
+        properties = JibikWideDialogProperties,
             modifier = Modifier.jibikDialogSurface(),
             containerColor = Color.Transparent,
             onDismissRequest = { if (!isSaving) pendingDelete = null },
-            title = { Text("حذف سقف دسته", color = JibikStyle.ink,
-                fontWeight = FontWeight.ExtraBold) },
+            title = { JibikDialogHeading("حذف سقف دسته", "تراکنش‌های قبلی حذف نمی‌شوند.") },
             text = { Text(
                 "فقط سقف بودجه «" + path + "» حذف می‌شود؛ تراکنش‌ها و " +
                     "گزارش‌های قبلی بدون تغییر می‌مانند.",
@@ -170,6 +170,7 @@ internal fun CategoryBudgetDialog(
     val duplicates = previous == null &&
         existingBudgets.any { it.categoryPath == category }
     AlertDialog(
+        properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
