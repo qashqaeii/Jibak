@@ -60,6 +60,7 @@ internal fun BankSenderSettingsPanel(accounts: List<Account>, busy: Boolean, onS
                     })
             }
             JibikFormHint("فقط قالب‌هایی که جداگانه برای ثبت خودکار تأیید می‌کنی می‌توانند موجودی را تغییر دهند؛ سایر پیام‌ها وارد صندوق بررسی می‌شوند.")
+            JibikFormHint("با باز شدن برنامه، حداکثر ۴۰۰ پیام اخیر از ۷ روز گذشته و پس از فعال‌سازی پایش بررسی می‌شوند. پیام جامانده فقط پیشنهاد می‌شود.")
             LiquidGlassButton("اسکن پیامک‌های گذشته", onClick = onScan,
                 enabled = allowed && profiles.any { it.enabled } && !busy, modifier = Modifier.fillMaxWidth(), tone = GlassTone.CRYSTAL)
         }

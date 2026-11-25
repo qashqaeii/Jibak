@@ -12,6 +12,7 @@ internal object BankSmsSettings {
     private const val ENABLED = "enabled"
     private const val BANKS = "bank_ids"
     private const val SALT = "fingerprint_salt"
+    private const val ENABLED_SINCE = "enabled_since"
     const val EXTRA_OPEN_BANK_SMS = "jibik_open_bank_sms"
     const val CHANNEL_ID = "jibik_bank_sms_review"
     const val NOTIFICATION_ID = 18103
@@ -47,11 +48,24 @@ internal object BankSmsSettings {
     }
 
     /** User consent is never silently enabled by permission or inbox import. */
-    fun setEnabled(context: Context, active: Boolean): Boolean {
+    @Synchronized fun setEnabled(context: Context, active: Boolean): Boolean {
         if (active && (!BuildConfig.BANK_SMS_AVAILABLE || !permissionGranted(context) ||
             BankSenderRegistry.active(context).isEmpty())) return false
-        check(prefs(context).edit().putBoolean(ENABLED, active).commit())
+        val preferences = prefs(context)
+        val edit = preferences.edit().putBoolean(ENABLED, active)
+        if (active && !preferences.getBoolean(ENABLED, false)) edit.putLong(ENABLED_SINCE, System.currentTimeMillis())
+        if (!active) edit.remove(ENABLED_SINCE)
+        check(edit.commit())
         return true
+    }
+
+    @Synchronized fun recoverySince(context: Context): Long {
+        val preferences = prefs(context)
+        val since = preferences.getLong(ENABLED_SINCE, 0L)
+        if (since > 0L) return since
+        val now = System.currentTimeMillis()
+        check(preferences.edit().putLong(ENABLED_SINCE, now).commit())
+        return now
     }
 
     @Synchronized fun fingerprintSalt(context: Context): String {

@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.content.ContextCompat
@@ -139,6 +140,11 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         if (::protection.isInitialized) protection.onForeground()
+        lifecycleScope.launch {
+            try { BankSmsRecovery.recover(applicationContext) }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { /* Manual inbox scan remains available. */ }
+        }
     }
     override fun onStop() {
         if (::protection.isInitialized) protection.onBackground()

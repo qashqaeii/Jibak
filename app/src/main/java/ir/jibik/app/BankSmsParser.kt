@@ -13,6 +13,8 @@ internal data class BankSmsMatch(
     val sender: String,
     val receivedAtMillis: Long,
     val fingerprint: String,
+    // Inbox receipt-time alias for older imports; never persisted as raw SMS.
+    val alternateFingerprint: String? = null,
 ) {
     val amountToman: Long? get() =
         if (amountRial > 0L && amountRial % 10L == 0L) amountRial / 10L else null

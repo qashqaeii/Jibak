@@ -329,8 +329,6 @@ internal interface BankSmsCandidateDao {
     @Query("SELECT COUNT(*) FROM bank_sms_candidates WHERE id != :id AND amountRial = :amount AND receivedAtMillis BETWEEN :start AND :end")
     suspend fun nearby(id: String, amount: Long, start: Long, end: Long): Int
 
-    @Query("DELETE FROM bank_sms_candidates WHERE state = 'IGNORED' AND linkedTransactionId IS NULL AND receivedAtMillis < :olderThan")
-    suspend fun purgeOlderHandled(olderThan: Long): Int
 }
 
 /** A goal points to one real savings account; it cannot mint imaginary savings. */

@@ -21,7 +21,7 @@ import kotlinx.coroutines.withContext
 
 /** User-initiated; raw message bodies remain in the system SMS provider only. */
 internal object BankSmsInboxScanner {
-    suspend fun scan(context: Context, limit: Int = 400): List<BankSmsMatch> =
+    suspend fun scan(context: Context, limit: Int = 400, receivedSince: Long? = null): List<BankSmsMatch> =
         withContext(Dispatchers.IO) {
             require(limit in 1..500)
             check(
@@ -31,15 +31,18 @@ internal object BankSmsInboxScanner {
             val profiles = BankSenderRegistry.active(context)
             if (profiles.isEmpty()) return@withContext emptyList()
             val matches = mutableListOf<BankSmsMatch>()
-            val projection = arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE)
+            val projection = arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE, Telephony.Sms.DATE_SENT)
             val salt = BankSmsSettings.fingerprintSalt(context)
             context.contentResolver.query(
-                Telephony.Sms.Inbox.CONTENT_URI, projection, null, null,
+                Telephony.Sms.Inbox.CONTENT_URI, projection,
+                receivedSince?.let { Telephony.Sms.DATE + " >= ?" },
+                receivedSince?.let { arrayOf(it.toString()) },
                 Telephony.Sms.DATE + " DESC",
             )?.use { cursor ->
                 val sender = cursor.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
                 val body = cursor.getColumnIndexOrThrow(Telephony.Sms.BODY)
                 val date = cursor.getColumnIndexOrThrow(Telephony.Sms.DATE)
+                val dateSent = cursor.getColumnIndexOrThrow(Telephony.Sms.DATE_SENT)
                 var checked = 0
                 while (checked < limit && cursor.moveToNext()) {
                     checked++
@@ -47,10 +50,16 @@ internal object BankSmsInboxScanner {
                     val key = bankSenderKey(address) ?: continue
                     val bankId = profiles.filter { it.sender == key }.map { it.bankId }.distinct().singleOrNull() ?: continue
                     // Never read the body of an unapproved address.
-                    BankSmsParser.parse(address, cursor.getString(body).orEmpty(),
-                        cursor.getLong(date), salt, bankId)
+                    val received = cursor.getLong(date)
+                    val sent = cursor.getLong(dateSent)
+                    val message = cursor.getString(body).orEmpty()
+                    val timestamp = canonicalBankSmsTimestamp(sent, received)
+                    val parsed = BankSmsParser.parse(address, message, timestamp, salt, bankId)
                         ?.takeIf { it.amountToman != null && resolveBankSender(profiles, address, bankId, it.accountLast4) != null }
-                        ?.let(matches::add)
+                        ?: continue
+                    val alias = if (timestamp != received)
+                        BankSmsParser.parse(address, message, received, salt, bankId)?.fingerprint else null
+                    matches.add(parsed.copy(alternateFingerprint = alias))
                 }
             }
             matches.distinctBy { it.fingerprint }
@@ -72,7 +81,7 @@ internal suspend fun discoverSmsSenders(context: Context): List<String> = withCo
     found.toList()
 }
 
-/** SMS_RECEIVED never changes account balances or captures OTP content. */
+/** SMS_RECEIVED may post only an explicitly trained, unambiguous transaction. */
 internal class BankSmsReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION ||
@@ -213,5 +222,35 @@ internal class BankAutoReplyReceiver : BroadcastReceiver() {
                 // Failed reply stays pending in the app; do not create a replacement transaction.
             } finally { result.finish() }
         }
+    }
+}
+
+/** PDU timestamps match DATE_SENT, while old Inbox imports used DATE. */
+internal fun canonicalBankSmsTimestamp(sent: Long, received: Long): Long =
+    if (sent > 0L && received > 0L && sent <= received + 60_000L) sent else received
+
+internal fun bankRecoveryStart(enabledSince: Long, now: Long): Long =
+    maxOf(enabledSince, now - 7L * 24 * 60 * 60 * 1000)
+
+/** Bounded foreground catch-up: never posts historical messages automatically.
+ * The mutex prevents overlapping activity starts from duplicating work.
+ */
+internal object BankSmsRecovery {
+    private val mutex = kotlinx.coroutines.sync.Mutex()
+    suspend fun recover(context: Context) {
+        if (!BankSmsSettings.isEnabled(context) || !mutex.tryLock()) return
+        try {
+            val since = BankSmsSettings.recoverySince(context)
+            val matches = BankSmsInboxScanner.scan(context, limit = 400,
+                receivedSince = bankRecoveryStart(since, System.currentTimeMillis()))
+            if (!BankSmsSettings.isEnabled(context)) return
+            val active = BankSenderRegistry.active(context)
+            val eligible = matches.filter { resolveBankSender(active, it.sender, it.bankId, it.accountLast4) != null }
+            val count = LocalLedgerStore(context).importBankSms(eligible)
+            if (count > 0) {
+                BankSmsUiEvents.changed()
+                BankSmsNotifications.show(context)
+            }
+        } finally { mutex.unlock() }
     }
 }

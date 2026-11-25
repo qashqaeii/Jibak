@@ -555,6 +555,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
                 var inserted = 0
                 for (match in matches) {
                     if (match.amountToman == null || match.fingerprint.length != 64) continue
+                    if (match.alternateFingerprint?.let { bankSmsDao.find(it) } != null) continue
                     if (bankSmsDao.insertIgnore(
                         BankSmsCandidateEntity(
                             id = match.fingerprint,
@@ -711,11 +712,10 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         }
     }
 
-    suspend fun clearOldBankSmsHistory() = withContext(Dispatchers.IO) {
-        bankSmsDao.purgeOlderHandled(
-            System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000
-        )
-    }
+    /** Minimal handled fingerprints remain as dedupe tombstones. Never delete
+     * them during routine inbox maintenance or a historical scan can resurrect them.
+     */
+    suspend fun clearOldBankSmsHistory() = withContext(Dispatchers.IO) { 0 }
 
     suspend fun loadSavingsGoals(): List<SavingsGoalEntity> =
         withContext(Dispatchers.IO) { database.savingsGoalDao().list() }
