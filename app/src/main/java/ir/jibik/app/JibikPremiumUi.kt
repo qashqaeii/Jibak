@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
@@ -225,26 +227,37 @@ internal fun JibikDialogHeading(
     title: String,
     subtitle: String? = null,
 ) {
+    // Editorial form heading, not a repeated mascot/logo in every modal.
+    // A single forest accent ties it to the brand without stealing width.
     Row(
         Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        JibikBrandLogo(Modifier.size(38.dp))
+        Box(
+            Modifier.width(4.dp).height(43.dp)
+                .background(JibikStyle.forest, RoundedCornerShape(8.dp)),
+        )
         Column(
             Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(3.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                title, color = JibikStyle.ink,
-                fontSize = 19.sp, lineHeight = 26.sp,
+                title,
+                color = JibikStyle.ink,
+                fontSize = 20.sp,
+                lineHeight = 29.sp,
                 fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.semantics { heading() },
             )
             if (!subtitle.isNullOrBlank()) {
                 Text(
-                    subtitle, color = JibikStyle.muted,
-                    fontSize = 12.sp, lineHeight = 18.sp,
-                    maxLines = 3, overflow = TextOverflow.Ellipsis,
+                    subtitle,
+                    color = JibikStyle.muted,
+                    fontSize = 12.sp,
+                    lineHeight = 19.sp,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
