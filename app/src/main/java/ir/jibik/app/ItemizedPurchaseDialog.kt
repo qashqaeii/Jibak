@@ -2,6 +2,7 @@ package ir.jibik.app
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,6 +32,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -99,7 +101,8 @@ internal fun ItemizedPurchaseDialog(
         },
         text = {
             Column(
-                modifier = Modifier.heightIn(max = 425.dp).verticalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxWidth().heightIn(max = 425.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(13.dp),
             ) {
                 JibikFormHint("جمع نهایی از تعداد × قیمت واحد محاسبه می‌شود؛ ثبت ناقص موجودی را تغییر نمی‌دهد.")
@@ -153,10 +156,9 @@ internal fun ItemizedPurchaseDialog(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(14.dp),
                             )
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
+                            // On small phones the quantity/price fields must not
+                            // squeeze into unreadable side-by-side input widths.
+                            val quantityField: @Composable (Modifier) -> Unit = { fieldModifier ->
                                 OutlinedTextField(
                                     value = draft.quantity,
                                     onValueChange = {
@@ -164,23 +166,48 @@ internal fun ItemizedPurchaseDialog(
                                             quantity = normalizeTomanDraft(it).take(5),
                                         )
                                     },
-                                    modifier = Modifier.weight(0.34f),
+                                    modifier = fieldModifier,
                                     singleLine = true,
                                     label = { Text("تعداد", maxLines = 1) },
                                     keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Number
+                                        keyboardType = KeyboardType.Number,
                                     ),
                                     shape = RoundedCornerShape(14.dp),
+                                    enabled = !isSaving,
                                 )
+                            }
+                            val unitPriceField: @Composable (Modifier) -> Unit = { fieldModifier ->
                                 JibikTomanField(
                                     value = draft.unitPrice,
                                     onValueChange = {
                                         drafts[index] = draft.copy(unitPrice = it)
                                     },
                                     label = "قیمت واحد",
-                                    modifier = Modifier.weight(0.66f),
+                                    modifier = fieldModifier,
                                     allowZero = true,
+                                    enabled = !isSaving,
                                 )
+                            }
+                            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                                val stacked = maxWidth < 320.dp ||
+                                    LocalDensity.current.fontScale >= 1.3f
+                                if (stacked) {
+                                    Column(
+                                        Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        quantityField(Modifier.fillMaxWidth())
+                                        unitPriceField(Modifier.fillMaxWidth())
+                                    }
+                                } else {
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        quantityField(Modifier.weight(0.34f))
+                                        unitPriceField(Modifier.weight(0.66f))
+                                    }
+                                }
                             }
                             Text(
                                 "واحد اندازه‌گیری",
