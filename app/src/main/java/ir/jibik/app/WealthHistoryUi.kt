@@ -64,19 +64,23 @@ internal fun WealthHistoryCard(store: LocalLedgerStore) {
         else if (points.isEmpty()) JibikFormHint("هنوز تصویری ذخیره نشده است. اولین تصویر ثروت را ثبت کن.")
         else {
             val values = points.map { it.worth().net }
-            val min = values.minOrNull() ?: BigInteger.ZERO
-            val max = values.maxOrNull() ?: BigInteger.ZERO
-            val span = (max - min).max(BigInteger.ONE).toDouble()
+            val scale = financeChartScale(values)
+            val reveal = rememberChartReveal(points)
             val tint = JibikStyle.forest
-            Canvas(Modifier.fillMaxWidth().height(112.dp).semantics {
-                contentDescription = "تاریخچه ثبت‌شده؛ آخرین ارزش " + forecastMoney(values.last())
-            }) {
-                fun position(i: Int): Offset = Offset(
-                    size.width - 8.dp.toPx() - (size.width - 16.dp.toPx()) * i / (values.size - 1).coerceAtLeast(1),
-                    size.height - 8.dp.toPx() - (size.height - 16.dp.toPx()) * ((values[i]-min).toDouble()/span).toFloat())
+            FinanceChartFrame(scale, "تاریخچه ثبت‌شده؛ آخرین ارزش " + forecastMoney(values.last()),
+                formatJalaliDueDate(points.first().atMillis).takeLast(5),
+                formatJalaliDueDate(points.last().atMillis).takeLast(5)) {
+                val span = (points.last().atMillis - points.first().atMillis).coerceAtLeast(1L)
+                val zero = size.height * (1f - scale.fraction(BigInteger.ZERO))
+                fun position(i: Int): Offset {
+                    val fraction = if (values.size == 1) .5f else ((points[i].atMillis - points.first().atMillis).toDouble() / span).toFloat()
+                    val y = size.height * (1f - scale.fraction(values[i]))
+                    return Offset(size.width - 5.dp.toPx() - (size.width - 10.dp.toPx()) * fraction,
+                        zero + (y - zero) * reveal)
+                }
                 values.indices.forEach { i ->
                     if (i > 0) drawLine(tint, position(i-1), position(i), strokeWidth = 2.dp.toPx())
-                    drawCircle(tint, 3.dp.toPx(), position(i))
+                    drawCircle(if (values[i].signum() < 0) JibikStyle.coral else tint, 3.dp.toPx(), position(i))
                 }
             }
             JibikFinancialDetail("آخرین ارزش ثبت‌شده", forecastMoney(values.last()), emphasis = true)

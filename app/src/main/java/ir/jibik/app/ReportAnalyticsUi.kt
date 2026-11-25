@@ -10,6 +10,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -37,8 +39,8 @@ internal fun CustomReportRangeDialog(current: ReportRange, today: Long, onDismis
         onDismissRequest = onDismiss, title = { JibikDialogHeading("بازه دلخواه", "تاریخ شمسی · سال/ماه/روز") },
         text = {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(start, { start = it.take(10) }, label = { Text("از تاریخ") }, singleLine = true)
-                OutlinedTextField(end, { end = it.take(10) }, label = { Text("تا تاریخ (شامل این روز)") }, singleLine = true)
+                OutlinedTextField(start, { start = it.take(10) }, label = { Text("از تاریخ") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(end, { end = it.take(10) }, label = { Text("تا تاریخ (شامل این روز)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 if (!valid) JibikFormHint("تاریخ پایان باید بین آغاز و امروز باشد.", isWarning = true)
             }
         },
@@ -56,28 +58,50 @@ internal fun ReportTrendCard(range: ReportRange, totals: ReportTotals, previous:
         JibikFinancialDetail("تغییر خروجی نقدی", forecastMoney(totals.expense - previous.expense))
         JibikFinancialDetail("نرخ پس‌انداز نقدی", reportRateText(totals.savingsRate), emphasis = true)
         JibikFormHint("نرخ پس‌انداز نقدی = خالص جریان نقدی تقسیم بر ورودی. با ورودی صفر نامشخص است؛ سود دارایی و انتقال حساب در آن نیست.")
-        val maxValue = buckets.maxOfOrNull { maxOf(it.totals.income, it.totals.expense) }?.max(BigInteger.ONE)?.toDouble() ?: 1.0
-        val green = JibikStyle.forest; val coral = JibikStyle.coral
-        Canvas(Modifier.fillMaxWidth().height(126.dp).semantics {
-            contentDescription = "نمودار ورودی و خروجی بازه؛ ورودی " + forecastMoney(totals.income) + "، خروجی " + forecastMoney(totals.expense)
-        }) {
-            val slot = size.width / buckets.size.coerceAtLeast(1)
-            val width = slot * .30f
-            buckets.forEachIndexed { i, bucket ->
-                val x = size.width - (i + 1) * slot
-                val income = (bucket.totals.income.toDouble() / maxValue * size.height).toFloat()
-                val expense = (bucket.totals.expense.toDouble() / maxValue * size.height).toFloat()
-                drawRect(green, Offset(x + slot * .15f, size.height - income), Size(width, income))
-                drawRect(coral, Offset(x + slot * .55f, size.height - expense), Size(width, expense))
+        val values = buckets.flatMap { listOf(it.totals.income, it.totals.expense) }
+        val scale = financeChartScale(values)
+        val green = JibikStyle.forest
+        val coral = JibikStyle.coral
+        val reveal = rememberChartReveal(buckets)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+            ChartLegendDot("ورودی نقدی", green)
+            ChartLegendDot("خروجی نقدی", coral)
+        }
+        if (values.all { it == BigInteger.ZERO }) {
+            JibikFormHint("در این بازه گردش نقدی ثبت نشده است.")
+        } else {
+            FinanceChartFrame(scale, "نمودار ورودی و خروجی؛ ورودی " + forecastMoney(totals.income) +
+                "، خروجی " + forecastMoney(totals.expense),
+                formatJalaliDueDate(range.start).takeLast(5),
+                formatJalaliDueDate(range.endExclusive - 1).takeLast(5)) {
+                val slot = size.width / buckets.size.coerceAtLeast(1)
+                val width = minOf(slot * .29f, 22.dp.toPx())
+                val base = size.height
+                buckets.forEachIndexed { index, bucket ->
+                    val center = size.width - (index + .5f) * slot
+                    val gap = minOf(slot * .08f, 4.dp.toPx())
+                    fun bar(value: BigInteger, x: Float, color: androidx.compose.ui.graphics.Color) {
+                        val height = size.height * scale.fraction(value) * reveal
+                        if (height > 0f) drawRoundRect(color, Offset(x, base - height),
+                            Size(width, height), CornerRadius(minOf(4.dp.toPx(), width / 2f, height / 2f)))
+                        else drawLine(color.copy(alpha = .24f), Offset(x, base - 1f),
+                            Offset(x + width, base - 1f), strokeWidth = 1.dp.toPx())
+                    }
+                    bar(bucket.totals.income, center + gap / 2, green)
+                    bar(bucket.totals.expense, center - gap / 2 - width, coral)
+                }
             }
         }
-        Text("سبز: ورودی · مرجانی: خروجی", color = JibikStyle.muted)
-        TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "بستن جزئیات" else "مقادیر دقیق نمودار") }
-        if (expanded) buckets.forEach { bucket ->
-            Text(bucket.range.label)
-            JibikFinancialDetail("ورودی", forecastMoney(bucket.totals.income))
-            JibikFinancialDetail("خروجی", forecastMoney(bucket.totals.expense))
-            HorizontalDivider()
+        TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "بستن جزئیات" else "مشاهده مقادیر دقیق نمودار") }
+        AnimatedVisibility(visible = expanded) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                buckets.forEach { bucket ->
+                    Text(bucket.range.label, style = MaterialTheme.typography.labelLarge, color = JibikStyle.muted)
+                    JibikFinancialDetail("ورودی", forecastMoney(bucket.totals.income))
+                    JibikFinancialDetail("خروجی", forecastMoney(bucket.totals.expense))
+                    HorizontalDivider()
+                }
+            }
         }
     }
 }

@@ -1,15 +1,14 @@
 package ir.jibik.app
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import java.math.BigInteger
 
@@ -17,32 +16,51 @@ import java.math.BigInteger
 internal fun CashForecastChart(forecast: CashForecast) {
     val points = forecast.points
     if (points.isEmpty()) return
-    var expanded by remember { mutableStateOf(false) }
-    val maxAbs = points.maxOf { it.available.abs() }.max(BigInteger.ONE).toDouble()
+    var expanded by rememberSaveable(forecast.today, forecast.endExclusive) { mutableStateOf(false) }
+    val scale = financeChartScale(points.map { it.available })
     val positive = JibikStyle.forest
-    val negative = JibikStyle.warningText
-    val axis = JibikStyle.muted
-    JibikSectionTitle("مسیر مانده پیش‌بینی‌شده", "نمونه‌های زمانی · بدون درآمد آینده")
-    Canvas(Modifier.fillMaxWidth().height(120.dp).semantics {
-        contentDescription = "نمودار پیش‌بینی؛ مانده پایان بازه " + forecastMoney(forecast.available)
-    }) {
-        val mid = size.height / 2f
-        val step = size.width / points.size
-        drawLine(axis.copy(alpha = .45f), Offset(0f, mid), Offset(size.width, mid), strokeWidth = 1.dp.toPx())
-        points.forEachIndexed { index, point ->
-            val x = size.width - (index + .5f) * step
-            val length = (point.available.toDouble() / maxAbs * (mid - 8.dp.toPx())).toFloat()
-            drawLine(if (point.available.signum() < 0) negative else positive,
-                Offset(x, mid), Offset(x, mid - length), strokeWidth = minOf(14.dp.toPx(), step * .6f), cap = StrokeCap.Round)
+    val negative = JibikStyle.coral
+    val reveal = rememberChartReveal(points)
+    JibikSectionTitle("مسیر مانده پیش‌بینی‌شده", "از امروز تا تاریخ انتخابی")
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        ChartLegendDot("مانده مثبت", positive)
+        ChartLegendDot("کسری", negative)
+    }
+    if (points.all { it.available == BigInteger.ZERO }) {
+        JibikFormHint("مانده پیش‌بینی‌شده در نقاط این بازه صفر است.")
+    } else FinanceChartFrame(scale, "نمودار پیش‌بینی؛ مانده پایان بازه " + forecastMoney(forecast.available),
+        formatJalaliDueDate(points.first().day).takeLast(5), formatJalaliDueDate(points.last().day).takeLast(5)) {
+        val inset = 5.dp.toPx()
+        val span = (points.last().day - points.first().day).coerceAtLeast(1L)
+        val zero = size.height * (1f - scale.fraction(BigInteger.ZERO))
+        fun position(index: Int): Offset {
+            val point = points[index]
+            val fraction = if (points.size == 1) .5f else ((point.day - points.first().day).toDouble() / span).toFloat()
+            val y = size.height * (1f - scale.fraction(point.available))
+            return Offset(size.width - inset - (size.width - 2 * inset) * fraction, zero + (y - zero) * reveal)
+        }
+        points.indices.forEach { index ->
+            val p = position(index)
+            val tint = if (points[index].available.signum() < 0) negative else positive
+            if (index > 0) {
+                val previous = points[index - 1].available
+                val current = points[index].available
+                val from = position(index - 1)
+                if (previous.signum() * current.signum() < 0) {
+                    val ratio = previous.abs().toDouble() / (previous.abs() + current.abs()).toDouble()
+                    val cross = Offset(from.x + (p.x - from.x) * ratio.toFloat(), zero)
+                    drawLine(if (previous.signum() < 0) negative else positive, from, cross, 2.5.dp.toPx(), StrokeCap.Round)
+                    drawLine(tint, cross, p, 2.5.dp.toPx(), StrokeCap.Round)
+                } else drawLine(tint, from, p, 2.5.dp.toPx(), StrokeCap.Round)
+            }
+            drawCircle(tint, 3.dp.toPx(), p)
         }
     }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(formatJalaliDueDate(points.first().day), color = JibikStyle.muted)
-        if (points.size > 1) Text(formatJalaliDueDate(points.last().day), color = JibikStyle.muted)
-    }
-    Text("بالای خط: مانده مثبت · پایین خط: کسری", color = JibikStyle.muted)
+    JibikFormHint("نمونه‌های محاسبه‌شده؛ درآمد آینده لحاظ نشده است.")
     TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "بستن جزئیات نمودار" else "مشاهده مقادیر دقیق") }
-    if (expanded) points.forEach { point ->
-        JibikFinancialDetail(formatJalaliDueDate(point.day), forecastMoney(point.available))
+    AnimatedVisibility(expanded) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            points.forEach { point -> JibikFinancialDetail(formatJalaliDueDate(point.day), forecastMoney(point.available)) }
+        }
     }
 }
