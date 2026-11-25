@@ -571,6 +571,27 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         }
     }
 
+    suspend fun loadWealthHistory(): List<WealthSnapshot> = withContext(Dispatchers.IO) { database.wealthDao().list() }
+
+    /** A recorded observation of the complete local ledger. Never reconstruct past cash from today's accounts. */
+    suspend fun captureWealth(): List<WealthSnapshot> = withContext(Dispatchers.IO) {
+        ensureDefaultWallet()
+        migrateLegacyIfNeeded()
+        database.withTransaction {
+            val balances = FinanceEngine.balances(accountDao.list().map { it.toAccount() }, dao.getAll().map { it.toRecord() })
+            val positions = assetPositions(database.assetDao().holdings(), database.assetDao().events())
+            val current = netWorth(balances, positions, obligationDao.list(), obligationPaymentDao.list())
+            val history = database.wealthDao().list()
+            val now = System.currentTimeMillis()
+            val last = history.firstOrNull()
+            // Keep an observation for each day when explicitly requested, plus changes within that day.
+            if (last == null || last.worth() != current || formatJalaliDueDate(last.atMillis) != formatJalaliDueDate(now)) {
+                database.wealthDao().insert(WealthSnapshot.from(current, now))
+            }
+            database.wealthDao().list()
+        }
+    }
+
     suspend fun loadAssets(): List<AssetPosition> = database.withTransaction {
         assetPositions(database.assetDao().holdings(), database.assetDao().events())
     }

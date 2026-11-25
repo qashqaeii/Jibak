@@ -61,11 +61,13 @@ internal fun AssetsScreen(store: LocalLedgerStore, assets: List<AssetPosition>,
             JibikFinancialDetail("موجودی مثبت حساب‌ها", forecastMoney(worth.cash))
             JibikFinancialDetail("دارایی‌های غیرنقدی", forecastMoney(worth.nonCash))
             JibikFinancialDetail("مطالبات باقی‌مانده", forecastMoney(worth.receivables))
+            AssetAllocationBar(worth, assets)
             HorizontalDivider()
             JibikFinancialDetail("مانده منفی حساب‌ها", forecastMoney(worth.overdrafts))
             JibikFinancialDetail("تعهدات پرداخت‌نشده", forecastMoney(worth.obligations))
             JibikFormHint("ارزش خالص بر اساس تعهدات ثبت‌شده است؛ اقساط ممکن است شامل سود آینده باشند. پاکت‌ها و پس‌اندازها دوباره به دارایی اضافه نمی‌شوند.")
         }
+        WealthHistoryCard(store)
         JibikSectionTitle("سبد دارایی", "طلا، ارز، ملک، خودرو و سرمایه‌گذاری")
         LiquidGlassButton("＋ ثبت دارایی جدید", modifier = Modifier.fillMaxWidth(),
             onClick = { error = ""; create = true }, enabled = !busy)
