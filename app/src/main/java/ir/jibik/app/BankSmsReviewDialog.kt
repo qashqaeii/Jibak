@@ -57,6 +57,7 @@ internal fun BankSmsReviewDialog(
         isSelectableCategory(category, income, customCategories)
 
     AlertDialog(
+        properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         containerColor = Color.Transparent,
         onDismissRequest = { if (!busy) onDismiss() },
