@@ -305,6 +305,7 @@ internal fun NewObligationDialog(
     val valid = !isSaving && title.trim().length in 2..70 &&
         total != null && total > 0L && due != null && installments != null
     AlertDialog(
+        properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
@@ -417,6 +418,7 @@ internal fun SettleObligationDialog(
     val valid = !isSaving && parsed != null &&
         parsed in 1..outstanding && accounts.any { it.id == accountId }
     AlertDialog(
+        properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
