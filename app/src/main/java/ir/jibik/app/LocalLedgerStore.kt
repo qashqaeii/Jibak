@@ -15,11 +15,10 @@ import org.json.JSONArray
  * stays untouched until migration is verified and explicitly marked complete.
  * Preferences still hold onboarding and the budget setting for this milestone.
  */
-internal class LocalLedgerStore(context: Context) {
+internal class LocalLedgerStore(context: Context, private val database: JibikDatabase = JibikDatabase.get(context)) {
     private val preferences = context.applicationContext.getSharedPreferences(
         "jibik_local_v1", Context.MODE_PRIVATE
     )
-    private val database = JibikDatabase.get(context)
     private val dao = database.ledgerDao()
     private val accountDao = database.accountDao()
     private val customCategoryDao = database.customCategoryDao()
@@ -362,6 +361,18 @@ internal class LocalLedgerStore(context: Context) {
                 record
             }
         }
+
+    suspend fun linkBankSms(id: String, selected: LedgerRecord): LedgerRecord = database.withTransaction {
+        val sms = requireNotNull(bankSmsDao.find(id))
+        val record = requireNotNull(dao.find(selected.id)).toRecord()
+        check(record == selected && sms.state == "PENDING")
+        require(sms.amountRial > 0 && sms.amountRial % 10L == 0L && sms.amountRial / 10L == record.amountToman)
+        require(record.kind == if (sms.income) LedgerKind.INCOME else LedgerKind.EXPENSE)
+        require(kotlin.math.abs(record.timestampMillis - sms.receivedAtMillis) < 900_000L)
+        check(!bankSmsDao.isLinked(record.id))
+        check(bankSmsDao.markRegistered(id, record.id) == 1)
+        record
+    }
 
     suspend fun clearOldBankSmsHistory() = withContext(Dispatchers.IO) {
         bankSmsDao.purgeOlderHandled(

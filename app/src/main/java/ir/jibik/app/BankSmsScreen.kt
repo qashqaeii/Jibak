@@ -276,16 +276,17 @@ internal fun BankSmsScreen(
             existingRecords = existingRecords,
             busy = busy,
             onDismiss = { if (!busy) selected = null },
-            onConfirm = { record ->
+            onConfirm = { record, link ->
                 busy = true
                 scope.launch {
                     try {
-                        val posted = store.registerBankSms(candidate.id, record)
+                        val posted = if (link) store.linkBankSms(candidate.id, record)
+                            else store.registerBankSms(candidate.id, record)
                         pendingItems = store.bankSmsSuggestions()
                         selected = null
-                        onRegistered(posted)
+                        if (!link) onRegistered(posted)
                         BankSmsNotifications.clear(context)
-                        notice = "تراکنش پس از تأیید ثبت شد."
+                        notice = if (link) "پیام به تراکنش قبلی متصل شد." else "تراکنش پس از تأیید ثبت شد."
                     } catch (_: Exception) {
                         notice = "ثبت ناموفق بود؛ حساب و تکراری‌نبودن پیام را بررسی کن."
                     } finally { busy = false }

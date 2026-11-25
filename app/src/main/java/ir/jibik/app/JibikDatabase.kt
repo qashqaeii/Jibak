@@ -275,6 +275,9 @@ internal interface BankSmsCandidateDao {
     @Query("UPDATE bank_sms_candidates SET state = 'REGISTERED', linkedTransactionId = :transactionId WHERE id = :id AND state = 'PENDING'")
     suspend fun markRegistered(id: String, transactionId: String): Int
 
+    @Query("SELECT EXISTS(SELECT 1 FROM bank_sms_candidates WHERE linkedTransactionId = :id)")
+    suspend fun isLinked(id: String): Boolean
+
     @Query("DELETE FROM bank_sms_candidates WHERE state != 'PENDING' AND receivedAtMillis < :olderThan")
     suspend fun purgeOlderHandled(olderThan: Long): Int
 }
@@ -481,14 +484,17 @@ internal abstract class JibikDatabase : RoomDatabase() {
 
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
-                instance ?: Room.databaseBuilder(
+                instance ?: open(context, "jibik_ledger_v1.db").also { instance = it }
+            }
+
+        internal fun open(context: Context, name: String): JibikDatabase =
+                Room.databaseBuilder(
                     context.applicationContext,
                     JibikDatabase::class.java,
-                    "jibik_ledger_v1.db",
+                    name,
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                     MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-                ).build().also { instance = it }
-            }
+                ).build()
     }
 }
