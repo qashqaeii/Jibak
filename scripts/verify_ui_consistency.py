@@ -11,20 +11,30 @@ APP = ROOT / "app/src/main/java/ir/jibik/app"
 errors = []
 
 for source in sorted(APP.glob("*.kt")):
-    text = source.read_text(encoding="utf-8")
-    dialogs = text.count("AlertDialog(")
+    if source.name == "JibikModalDialog.kt":
+        continue
+    content = source.read_text(encoding="utf-8")
+    dialogs = content.count("JibikModalDialog(")
+    legacy = content.count("AlertDialog(")
+    if legacy:
+        errors.append(
+            f"{source.name}: {legacy} legacy AlertDialog(s) bypass the fixed "
+            "footer and responsive financial modal"
+        )
     if dialogs:
-        chrome = text.count(".jibikDialogSurface()")
-        wide = text.count("properties = JibikWideDialogProperties")
-        if chrome != dialogs:
+        chrome = content.count(".jibikDialogSurface()")
+        wide = content.count("properties = JibikWideDialogProperties")
+        if chrome != dialogs or wide != dialogs:
             errors.append(
-                f"{source.name}: {dialogs} AlertDialog(s) but {chrome} shared chrome calls"
+                f"{source.name}: {dialogs} modal(s), but {chrome} shared surfaces "
+                f"and {wide} wide-window policies"
             )
-        if wide != dialogs:
-            errors.append(
-                f"{source.name}: {dialogs} AlertDialog(s) but only {wide} "
-                "opt out of the narrow Android platform dialog width"
-            )
+
+modal_shell = (APP / "JibikModalDialog.kt").read_text(encoding="utf-8")
+if "Dialog(" not in modal_shell or ".weight(1f, fill = false)" not in modal_shell:
+    errors.append("Financial dialog needs a scroll-safe body and persistent action footer")
+if "LocalJibikModalPrimaryAction provides true" not in modal_shell:
+    errors.append("Finance dialog primary actions must use a full-width target")
 
 dialog_style = (APP / "JibikLiquidGlass.kt").read_text(encoding="utf-8")
 if "usePlatformDefaultWidth = false" not in dialog_style:
