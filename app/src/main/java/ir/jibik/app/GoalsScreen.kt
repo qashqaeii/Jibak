@@ -222,7 +222,7 @@ internal fun NewGoalDialog(
         },
         text = {
             Column(
-                Modifier.heightIn(max = 360.dp)
+                Modifier.fillMaxWidth().heightIn(max = 400.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(13.dp),
             ) {
@@ -237,17 +237,20 @@ internal fun NewGoalDialog(
                     placeholder = { Text("مثلاً سفر خانوادگی") },
                     singleLine = true, modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(15.dp),
+                    enabled = !isSaving,
                 )
                 JibikTomanField(
                     value = target,
                     onValueChange = { target = it },
                     label = "مبلغ هدف",
+                    enabled = !isSaving,
                 )
                 JibikAccountChoice(
                     title = "حساب پس‌انداز",
                     accounts = eligible,
                     selectedId = accountId,
                     onSelect = { accountId = it },
+                    enabled = !isSaving,
                     emptyHint = "ابتدا یک حساب پس‌انداز جدا بساز.",
                 )
                 if (eligible.isNotEmpty() && accountId.isBlank()) {
