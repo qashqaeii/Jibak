@@ -96,8 +96,8 @@ internal fun MoneyEnvelopesSection(store: LocalLedgerStore, envelopes: List<Mone
             onDismissRequest = { if (!busy) create = false },
             title = { JibikDialogHeading(if (old == null) "پاکت جدید" else "ویرایش پاکت", "برنامه پس‌انداز شخصی") },
             text = {
-                Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(title, { title = it.take(60) }, label = { Text("نام پاکت") }, singleLine = true, enabled = !busy)
+                Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(title, { title = it.take(60) }, modifier = Modifier.fillMaxWidth(), label = { Text("نام پاکت") }, singleLine = true, enabled = !busy)
                     JibikTomanField(amount, { amount = it }, "مبلغ هدف", enabled = !busy)
                     if (old == null) JibikAccountChoice("حساب پشتوانه", eligible, account, { account = it }, enabled = !busy)
                     else Text("حساب پشتوانه: " + accounts.firstOrNull { it.id == old.accountId }?.title.orEmpty())
@@ -134,7 +134,7 @@ internal fun MoneyEnvelopesSection(store: LocalLedgerStore, envelopes: List<Mone
             onDismissRequest = { if (!busy) selected = null },
             title = { JibikDialogHeading(item.title, "تخصیص یا آزادسازی موجودی") },
             text = {
-                Column(Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("تخصیص فعلی: " + formatToman(item.reservedToman))
                     Text("حداکثر پشتوانه پس از سایر پاکت‌ها: " + formatToman(minOf(free, item.targetToman)))
                     JibikTomanField(amount, { amount = it }, "مبلغ کل تخصیص جدید", enabled = !busy)

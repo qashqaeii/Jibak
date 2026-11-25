@@ -114,7 +114,7 @@ internal fun TransactionDetailDialog(
         text = {
             Column(
                 Modifier.fillMaxWidth().heightIn(max = 500.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .jibikScrollableBody(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(13.dp),
             ) {
                 lockedReason?.let { JibikFormHint(it, isWarning = true) }

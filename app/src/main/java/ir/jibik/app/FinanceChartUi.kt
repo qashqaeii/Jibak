@@ -79,7 +79,7 @@ internal fun FinanceChartFrame(scale: FinanceChartScale, description: String,
     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Text("مقیاس: تومان", color = JibikStyle.muted, style = MaterialTheme.typography.labelSmall)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically) {
+            verticalAlignment = Alignment.Top) {
             Column(Modifier.widthIn(min = 44.dp, max = 78.dp).height(146.dp),
                 verticalArrangement = Arrangement.SpaceBetween) {
                 scale.ticks.forEach { Text(chartAmountLabel(it), fontSize = 10.sp,

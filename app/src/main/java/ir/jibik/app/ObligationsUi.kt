@@ -320,7 +320,7 @@ internal fun NewObligationDialog(
         text = {
             Column(
                 Modifier.fillMaxWidth().heightIn(max = 460.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .jibikScrollableBody(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text("نوع تعهد", color = JibikStyle.muted, fontSize = 12.sp)
@@ -456,7 +456,7 @@ internal fun SettleObligationDialog(
         text = {
             Column(
                 Modifier.fillMaxWidth().heightIn(max = 400.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .jibikScrollableBody(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(13.dp),
             ) {
                 Text(obligation.title, color = JibikStyle.ink,

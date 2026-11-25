@@ -108,7 +108,7 @@ internal fun ItemizedPurchaseDialog(
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth().heightIn(max = 425.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .jibikScrollableBody(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(13.dp),
             ) {
                 JibikFormHint(if (original == null) "جمع نهایی از تعداد × قیمت واحد محاسبه می‌شود؛ ثبت ناقص موجودی را تغییر نمی‌دهد." else "مبلغ قبلی: " + money(original.amountToman) + " · مانده بر اساس رسید اصلاح‌شده محاسبه می‌شود؛ نسخه قبلی محفوظ می‌ماند.")

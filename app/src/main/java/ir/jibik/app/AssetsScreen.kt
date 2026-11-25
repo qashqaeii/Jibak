@@ -109,7 +109,7 @@ internal fun AssetsScreen(store: LocalLedgerStore, assets: List<AssetPosition>,
             modifier = Modifier.jibikDialogSurface(), onDismissRequest = { if (!busy) selectedId = null },
             title = { JibikDialogHeading(item.holding.title, ASSET_KINDS.getValue(item.holding.kind)) },
             text = {
-                Column(Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     JibikFinancialDetail("آخرین ارزش ثبت‌شده", formatToman(item.valueToman), emphasis = true)
                     item.holding.costBasisToman?.let { JibikFinancialDetail("بهای ثبت‌شده", formatToman(it)) }
@@ -152,9 +152,9 @@ private fun NewAssetDialog(busy: Boolean, error: String, accounts: List<ir.jibik
     JibikModalDialog(properties = JibikWideDialogProperties, modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = onDismiss, title = { JibikDialogHeading("دارایی جدید", "ثبت ارزش دستی") },
         text = {
-            Column(Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+            Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(title, { title = it.take(60) }, label = { Text("نام دارایی") }, singleLine = true, enabled = !busy)
+                OutlinedTextField(title, { title = it.take(60) }, modifier = Modifier.fillMaxWidth(), label = { Text("نام دارایی") }, singleLine = true, enabled = !busy)
                 Box {
                     OutlinedButton(onClick = { menu = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
                         Text("نوع: " + ASSET_KINDS.getValue(kind))
@@ -189,9 +189,9 @@ private fun AssetChangeDialog(item: AssetPosition, action: String, busy: Boolean
     JibikModalDialog(properties = JibikWideDialogProperties, modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = onDismiss, title = { JibikDialogHeading(heading, item.holding.title) },
         text = {
-            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (action == "VALUE") JibikTomanField(value, { value = it }, "ارزش کل جدید", allowZero = true, enabled = !busy)
-                OutlinedTextField(note, { note = it.take(200) }, label = { Text("یادداشت (اختیاری)") }, enabled = !busy)
+                OutlinedTextField(note, { note = it.take(200) }, modifier = Modifier.fillMaxWidth(), label = { Text("یادداشت (اختیاری)") }, enabled = !busy)
                 JibikFormHint(when (action) {
                     "ARCHIVE" -> "از ارزش خالص خارج می‌شود؛ سوابق باقی می‌مانند. فروش یا دریافتی ثبت نمی‌شود."
                     "RESTORE" -> "با آخرین ارزش ثبت‌شده به سبد برمی‌گردد؛ می‌توانی سپس ارزش را به‌روز کنی."
@@ -214,7 +214,7 @@ private fun AssetSaleDialog(item: AssetPosition, accounts: List<ir.jibik.core.fi
     JibikModalDialog(properties = JibikWideDialogProperties, modifier = Modifier.jibikDialogSurface(), onDismissRequest = onDismiss,
         title = { JibikDialogHeading("ثبت فروش کامل", item.holding.title) },
         text = {
-            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 JibikTomanField(draft, { draft = it }, "دریافتی خالص فروش", enabled = !busy)
                 JibikAccountChoice("حساب دریافت", accounts, account, { account = it }, enabled = !busy)
                 JibikFormHint("فقط اگر فروش و دریافت وجه هنوز ثبت نشده‌اند تأیید کن. دارایی از سبد خارج و وجه یک بار ثبت می‌شود. بازگردانی خودکار معامله فعلاً در دسترس نیست.")

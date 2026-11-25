@@ -38,7 +38,7 @@ internal fun CustomReportRangeDialog(current: ReportRange, today: Long, onDismis
     JibikModalDialog(properties = JibikWideDialogProperties, modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = onDismiss, title = { JibikDialogHeading("بازه دلخواه", "تاریخ شمسی · سال/ماه/روز") },
         text = {
-            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(start, { start = it.take(10) }, label = { Text("از تاریخ") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 OutlinedTextField(end, { end = it.take(10) }, label = { Text("تا تاریخ (شامل این روز)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 if (!valid) JibikFormHint("تاریخ پایان باید بین آغاز و امروز باشد.", isWarning = true)

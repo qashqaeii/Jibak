@@ -76,7 +76,7 @@ internal fun FinancialReviewInbox(store: LocalLedgerStore, accounts: List<Accoun
         onDismissRequest = { if (!busy) open = false },
         title = { JibikDialogHeading("صندوق بررسی مالی", "همه کارهای مالی در یک جا") },
         text = {
-            Column(Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (error.isNotEmpty()) JibikFormHint(error, isWarning = true)
                 if (!loaded) TextButton(onClick = { error = ""; reload++ }) { Text("تلاش دوباره") }
                 if (duesResult.isFailure) JibikFormHint("برخی تعهدها ناسازگارند؛ سلامت دفتر مالی را بررسی کن.", isWarning = true)
@@ -86,7 +86,8 @@ internal fun FinancialReviewInbox(store: LocalLedgerStore, accounts: List<Accoun
                 val visibleRecurring = if (filter == "all" || filter == "repeat") pending else emptyList()
                 val visibleBank = if (filter == "all" || filter == "bank") bank else emptyList()
                 if (loaded && visibleDues.isEmpty() && visibleRecurring.isEmpty() && visibleBank.isEmpty() && duesResult.isSuccess)
-                    Text("موردی برای بررسی باقی نمانده است.")
+                    JibikStatePanel(title = "همه چیز مرتب است",
+                        description = "در این بخش موردی برای بررسی باقی نمانده است.")
                 visibleDues.take(limit).forEach { due ->
                     JibikSurfaceCard {
                         Text(due.obligation.title + " · " + formatJalaliDueDate(due.day))
@@ -166,7 +167,7 @@ internal fun FinancialReviewInbox(store: LocalLedgerStore, accounts: List<Accoun
             onDismissRequest = { if (!busy) selected = null },
             title = { JibikDialogHeading("تأیید نوبت", rule.title) },
             text = {
-                Column(Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(formatJalaliDueDate(day) + " · " + accounts.firstOrNull { it.id == rule.accountId }?.title.orEmpty())
                     if (matches.isNotEmpty()) JibikFormHint("اگر این نوبت قبلاً پرداخت شده، تراکنش موجود را انتخاب کن؛ مبلغ دوباره از حساب کم نمی‌شود.")

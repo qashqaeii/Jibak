@@ -43,18 +43,19 @@ internal fun AccountManagementDialog(store: LocalLedgerStore, account: Account, 
     val parsed = parseAccountAmount(actual)
     JibikModalDialog(properties = JibikWideDialogProperties, modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!busy) onDismiss() },
+        bodyKey = mode,
         title = { JibikDialogHeading(when(mode) {
             "RENAME" -> "ویرایش نام حساب"; "RECONCILE" -> "اصلاح موجودی"; "ARCHIVE" -> "بایگانی حساب"; "RESTORE" -> "بازیابی حساب"; else -> "مدیریت حساب"
         }, account.title) },
         text = {
-            Column(Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+            Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 JibikFinancialDetail("مانده ثبت‌شده", formatToman(balance), emphasis = true)
                 when(mode) {
-                    "RENAME" -> OutlinedTextField(title, { title = it.take(48) }, label = { Text("نام جدید") }, enabled = !busy, singleLine = true)
+                    "RENAME" -> OutlinedTextField(title, { title = it.take(48) }, modifier = Modifier.fillMaxWidth(), label = { Text("نام جدید") }, enabled = !busy, singleLine = true)
                     "RECONCILE" -> {
-                        OutlinedTextField(actual, { actual = it.take(24) }, label = { Text("موجودی واقعی (تومان؛ منفی مجاز)") }, enabled = !busy, singleLine = true)
-                        OutlinedTextField(reason, { reason = it.take(200) }, label = { Text("دلیل اصلاح") }, enabled = !busy)
+                        OutlinedTextField(actual, { actual = it.take(24) }, modifier = Modifier.fillMaxWidth(), label = { Text("موجودی واقعی (تومان؛ منفی مجاز)") }, enabled = !busy, singleLine = true)
+                        OutlinedTextField(reason, { reason = it.take(200) }, modifier = Modifier.fillMaxWidth(), label = { Text("دلیل اصلاح") }, enabled = !busy)
                         parsed?.let { JibikFinancialDetail("اختلاف", forecastMoney(it.toBigInteger() - balance.toBigInteger())) }
                         JibikFormHint("اختلاف در یک تراکنش با دسته اصلاح موجودی ثبت می‌شود؛ مانده آغازین و سابقه حذف نمی‌شوند. این اختلاف در گردش نقدی دیده می‌شود.")
                     }
@@ -88,7 +89,9 @@ internal fun AccountManagementDialog(store: LocalLedgerStore, account: Account, 
                     else -> onDismiss()
                 }
             })
-        }, dismissButton = { if (mode != "DETAIL") TextButton(onClick = { mode = "DETAIL"; error = "" }, enabled = !busy) { Text("بازگشت") } })
+        }, dismissButton = if (mode != "DETAIL") {
+        { TextButton(onClick = { mode = "DETAIL"; error = "" }, enabled = !busy) { Text("بازگشت") } }
+    } else null)
 }
 
 @Composable
@@ -137,7 +140,7 @@ internal fun WeeklyBudgetPanel(store: LocalLedgerStore, records: List<LedgerReco
         JibikModalDialog(properties = JibikWideDialogProperties, modifier = Modifier.jibikDialogSurface(), onDismissRequest = { if (!busy) edit = false },
             title = { JibikDialogHeading("بودجه هفته", formatJalaliDueDate(week)) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     JibikTomanField(amount, { amount = it }, "سقف پایه هفته", allowZero = true, enabled = !busy)
                     Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                         Checkbox(checked = carry, onCheckedChange = { carry = it }, enabled = !busy)
@@ -175,9 +178,10 @@ internal fun LoanManagementDialog(store: LocalLedgerStore, id: String, onDismiss
     val selected = info?.payments?.firstOrNull { it.transactionId == mode }
     val parsed = parseTomanDraft(draft)
     JibikModalDialog(properties = JibikWideDialogProperties, modifier = Modifier.jibikDialogSurface(), onDismissRequest = { if (!busy) onDismiss() },
+        bodyKey = mode,
         title = { JibikDialogHeading("اصل و سود وام", "طبقه‌بندی پرداخت‌های واقعی") },
         text = {
-            Column(Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+            Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (info == null) {
                     Text(if (error.isBlank()) "در حال بارگذاری…" else error)
@@ -247,5 +251,7 @@ internal fun LoanManagementDialog(store: LocalLedgerStore, id: String, onDismiss
                     }
                 }
             })
-        }, dismissButton = { if (mode != "DETAIL") TextButton(enabled = !busy, onClick = { mode = "DETAIL"; error = "" }) { Text("بازگشت") } })
+        }, dismissButton = if (mode != "DETAIL") {
+        { TextButton(enabled = !busy, onClick = { mode = "DETAIL"; error = "" }) { Text("بازگشت") } }
+    } else null)
 }

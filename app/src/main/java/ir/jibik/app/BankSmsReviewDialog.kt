@@ -86,7 +86,7 @@ internal fun BankSmsReviewDialog(
         text = {
             Column(
                 Modifier.fillMaxWidth().heightIn(max = 475.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .jibikScrollableBody(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(

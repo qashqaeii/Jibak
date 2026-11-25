@@ -23,7 +23,7 @@ internal fun PurchaseSimulationDialog(accounts: List<Account>, balances: Map<Str
         onDismissRequest = onDismiss,
         title = { JibikDialogHeading("شبیه‌ساز خرید", "بررسی پیش از پرداخت · بدون ثبت تراکنش") },
         text = {
-            Column(Modifier.fillMaxWidth().heightIn(max = 470.dp).verticalScroll(rememberScrollState()),
+            Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 JibikTomanField(draft, { draft = it }, "مبلغ خرید احتمالی")
                 JibikAccountChoice("از کدام حساب؟", accounts, account, { account = it })

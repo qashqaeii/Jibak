@@ -115,15 +115,15 @@ internal fun ReportsScreen(
     val cashFlow = totals.net
     Column(
         modifier = modifier.fillMaxSize().liquidBackdrop().verticalScroll(rememberScrollState())
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(horizontal = 16.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         JibikPageHeader(
             title = "گزارش مالی",
             subtitle = "تحلیل گردش واقعی دفتر مالی",
         )
         ReportRangeSelector(preset, range, onPreset = { if (it == "CUSTOM") showRange = true else preset = it })
-        JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.REPORTS) {
+        JibikHero(Modifier.fillMaxWidth()) {
             Text("خالص جریان پول در بازه", fontSize = 13.sp, color = Color(0xFFDAF1E9))
             JibikHeroAmount(forecastMoney(cashFlow))
             HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
@@ -135,16 +135,16 @@ internal fun ReportsScreen(
                     Text("ورودی نقدی", color = Color(0xFFCCEEE5), fontSize = 12.sp)
                     Text(
                         forecastMoney(totals.income), color = Color.White, fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold, maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        fontWeight = FontWeight.Bold, maxLines = 3,
+                        lineHeight = 19.sp,
                     )
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text("خروجی نقدی", color = Color(0xFFCCEEE5), fontSize = 12.sp)
                     Text(
                         forecastMoney(totals.expense), color = Color.White, fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold, maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        fontWeight = FontWeight.Bold, maxLines = 3,
+                        lineHeight = 19.sp,
                     )
                 }
             }
