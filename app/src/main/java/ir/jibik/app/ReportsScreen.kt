@@ -84,11 +84,15 @@ internal fun ReportsScreen(
     val today = requireNotNull(parseJalaliDueDate(formatJalaliDueDate(System.currentTimeMillis())))
     val range = if (preset == "CUSTOM" && customStart > 0 && customEnd > customStart) ReportRange(customStart, customEnd) else reportRange(preset, today)
     val totals = remember(records.toList(), range) { reportTotals(records, range) }
-    val spending = remember(records.toList(), receiptLines, range) { detailedCategoryExpenses(records, receiptLines, range.start, range.endExclusive) }
+    val categoriesSupported = totals.income <= Long.MAX_VALUE.toBigInteger() && totals.expense <= Long.MAX_VALUE.toBigInteger()
+    val spending = remember(records.toList(), receiptLines, range, categoriesSupported) {
+        if (categoriesSupported) detailedCategoryExpenses(records, receiptLines, range.start, range.endExclusive)
+        else emptyList()
+    }
     val previous = remember(records.toList(), range) { reportTotals(records, previousReportRange(range)) }
     val trend = remember(records.toList(), range) { reportTrend(records, range) }
     var incomeBreakdown by rememberSaveable { mutableStateOf(false) }
-    val categories = if (incomeBreakdown) {
+    val categories = if (!categoriesSupported) emptyList() else if (incomeBreakdown) {
         detailedIncomeCategories(records, range.start, range.endExclusive)
     } else spending
     val expenseRoots = categoryReportRows(spending)
@@ -98,7 +102,7 @@ internal fun ReportsScreen(
     var showAllCategories by rememberSaveable(range.start, range.endExclusive) { mutableStateOf(false) }
     var visibleTransactions by rememberSaveable(range.start, range.endExclusive) { mutableStateOf(15) }
     val displayed = categoryReportRows(categories, selectedCategoryPath)
-    val contributions = if (selectedLeafPath.isNotEmpty()) {
+    val contributions = if (categoriesSupported && selectedLeafPath.isNotEmpty()) {
         categoryReportContributions(
             if (incomeBreakdown) classifiedIncomeLines(
                 records, range.start, range.endExclusive,
@@ -146,7 +150,7 @@ internal fun ReportsScreen(
             }
         }
         ReportTrendCard(range, totals, previous, trend)
-        ReportPdfAction(range, totals, previous, expenseRoots)
+        ReportPdfAction(range, totals, previous, expenseRoots, categoriesSupported)
         wealth?.let { worth ->
             LiquidGlassCard(onClick = onAssets, tone = GlassTone.CRYSTAL) {
                 JibikSectionTitle("ارزش خالص دارایی‌ها", "تصویر امروز · بر اساس اطلاعات ثبت‌شده")
@@ -177,7 +181,8 @@ internal fun ReportsScreen(
                 }
             }
         }
-        LiquidGlassCard(
+        if (!categoriesSupported) JibikFormHint("مجموع بازه از ظرفیت گزارش دسته‌بندی بیشتر است. برای مشاهده جزئیات بازه کوتاه‌تری انتخاب کن؛ خلاصه مالی همچنان دقیق است.", isWarning = true)
+        else LiquidGlassCard(
             modifier = Modifier.fillMaxWidth(),
             tone = GlassTone.CRYSTAL,
         ) {

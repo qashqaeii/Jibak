@@ -18,7 +18,7 @@ import kotlinx.coroutines.withContext
 import java.io.OutputStream
 
 internal data class ReportPdfData(val range: ReportRange, val totals: ReportTotals,
-    val previous: ReportTotals, val categories: List<Pair<String, Long>>)
+    val previous: ReportTotals, val categories: List<Pair<String, Long>>, val categoriesSupported: Boolean)
 
 internal fun writeReportPdf(output: OutputStream, data: ReportPdfData) {
     val doc = PdfDocument()
@@ -59,7 +59,8 @@ internal fun writeReportPdf(output: OutputStream, data: ReportPdfData) {
         line("تغییر ورودی: " + forecastMoney(data.totals.income - data.previous.income))
         line("تغییر خروجی: " + forecastMoney(data.totals.expense - data.previous.expense))
         line("تفکیک هزینه‌ها", true)
-        if (data.categories.isEmpty()) line("هزینه‌ای در این بازه ثبت نشده است.")
+        if (!data.categoriesSupported) line("برای مشاهده جزئیات دسته‌ها بازه کوتاه‌تری انتخاب کن.")
+        else if (data.categories.isEmpty()) line("هزینه‌ای در این بازه ثبت نشده است.")
         data.categories.forEach { (title,amount) -> line(title + " | " + formatToman(amount)) }
         line("گزارش گردش نقدی ثبت‌شده؛ انتقال حساب‌ها و ارزش‌گذاری دارایی در جریان نقدی منظور نمی‌شود. این فایل رمزدار نیست.")
         page?.let { doc.finishPage(it) }; page = null
@@ -71,7 +72,7 @@ internal fun writeReportPdf(output: OutputStream, data: ReportPdfData) {
 }
 
 @Composable
-internal fun ReportPdfAction(range: ReportRange, totals: ReportTotals, previous: ReportTotals, categories: List<CategoryReportRow>) {
+internal fun ReportPdfAction(range: ReportRange, totals: ReportTotals, previous: ReportTotals, categories: List<CategoryReportRow>, categoriesSupported: Boolean) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var pending by remember { mutableStateOf<ReportPdfData?>(null) }
@@ -98,7 +99,7 @@ internal fun ReportPdfAction(range: ReportRange, totals: ReportTotals, previous:
         JibikSectionTitle("گزارش قابل چاپ", "خلاصه همین بازه")
         JibikFormHint("PDF شامل مبالغ و دسته‌های مالی است و رمزنگاری نشده؛ فقط در محل امن ذخیره کن.")
         LiquidGlassButton("دریافت گزارش PDF", enabled = !busy && pending == null, onClick = {
-            pending = ReportPdfData(range, totals, previous, categories.map { it.title to it.amountToman })
+            pending = ReportPdfData(range, totals, previous, categories.map { it.title to it.amountToman }, categoriesSupported)
             try { launcher.launch("jibik-report.pdf") }
             catch (_: Exception) { pending = null; message = "انتخاب محل ذخیره انجام نشد." }
         })

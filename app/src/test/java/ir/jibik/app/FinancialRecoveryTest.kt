@@ -18,6 +18,42 @@ class FinancialRecoveryTest {
         try { block(this) } finally { close() }
     }
 
+    @Test fun wealthObservationsPreserveRecordedHistoryAndRestoreBackup() = runBlocking {
+        val ctx: Context = RuntimeEnvironment.getApplication()
+        JibikDatabase.open(ctx, "wealth-source").withOpenDatabase { db ->
+            val store = LocalLedgerStore(ctx, db)
+            val now = System.currentTimeMillis()
+            store.loadAccounts()
+            store.addAccount(Account("bank", "بانک", 1000))
+            val first = store.captureWealth().single()
+            assertEquals(1000.toBigInteger(), first.worth().net)
+            assertEquals(listOf(first), store.captureWealth())
+            store.addAsset(AssetHolding("gold", "سکه", "GOLD", null, now), 250)
+            val history = store.captureWealth()
+            assertEquals(2, history.size)
+            assertEquals(1250.toBigInteger(), history.first().worth().net)
+            assertEquals(first, history.last())
+            assertEquals(1, dailyWealthHistory(history).size)
+            assertTrue(store.load().isEmpty())
+            val backup = store.backup()
+            JibikDatabase.open(ctx, "wealth-target").withOpenDatabase { targetDb ->
+                val target = LocalLedgerStore(ctx, targetDb)
+                target.loadAccounts(); target.restoreBackup(backup)
+                assertEquals(history, target.loadWealthHistory())
+                assertEquals(store.loadAssets(), target.loadAssets())
+                assertTrue(target.inspectIntegrity().isEmpty())
+            }
+            val older = org.json.JSONObject(backup.toString()).put("version", 8)
+            older.remove("wealth_snapshots")
+            JibikDatabase.open(ctx, "wealth-v8").withOpenDatabase { targetDb ->
+                val target = LocalLedgerStore(ctx, targetDb)
+                target.loadAccounts(); target.restoreBackup(older)
+                assertTrue(target.loadWealthHistory().isEmpty())
+                assertEquals(store.loadAssets(), target.loadAssets())
+            }
+        }
+    }
+
     @Test fun assetHistoryArchiveAndBackupNeverChangeLedger() = runBlocking {
         val ctx: Context = RuntimeEnvironment.getApplication()
         JibikDatabase.open(ctx, "asset-source").withOpenDatabase { db ->
