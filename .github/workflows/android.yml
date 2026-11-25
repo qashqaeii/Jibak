@@ -38,6 +38,29 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
+      - name: Configure persistent test-channel signing (trusted main only)
+        id: signing
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          UPDATE_KEYSTORE: ${{ secrets.JIBIK_UPDATE_KEYSTORE_B64 }}
+          EXPECTED_CERT: ${{ vars.JIBIK_UPDATE_CERT_SHA256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$UPDATE_KEYSTORE" && -z "$EXPECTED_CERT" ]]; then
+            echo "stable=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Ephemeral debug signing; this APK is not a verified in-place update."
+            exit 0
+          fi
+          test -n "$UPDATE_KEYSTORE" && test -n "$EXPECTED_CERT"
+          umask 077
+          mkdir -p "$HOME/.android"
+          printf '%s' "$UPDATE_KEYSTORE" | base64 --decode > "$HOME/.android/debug.keystore"
+          actual="$(keytool -exportcert -alias androiddebugkey -keystore "$HOME/.android/debug.keystore" -storepass android | sha256sum | cut -d' ' -f1)"
+          expected="$(printf '%s' "$EXPECTED_CERT" | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')"
+          [[ "$expected" =~ ^[0-9a-f]{64}$ && "$actual" == "$expected" ]] || { echo "::error::Update signing certificate mismatch"; exit 1; }
+          echo "stable=true" >> "$GITHUB_OUTPUT"
+          echo "cert=$actual" >> "$GITHUB_OUTPUT"
       - name: Unit tests and debug APK
         shell: bash
         run: |
@@ -85,6 +108,23 @@ jobs:
             fi
           done
           echo "APK SMS permissions and embedded Persian fonts verified"
+          signer="$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "${apks[0]}" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
+          [[ "$signer" =~ ^[0-9a-fA-F]{64}$ ]]
+          stable="${{ steps.signing.outputs.stable }}"
+          if [[ "$stable" == true ]]; then
+            [[ "$signer" == "${{ steps.signing.outputs.cert }}" ]] || { echo "::error::APK signer differs from pinned certificate"; exit 1; }
+          fi
+          {
+            echo "applicationId=ir.jibik.app"
+            echo "certificateSha256=$signer"
+            echo "persistentSigningVerified=${stable:-false}"
+            "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "${apks[0]}" | sed -n '1p'
+          } > app/build/outputs/apk/debug/update-identity.txt
+          if [[ "$stable" != true ]]; then
+            echo "⚠️ Debug APK only: in-place update compatibility with a previously installed APK is not verified." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Persistent test-channel signing verified. Prior APK must have the same certificate." >> "$GITHUB_STEP_SUMMARY"
+          fi
           sha256sum "${apks[0]}" > "${apks[0]}.sha256"
           echo "APK size: $(stat -c %s "${apks[0]}") bytes"
           cat "${apks[0]}.sha256"
@@ -92,12 +132,16 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Jibik-debug-apk
+          name: ${{ steps.signing.outputs.stable == 'true' && 'Jibik-update-signed-apk' || 'Jibik-debug-apk' }}
           path: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/debug/*.apk.sha256
+            app/build/outputs/apk/debug/update-identity.txt
           if-no-files-found: error
           retention-days: 14
+      - name: Remove injected private signing key
+        if: always() && steps.signing.outcome != 'skipped'
+        run: rm -f "$HOME/.android/debug.keystore"
   verify-export-decoder:
     runs-on: ubuntu-latest
     timeout-minutes: 10

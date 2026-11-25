@@ -13,8 +13,9 @@ android {
         applicationId = "ir.jibik.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // Bump for every distributable update; never change applicationId.
+        versionCode = 2
+        versionName = "0.1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         // Only the public Jibik API URL is injected at build time.
