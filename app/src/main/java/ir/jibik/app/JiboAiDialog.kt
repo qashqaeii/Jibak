@@ -51,7 +51,7 @@ internal fun JiboAiDialog(
     var answer by remember { mutableStateOf<JiboAiAnswer?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    AlertDialog(
+    JibikModalDialog(
         properties = JibikWideDialogProperties,
         onDismissRequest = { if (!working) onDismiss() },
         modifier = Modifier.jibikDialogSurface(),
