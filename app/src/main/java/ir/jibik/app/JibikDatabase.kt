@@ -363,7 +363,7 @@ internal interface SavingsGoalDao {
         FinancialObligationEntity::class, ObligationPaymentEntity::class,
         BankSmsCandidateEntity::class, LedgerRevision::class, MonthlyBudget::class, LedgerVoid::class, RecurringRule::class, RecurringDecision::class, FinancialEditHistory::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = false,
 )
 internal abstract class JibikDatabase : RoomDatabase() {
@@ -548,6 +548,15 @@ internal abstract class JibikDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE recurring_rules ADD COLUMN frequency TEXT NOT NULL DEFAULT 'MONTHLY'")
+                db.execSQL("ALTER TABLE recurring_rules ADD COLUMN interval INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE recurring_rules ADD COLUMN category TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE recurring_rules ADD COLUMN endDay INTEGER")
+            }
+        }
+
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
                 instance ?: open(context, "jibik_ledger_v1.db").also { instance = it }
@@ -560,7 +569,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
                     name,
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
+                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14,
                 ).build()
     }
 }

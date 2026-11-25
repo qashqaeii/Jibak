@@ -13,15 +13,8 @@ internal fun reviewDueObligations(
 internal fun reviewDueRecurring(
     rules: List<RecurringRule>, decisions: List<RecurringDecision>, now: Long,
 ): List<Pair<RecurringRule, Long>> {
-    val month = currentJalaliMonth(now)
     val handled = decisions.map { it.ruleId to it.day }.toHashSet()
     return rules.flatMap { rule ->
-        val first = currentJalaliMonth(rule.firstDay)
-        val count = (month.year - first.year) * 12 + month.month - first.month
-        if (count < 0) emptyList() else (0..count).mapNotNull { offset ->
-            val target = currentJalaliMonth(offsetJalaliMonth(first.startMillis, offset))
-            val day = rule.dueIn(target) ?: return@mapNotNull null
-            if (day <= now && (rule.id to day) !in handled) rule to day else null
-        }
+        rule.dueBetween(rule.firstDay, now + 1).filter { (rule.id to it) !in handled }.map { rule to it }
     }.sortedWith(compareBy<Pair<RecurringRule, Long>> { it.second }.thenBy { it.first.id })
 }

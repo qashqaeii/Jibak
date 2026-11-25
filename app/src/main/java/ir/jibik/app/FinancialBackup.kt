@@ -25,7 +25,7 @@ internal object FinancialBackup {
 
     suspend fun snapshot(room: JibikDatabase, budget: Long): JSONObject = room.withTransaction {
         val db = room.openHelper.writableDatabase
-        val root = JSONObject().put("version", 4).put("budget", budget)
+        val root = JSONObject().put("version", 5).put("budget", budget)
         tables.forEach { table ->
             db.query("SELECT * FROM $table").use { rows ->
                 val data = JSONArray()
@@ -49,7 +49,7 @@ internal object FinancialBackup {
     }
 
     suspend fun restore(room: JibikDatabase, root: JSONObject) = room.withTransaction {
-        require(root.getInt("version") in 1..4 && root.getLong("budget") >= 0)
+        require(root.getInt("version") in 1..5 && root.getLong("budget") >= 0)
         val db = room.openHelper.writableDatabase
         // Restore on a fresh ledger only. Recheck inside the write transaction.
         tables.forEach { table ->
@@ -63,7 +63,9 @@ internal object FinancialBackup {
             if (root.getInt("version") < 3 && table.startsWith("recurring_")) return@forEach
             if (root.getInt("version") == 1 && table == "ledger_voids") return@forEach
             val sheet = root.getJSONObject(table)
-            val names = columns(db, table)
+            val names = columns(db, table).filterNot { name ->
+                table == "recurring_rules" && root.getInt("version") < 5 && name in setOf("frequency", "interval", "category", "endDay")
+            }
             val saved = sheet.getJSONArray("columns")
             val indices = (0 until saved.length()).associateBy { saved.getString(it) }
             require(indices.keys == names.toSet() && saved.length() == names.size)
@@ -102,7 +104,7 @@ internal object FinancialBackup {
         val clear = cipher(password, header, Cipher.DECRYPT_MODE).doFinal(data, size, data.size - size)
         return try {
             JSONObject(clear.toString(Charsets.UTF_8)).also { root ->
-                require(root.getInt("version") in 1..4 && root.getLong("budget") >= 0)
+                require(root.getInt("version") in 1..5 && root.getLong("budget") >= 0)
                 tables.filter { (it != "financial_edit_history" || root.getInt("version") >= 4) && (!it.startsWith("recurring_") || root.getInt("version") >= 3) && (it != "ledger_voids" || root.getInt("version") >= 2) }.forEach { root.getJSONObject(it).getJSONArray("rows") }
             }
         } finally { clear.fill(0) }

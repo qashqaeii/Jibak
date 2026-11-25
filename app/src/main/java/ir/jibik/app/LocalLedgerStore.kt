@@ -153,7 +153,10 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         database.recurringDao().decisions(month.startMillis, month.endExclusiveMillis)
 
     suspend fun addRecurring(rule: RecurringRule) = database.withTransaction {
-        require(rule.title.isNotBlank() && rule.amount > 0 && rule.firstDay > 0)
+        require(rule.title.isNotBlank() && rule.title.length <= 70 && rule.amount > 0 && rule.firstDay > 0)
+        require(rule.frequency in RECURRING_FREQUENCIES && rule.interval in 1..365)
+        require(rule.endDay == null || rule.endDay >= rule.firstDay)
+        require(rule.category.isBlank() || isSelectableCategory(rule.category, rule.income, customCategoryDao.list()))
         require(accountDao.list().any { it.id == rule.accountId })
         database.recurringDao().add(rule)
     }
@@ -163,14 +166,14 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
     suspend fun decideRecurring(ruleId: String, day: Long, amount: Long?) = database.withTransaction {
         val recurring = database.recurringDao()
         val rule = recurring.rules().first { it.id == ruleId }
-        require(rule.dueIn(currentJalaliMonth(day)) == day && day <= System.currentTimeMillis())
+        require(rule.isDue(day) && day <= System.currentTimeMillis())
         val recordId = if (amount != null) {
             require(amount > 0)
             val record = LedgerRecord(id = java.util.UUID.randomUUID().toString(),
                 kind = if (rule.income) LedgerKind.INCOME else LedgerKind.EXPENSE,
                 amountToman = amount, fromAccountId = rule.accountId.takeUnless { rule.income },
                 toAccountId = rule.accountId.takeIf { rule.income },
-                category = if (rule.income) "سایر درآمدها" else "سایر هزینه‌ها",
+                category = rule.category.ifBlank { if (rule.income) "سایر درآمدها" else "سایر هزینه‌ها" },
                 note = rule.title, timestampMillis = System.currentTimeMillis())
             FinanceEngine.balances(accountDao.list().map { it.toAccount() }, dao.getAll().map { it.toRecord() } + record)
             dao.insert(record.toEntity())
@@ -182,7 +185,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
     suspend fun linkRecurring(ruleId: String, day: Long, existing: LedgerRecord) = database.withTransaction {
         val recurring = database.recurringDao()
         val rule = recurring.rules().first { it.id == ruleId }
-        require(rule.dueIn(currentJalaliMonth(day)) == day && day <= System.currentTimeMillis())
+        require(rule.isDue(day) && day <= System.currentTimeMillis())
         require(existing.kind == if (rule.income) LedgerKind.INCOME else LedgerKind.EXPENSE)
         require(existing.amountToman > 0 && (existing.fromAccountId ?: existing.toAccountId) == rule.accountId)
         require(kotlin.math.abs(existing.timestampMillis - day) < 36L * 60 * 60 * 1000)

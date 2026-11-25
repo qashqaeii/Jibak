@@ -7,7 +7,11 @@ import android.icu.util.ULocale
 
 @Entity(tableName = "recurring_rules")
 internal data class RecurringRule(@PrimaryKey val id: String, val title: String, val income: Boolean,
-    val accountId: String, val amount: Long, val firstDay: Long, val stoppedAt: Long? = null)
+    val accountId: String, val amount: Long, val firstDay: Long, val stoppedAt: Long? = null,
+    @ColumnInfo(defaultValue = "'MONTHLY'") val frequency: String = "MONTHLY",
+    @ColumnInfo(defaultValue = "1") val interval: Int = 1,
+    @ColumnInfo(defaultValue = "''") val category: String = "",
+    val endDay: Long? = null)
 
 @Entity(tableName = "recurring_decisions", primaryKeys = ["ruleId", "day"])
 internal data class RecurringDecision(val ruleId: String, val day: Long, val transactionId: String?, val actual: Long?)
@@ -36,21 +40,58 @@ internal fun offsetJalaliMonth(day: Long, offset: Int): Long =
         add(Calendar.MONTH, offset)
     }.timeInMillis
 
-internal fun RecurringRule.dueIn(month: JalaliMonthPeriod): Long? {
-    val first = currentJalaliMonth(firstDay)
-    val offset = (month.year - first.year) * 12 + month.month - first.month
-    if (offset < 0) return null
-    val day = offsetJalaliMonth(firstDay, offset)
-    return day.takeIf { stoppedAt == null || it <= stoppedAt }
+internal val RECURRING_FREQUENCIES = listOf("DAILY", "WEEKLY", "MONTHLY", "YEARLY")
+internal fun recurringFrequencyLabel(frequency: String) = when (frequency) {
+    "DAILY" -> "روز"; "WEEKLY" -> "هفته"; "YEARLY" -> "سال"; else -> "ماه"
 }
 
-/** Count anchored monthly occurrences up to the horizon, including arrears. */
-internal fun pendingOccurrenceCount(rule: RecurringRule, decisions: List<RecurringDecision>, end: Long): Int {
-    val last = minOf(end - 1, rule.stoppedAt ?: Long.MAX_VALUE)
-    if (last < rule.firstDay) return 0
-    val first = currentJalaliMonth(rule.firstDay)
-    val month = currentJalaliMonth(last)
-    val offset = (month.year - first.year) * 12 + month.month - first.month
-    val count = offset + if (offsetJalaliMonth(rule.firstDay, offset) <= last) 1 else 0
-    return count - decisions.count { it.ruleId == rule.id && it.day in rule.firstDay..last }
+internal fun offsetJalaliDay(day: Long, offset: Int): Long =
+    Calendar.getInstance(TimeZone.getTimeZone("Asia/Tehran"), ULocale("fa_IR@calendar=persian")).apply {
+        timeInMillis = day
+        add(Calendar.DAY_OF_MONTH, offset)
+    }.timeInMillis
+
+private fun localDate(day: Long) = java.time.Instant.ofEpochMilli(day)
+    .atZone(java.time.ZoneId.of("Asia/Tehran")).toLocalDate()
+
+private fun RecurringRule.occurrence(index: Int): Long = when (frequency) {
+    "DAILY" -> offsetJalaliDay(firstDay, Math.multiplyExact(index, interval))
+    "WEEKLY" -> offsetJalaliDay(firstDay, Math.multiplyExact(index, interval * 7))
+    "YEARLY" -> offsetJalaliMonth(firstDay, Math.multiplyExact(index, interval * 12))
+    else -> offsetJalaliMonth(firstDay, Math.multiplyExact(index, interval))
 }
+
+private fun RecurringRule.countThrough(timestamp: Long): Int {
+    require(frequency in RECURRING_FREQUENCIES && interval in 1..365)
+    val last = minOf(timestamp, stoppedAt ?: Long.MAX_VALUE, endDay ?: Long.MAX_VALUE)
+    if (last < firstDay) return 0
+    val index = if (frequency == "DAILY" || frequency == "WEEKLY") {
+        val days = java.time.temporal.ChronoUnit.DAYS.between(localDate(firstDay), localDate(last))
+        (days / (interval * if (frequency == "WEEKLY") 7 else 1)).toInt()
+    } else {
+        val first = currentJalaliMonth(firstDay)
+        val month = currentJalaliMonth(last)
+        ((month.year - first.year) * 12 + month.month - first.month) /
+            (interval * if (frequency == "YEARLY") 12 else 1)
+    }
+    return index + if (occurrence(index) <= last) 1 else 0
+}
+
+/** Every occurrence is anchored to the first Persian day, not the previous occurrence. */
+internal fun RecurringRule.dueBetween(start: Long, endExclusive: Long): List<Long> {
+    if (endExclusive <= start || endExclusive <= firstDay) return emptyList()
+    val from = countThrough(start - 1)
+    val until = countThrough(endExclusive - 1)
+    return (from until until).map { occurrence(it) }
+}
+
+internal fun RecurringRule.dueIn(month: JalaliMonthPeriod): Long? =
+    dueBetween(month.startMillis, month.endExclusiveMillis).firstOrNull()
+
+internal fun RecurringRule.isDue(day: Long): Boolean =
+    day >= firstDay && dueBetween(day, day + 1).singleOrNull() == day
+
+internal fun pendingOccurrenceCount(rule: RecurringRule, decisions: List<RecurringDecision>, end: Long): Int =
+    (rule.countThrough(end - 1) - decisions.asSequence().filter {
+        it.ruleId == rule.id && it.day < end && rule.isDue(it.day)
+    }.map { it.day }.distinct().count()).coerceAtLeast(0)

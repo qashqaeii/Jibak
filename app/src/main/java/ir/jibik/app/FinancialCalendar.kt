@@ -44,6 +44,7 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
     var mode by rememberSaveable { mutableStateOf("calendar") }
     var filter by rememberSaveable { mutableStateOf("all") }
     var selected by rememberSaveable { mutableStateOf("") }
+    var selectedDay by rememberSaveable { mutableLongStateOf(0L) }
     var actual by rememberSaveable { mutableStateOf("") }
     var refresh by remember { mutableIntStateOf(0) }
     var rules by remember { mutableStateOf(emptyList<RecurringRule>()) }
@@ -73,7 +74,7 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
     val rows = remember(month, rules, decisions, obligations, payments) {
         buildList<CalendarRow> {
             rules.forEach { rule ->
-                val day = rule.dueIn(month) ?: return@forEach
+                rule.dueBetween(month.startMillis, month.endExclusiveMillis).forEach { day ->
                 val decision = decisions.firstOrNull { it.ruleId == rule.id && it.day == day }
                 val status = when {
                     decision == null -> if (rule.income) "دریافت برنامه‌ریزی‌شده" else "پرداخت برنامه‌ریزی‌شده"
@@ -81,6 +82,7 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
                     else -> "ثبت شده"
                 }
                 add(CalendarRow(day, rule.title, decision?.actual ?: rule.amount, status, rule, decision == null, receiving = rule.income))
+                }
             }
             obligations.forEach { item ->
                 val first = currentJalaliMonth(item.dueAtMillis)
@@ -100,11 +102,14 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
         }.sortedBy { it.day }
     }
     val usedIds = payments.map { it.transactionId }.toSet() + allDecisions.mapNotNull { it.transactionId } + decisions.mapNotNull { it.transactionId }
-    val row = rows.firstOrNull { it.rule?.id == selected }
+    val row = rows.firstOrNull { it.rule?.id == selected && it.day == selectedDay }
     var title by rememberSaveable { mutableStateOf("") }
     var income by rememberSaveable { mutableStateOf(false) }
     var estimate by rememberSaveable { mutableStateOf("") }
     var date by rememberSaveable { mutableStateOf("") }
+    var frequency by rememberSaveable { mutableStateOf("MONTHLY") }
+    var intervalText by rememberSaveable { mutableStateOf("1") }
+    var endText by rememberSaveable { mutableStateOf("") }
     var account by rememberSaveable { mutableStateOf(accounts.firstOrNull()?.id.orEmpty()) }
     LaunchedEffect(source?.id) {
         if (source != null) {
@@ -137,7 +142,11 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
                         JibikTomanField(estimate, { estimate = it }, "مبلغ معمول")
                         OutlinedTextField(date, { date = it.take(12) }, label = { Text("اولین سررسید شمسی (سال/ماه/روز)") })
                         JibikAccountChoice("حساب", accounts, account, { account = it })
-                        JibikFormHint("هر ماه در همین روز تکرار می‌شود. برای ماه کوتاه‌تر، آخرین روز ماه لحاظ می‌شود.")
+                        JibikSegmentedControl(listOf("DAILY" to "روزانه", "WEEKLY" to "هفتگی", "MONTHLY" to "ماهانه", "YEARLY" to "سالانه"),
+                            frequency, onSelected = { frequency = it })
+                        OutlinedTextField(intervalText, { intervalText = it.take(3) }, label = { Text("هر چند " + recurringFrequencyLabel(frequency) + "؟") }, singleLine = true)
+                        OutlinedTextField(endText, { endText = it.take(12) }, label = { Text("آخرین تاریخ شمسی (اختیاری)") }, singleLine = true)
+                        JibikFormHint("تکرار به تاریخ نخست متصل است؛ ماه کوتاه‌تر به آخرین روز همان ماه محدود می‌شود.")
                     }
                     "review" -> if (row != null) {
                         Text(row.title + " · " + formatJalaliDueDate(row.day))
@@ -167,7 +176,7 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
                     "manage" -> {
                         if (rules.isEmpty()) Text("هنوز تکراری تعریف نشده است.")
                         rules.forEach { rule ->
-                            Text(rule.title + " · " + formatToman(rule.amount))
+                            Text(rule.title + " · " + formatToman(rule.amount) + " · هر " + rule.interval + " " + recurringFrequencyLabel(rule.frequency))
                             if (rule.stoppedAt == null) TextButton(enabled = !busy, onClick = {
                                 selected = rule.id; mode = "stop"
                             }) { Text("توقف نوبت‌های آینده") } else Text("متوقف شده")
@@ -182,7 +191,7 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
                             TextButton(onClick = { start = offsetJalaliMonth(start, 1) }) { Text("ماه بعد") }
                         }
                         TextButton(onClick = { title = ""; estimate = ""; date = formatJalaliDueDate(System.currentTimeMillis())
-                            income = false; mode = "new" }) { Text("＋ تعریف ثبت ماهانه") }
+                            income = false; frequency = "MONTHLY"; intervalText = "1"; endText = ""; mode = "new" }) { Text("＋ تعریف ثبت دوره‌ای") }
                         TextButton(onClick = { mode = "manage" }) { Text("مدیریت تکرارها") }
                         if (!loaded && error.isEmpty()) Text("در حال بارگذاری…")
                         if (loaded) {
@@ -206,7 +215,7 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
                                         Text(entry.status + " · " + formatToman(entry.amount), color = JibikStyle.muted)
                                         if (entry.pending && entry.day <= System.currentTimeMillis()) {
                                             if (entry.rule != null) TextButton(enabled = !busy, onClick = {
-                                                selected = entry.rule.id; actual = entry.amount.toString(); mode = "review"
+                                                selected = entry.rule.id; selectedDay = entry.day; actual = entry.amount.toString(); mode = "review"
                                             }) { Text("بررسی نوبت") }
                                             else if (entry.obligationId != null) TextButton(enabled = !busy, onClick = {
                                                 open = false; onPayObligation(entry.obligationId)
@@ -223,14 +232,17 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
         },
         confirmButton = {
             val day = parseJalaliDueDate(date)
+            val interval = intervalText.map { it.digitToIntOrNull()?.toString() ?: it.toString() }.joinToString("").toIntOrNull()
+            val end = parseJalaliDueDate(endText)
             val amount = parseTomanDraft(if (mode == "new") estimate else actual)
             when (mode) {
                 "new" -> LiquidGlassButton(text = "ذخیرهٔ تکرار", enabled = !busy && title.isNotBlank() &&
-                    day != null && amount != null && amount > 0 && accounts.any { it.id == account },
+                    day != null && amount != null && amount > 0 && interval != null && interval in 1..365 &&
+                    (endText.isBlank() || (end != null && end >= day)) && accounts.any { it.id == account },
                     onClick = { submit {
                         val first = requireNotNull(day)
                         store.addRecurring(RecurringRule(UUID.randomUUID().toString(), title.trim(), income,
-                            account, requireNotNull(amount), first))
+                            account, requireNotNull(amount), first, frequency = frequency, interval = requireNotNull(interval), endDay = end))
                         start = currentJalaliMonth(first).startMillis
                     } })
                 "review" -> LiquidGlassButton(text = "تأیید و ثبت", enabled = loaded && !busy && row?.pending == true && amount != null && amount > 0,

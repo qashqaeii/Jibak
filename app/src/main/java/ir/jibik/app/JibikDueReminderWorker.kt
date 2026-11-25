@@ -53,11 +53,8 @@ internal class JibikDueReminderWorker(
             )
             val recurring = db.recurringDao()
             val handled = recurring.decisions(today, afterThirdDay).map { it.ruleId to it.day }.toSet()
-            val months = listOf(currentJalaliMonth(today), currentJalaliMonth(afterThirdDay - 1)).distinct()
             val upcoming = recurring.rules().flatMap { rule ->
-                months.mapNotNull { month -> rule.dueIn(month)?.takeIf { day ->
-                    day in today until afterThirdDay && (rule.id to day) !in handled
-                } }
+                rule.dueBetween(today, afterThirdDay).filter { day -> (rule.id to day) !in handled }
             }
             if (summary.totalCount == 0 && upcoming.isEmpty()) return Result.success()
             val dayKey = formatJalaliDueDate(now)
