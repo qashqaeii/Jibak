@@ -292,8 +292,10 @@ private fun JibikApp(
     var retryLoad by remember { mutableIntStateOf(0) }
     var storageError by remember { mutableStateOf<String?>(null) }
     var isSaving by remember { mutableStateOf(false) }
+    var budget by remember { mutableStateOf(0L) }
     LaunchedEffect(store, retryLoad) {
         try {
+            budget = store.budgetToman()
             val persisted = store.load()
             val loadedReceipts = store.loadAllPurchaseLines()
             val loadedAccounts = store.loadAccounts()
@@ -386,7 +388,7 @@ private fun JibikApp(
     var showNewGoal by remember { mutableStateOf(false) }
     // Keep the editor composed after rotation so its SavedState draft can be restored.
     var showItemizedPurchase by rememberSaveable { mutableStateOf(false) }
-    var budget by remember { mutableStateOf(store.budgetToman()) }
+
     var showEditBudget by remember { mutableStateOf(false) }
     var editingCategoryBudget by remember { mutableStateOf<CategoryBudgetEntity?>(null) }
     var showCategoryBudgetDialog by remember { mutableStateOf(false) }
@@ -609,6 +611,7 @@ private fun JibikApp(
                 receiptLines = savedReceiptLines.toMap(),
                 onTransactionClick = { selectedTransactionId = it.id },
                 modifier = Modifier.padding(insets),
+                backupActions = { BackupActions(store) { retryLoad++ } },
                 onExportCsv = {
                     if (!isExporting) {
                         exportLauncher.launch("jibik-ledger.csv")
@@ -1033,6 +1036,7 @@ private fun JibikApp(
             current = budget,
             onDismiss = { showEditBudget = false },
             onSave = { newValue ->
+                scope.launch {
                 runCatching { store.updateBudgetToman(newValue) }
                     .onSuccess {
                         budget = newValue
@@ -1047,6 +1051,7 @@ private fun JibikApp(
                     .onFailure {
                         storageError = "بودجه ذخیره نشد؛ مقدار قبلی محفوظ است."
                     }
+                }
             },
         )
     }

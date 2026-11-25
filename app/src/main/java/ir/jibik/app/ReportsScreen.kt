@@ -69,6 +69,7 @@ internal fun ReportsScreen(
     categorySpending: List<CategoryExpense>,
     receiptLines: Map<String, List<PurchaseLine>> = emptyMap(),
     modifier: Modifier = Modifier,
+    backupActions: @Composable () -> Unit = {},
     onExportCsv: () -> Unit = {},
     onExportEncryptedCsv: () -> Unit = {},
     onAi: () -> Unit = {},
@@ -344,6 +345,7 @@ internal fun ReportsScreen(
                     "CSV معمولی و رمزدار نسخه پشتیبان قابل بازیابی نیستند.",
             )
         }
+        backupActions()
         Text(
             "انتقال بین حساب‌ها در مجموع درآمد و هزینه حساب نمی‌شود. " +
                 "این آمار براساس تراکنش‌های ذخیره‌شده روی دستگاه است.",

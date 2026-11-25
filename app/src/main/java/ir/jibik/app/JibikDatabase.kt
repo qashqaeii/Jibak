@@ -63,6 +63,9 @@ internal data class LedgerRevision(
     @androidx.room.Embedded(prefix = "old_") val previous: LedgerEntity,
 )
 
+@Entity(tableName = "monthly_budget")
+internal data class MonthlyBudget(@PrimaryKey val id: Int = 1, val amount: Long)
+
 @Dao
 internal interface LedgerDao {
     @Query("SELECT * FROM ledger_records ORDER BY timestampMillis DESC, id DESC")
@@ -73,6 +76,12 @@ internal interface LedgerDao {
 
     @Query("SELECT * FROM ledger_records WHERE id = :id")
     suspend fun find(id: String): LedgerEntity?
+
+    @Query("SELECT amount FROM monthly_budget WHERE id = 1")
+    suspend fun budget(): Long?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveBudget(row: MonthlyBudget)
 
     @androidx.room.Update
     suspend fun update(record: LedgerEntity): Int
@@ -304,9 +313,9 @@ internal interface SavingsGoalDao {
         PurchaseLineEntity::class, SavingsGoalEntity::class,
         CustomCategoryEntity::class, CategoryBudgetEntity::class,
         FinancialObligationEntity::class, ObligationPaymentEntity::class,
-        BankSmsCandidateEntity::class, LedgerRevision::class,
+        BankSmsCandidateEntity::class, LedgerRevision::class, MonthlyBudget::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = false,
 )
 internal abstract class JibikDatabase : RoomDatabase() {
@@ -464,6 +473,12 @@ internal abstract class JibikDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE monthly_budget (id INTEGER NOT NULL PRIMARY KEY, amount INTEGER NOT NULL)")
+            }
+        }
+
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -472,7 +487,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
                     "jibik_ledger_v1.db",
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
+                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
                 ).build().also { instance = it }
             }
     }

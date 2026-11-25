@@ -46,13 +46,21 @@ internal class LocalLedgerStore(context: Context) {
         }
     }
 
-    fun budgetToman(): Long = preferences.getLong("budget_toman", 0L)
+    suspend fun budgetToman(): Long = dao.budget() ?: preferences.getLong("budget_toman", 0L)
 
-    fun updateBudgetToman(value: Long) {
-        require(value >= 0L) { "Budget cap cannot be negative" }
-        check(preferences.edit().putLong("budget_toman", value).commit()) {
-            "Unable to persist budget"
-        }
+    suspend fun updateBudgetToman(value: Long) {
+        require(value >= 0L)
+        dao.saveBudget(MonthlyBudget(amount = value))
+    }
+
+    suspend fun backup() = database.withTransaction {
+        FinancialBackup.snapshot(database, budgetToman())
+    }
+
+    suspend fun restoreBackup(root: org.json.JSONObject) = database.withTransaction {
+        check(budgetToman() == 0L)
+        FinancialBackup.restore(database, root)
+        updateBudgetToman(root.getLong("budget"))
     }
 
     private suspend fun ensureDefaultWallet() {
@@ -442,7 +450,7 @@ private fun LedgerRecord.toEntity() = LedgerEntity(
     timestampMillis = timestampMillis,
 )
 
-private fun LedgerEntity.toRecord() = LedgerRecord(
+internal fun LedgerEntity.toRecord() = LedgerRecord(
     id = id,
     kind = LedgerKind.valueOf(kind),
     amountToman = amountToman,

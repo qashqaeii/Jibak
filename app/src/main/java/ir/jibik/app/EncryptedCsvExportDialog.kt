@@ -28,20 +28,23 @@ import androidx.compose.ui.unit.sp
 /** User-initiated secure CSV export. Passphrase is never rememberSaveable. */
 @Composable
 internal fun EncryptedCsvExportDialog(
+    title: String = "خروجی مالی رمزدار",
+    backup: Boolean = false,
+    restoring: Boolean = false,
     onDismiss: () -> Unit,
     onConfirm: (CharArray) -> Unit,
 ) {
     var passphrase by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
     val valid = passphrase.length in EncryptedLedgerCsvExport.MIN_PASSWORD_CHARS..256 &&
-        passphrase == confirmation
+        (restoring || passphrase == confirmation)
     JibikModalDialog(
         properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = onDismiss,
         containerColor = Color.Transparent,
         title = {
-            JibikDialogHeading("خروجی مالی رمزدار", "اطلاعات خروجی را با گذرواژه محافظت کن")
+            JibikDialogHeading(title, "اطلاعات خروجی را با گذرواژه محافظت کن")
         },
         text = {
             Column(
@@ -50,7 +53,7 @@ internal fun EncryptedCsvExportDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 JibikFormHint(
-                    "یک رمز حداقل ۱۲ کاراکتری بساز. فایل بدون این رمز باز نمی‌شود " +
+                    if (restoring) "گذرواژهٔ نسخه پشتیبان را وارد کن." else "یک رمز حداقل ۱۲ کاراکتری بساز. فایل بدون این رمز باز نمی‌شود " +
                         "و جیبیک آن را ذخیره یا بازیابی نمی‌کند."
                 )
                 OutlinedTextField(
@@ -63,7 +66,7 @@ internal fun EncryptedCsvExportDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(15.dp),
                 )
-                OutlinedTextField(
+                if (!restoring) OutlinedTextField(
                     value = confirmation,
                     onValueChange = { confirmation = it.take(256) },
                     label = { Text("تکرار گذرواژه") },
@@ -77,14 +80,14 @@ internal fun EncryptedCsvExportDialog(
                     JibikFormHint("دو گذرواژه یکسان نیستند.", isWarning = true)
                 }
                 JibikFormHint(
-                    "فایل .jbc فقط CSV تراکنش‌ها را رمز می‌کند؛ " +
+                    if (backup) "نسخه پشتیبان شامل دفتر مالی و بودجه‌هاست. بازیابی روی دفتر خالی انجام می‌شود." else "فایل .jbc فقط CSV تراکنش‌ها را رمز می‌کند؛ " +
                         "بکاپ کامل یا قابل‌بازیابیِ همه اطلاعات برنامه نیست."
                 )
             }
         },
         confirmButton = {
             LiquidGlassButton(
-                text = "انتخاب محل ذخیره",
+                text = if (restoring) "نمایش پیش‌نمایش" else "انتخاب محل ذخیره",
                 enabled = valid,
                 onClick = {
                     val copy = passphrase.toCharArray()
