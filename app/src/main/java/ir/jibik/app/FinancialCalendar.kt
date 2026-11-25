@@ -18,13 +18,20 @@ private data class CalendarRow(val day: Long, val title: String, val amount: Lon
 @Composable
 internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
     obligations: List<FinancialObligationEntity>, payments: List<ObligationPaymentEntity>,
-    onLedgerChange: () -> Unit) {
+    requestedDay: Long, onOpened: () -> Unit, onLedgerChange: () -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
     LiquidGlassCard(onClick = { open = true }, tone = GlassTone.CRYSTAL) {
         JibikSectionTitle("تقویم مالی", "سررسیدها، حقوق و پرداخت‌های ماهانه")
     }
-    if (!open) return
     var start by rememberSaveable { mutableLongStateOf(currentJalaliMonth().startMillis) }
+    LaunchedEffect(requestedDay) {
+        if (requestedDay > 0) {
+            start = currentJalaliMonth(requestedDay).startMillis
+            open = true
+            onOpened()
+        }
+    }
+    if (!open) return
     val month = remember(start) { currentJalaliMonth(start) }
     var mode by rememberSaveable { mutableStateOf("calendar") }
     var selected by rememberSaveable { mutableStateOf("") }

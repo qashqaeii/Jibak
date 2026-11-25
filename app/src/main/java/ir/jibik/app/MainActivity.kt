@@ -129,12 +129,14 @@ private val colors = lightColorScheme(
 )
 
 class MainActivity : ComponentActivity() {
+    private val calendarDay = androidx.compose.runtime.mutableLongStateOf(0L)
     private val dueReminderOpenSignal = mutableIntStateOf(0)
     private val bankSmsOpenSignal = mutableIntStateOf(0)
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        calendarDay.longValue = intent.getLongExtra(LocalDueReminders.OPEN_CALENDAR_DAY, 0L)
         if (intent.getBooleanExtra(LocalDueReminders.OPEN_OBLIGATIONS, false)) {
             dueReminderOpenSignal.intValue++
         }
@@ -145,6 +147,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        calendarDay.longValue = intent?.getLongExtra(LocalDueReminders.OPEN_CALENDAR_DAY, 0L) ?: 0L
         if (intent?.getBooleanExtra(LocalDueReminders.OPEN_OBLIGATIONS, false) == true) {
             dueReminderOpenSignal.intValue++
         }
@@ -167,7 +170,8 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     JibikApp(
                         store, dueReminderOpenSignal.intValue,
-                        bankSmsOpenSignal.intValue,
+                        bankSmsOpenSignal.intValue, calendarDay.longValue,
+                        { calendarDay.longValue = 0; intent?.removeExtra(LocalDueReminders.OPEN_CALENDAR_DAY) },
                     )
                 }
             }
@@ -187,7 +191,7 @@ internal enum class Section(val title: String) {
 private fun JibikApp(
     store: LocalLedgerStore,
     dueReminderOpenSignal: Int,
-    bankSmsOpenSignal: Int,
+    bankSmsOpenSignal: Int, calendarDay: Long, onCalendarOpened: () -> Unit,
 ) {
     var welcomed by remember { mutableStateOf(store.hasFinishedWelcome()) }
     var recurringRules by remember { mutableStateOf(emptyList<RecurringRule>()) }
@@ -402,6 +406,7 @@ private fun JibikApp(
     var editingCategoryBudget by remember { mutableStateOf<CategoryBudgetEntity?>(null) }
     var showCategoryBudgetDialog by remember { mutableStateOf(false) }
     var showObligations by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(calendarDay) { if (calendarDay > 0) section = Section.HOME }
     LaunchedEffect(dueReminderOpenSignal) {
         if (dueReminderOpenSignal > 0) {
             section = Section.ACCOUNTS
@@ -540,7 +545,7 @@ private fun JibikApp(
                     val balances = remember(accountRows, ledger) { FinanceEngine.balances(accountRows, ledger) }
                     SpendableBalanceCard(accountRows, balances, goals.toList(), obligations.toList(),
                         obligationPayments.toList(), homeAmountsVisible, recurringRules, recurringDecisions)
-                    FinancialCalendar(store, accountRows, obligations.toList(), obligationPayments.toList()) { retryLoad++ }
+                    FinancialCalendar(store, accountRows, obligations.toList(), obligationPayments.toList(), calendarDay, onCalendarOpened) { retryLoad++ }
                 },
                 summary = summary,
                 records = records,

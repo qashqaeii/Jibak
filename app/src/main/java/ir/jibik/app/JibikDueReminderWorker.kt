@@ -51,7 +51,15 @@ internal class JibikDueReminderWorker(
                 db.obligationDao().list(), db.obligationPaymentDao().list(),
                 today, tomorrow, afterThirdDay,
             )
-            if (summary.totalCount == 0) return Result.success()
+            val recurring = db.recurringDao()
+            val handled = recurring.decisions(today, afterThirdDay).map { it.ruleId to it.day }.toSet()
+            val months = listOf(currentJalaliMonth(today), currentJalaliMonth(afterThirdDay - 1)).distinct()
+            val upcoming = recurring.rules().flatMap { rule ->
+                months.mapNotNull { month -> rule.dueIn(month)?.takeIf { day ->
+                    day in today until afterThirdDay && (rule.id to day) !in handled
+                } }
+            }
+            if (summary.totalCount == 0 && upcoming.isEmpty()) return Result.success()
             val dayKey = formatJalaliDueDate(now)
             val prefs = app.getSharedPreferences(LocalDueReminders.PREFS, Context.MODE_PRIVATE)
             if (prefs.getString(LocalDueReminders.LAST_DAY, null) == dayKey) {
@@ -70,13 +78,15 @@ internal class JibikDueReminderWorker(
             )
             val open = Intent(app, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                putExtra(LocalDueReminders.OPEN_OBLIGATIONS, true)
+                if (upcoming.isNotEmpty()) putExtra(LocalDueReminders.OPEN_CALENDAR_DAY, upcoming.min())
+                else putExtra(LocalDueReminders.OPEN_OBLIGATIONS, true)
             }
             val click = PendingIntent.getActivity(
                 app, 271, open,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             val body = listOfNotNull(
+                upcoming.size.takeIf { it > 0 }?.let { "$it نوبت دوره‌ای نزدیک" },
                 summary.overdueCount.takeIf { it > 0 }?.let { it.toString() + " تعهد سررسیدگذشته" },
                 summary.todayCount.takeIf { it > 0 }?.let { it.toString() + " تعهد امروز" },
                 summary.upcomingCount.takeIf { it > 0 }?.let { it.toString() + " تعهد نزدیک به سررسید" },
@@ -107,6 +117,7 @@ internal class JibikDueReminderWorker(
 internal object LocalDueReminders {
     const val PREFS = "jibik_private_due_reminders_v1"
     const val LAST_DAY = "last_notified_jalali_day"
+    const val OPEN_CALENDAR_DAY = "jibik_open_calendar_day"
     const val OPEN_OBLIGATIONS = "jibik_open_obligations"
     const val CHANNEL_ID = "jibik_due_reminders_v1"
     const val NOTIFICATION_ID = 1704
