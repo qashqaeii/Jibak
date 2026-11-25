@@ -77,30 +77,38 @@ internal fun ReportsScreen(
     wealth: NetWorth? = null,
     onAssets: () -> Unit = {},
 ) {
-    val month = currentJalaliMonth()
-    val totals = periodTotals(records, month.startMillis, month.endExclusiveMillis)
+    var preset by rememberSaveable { mutableStateOf("MONTH") }
+    var customStart by rememberSaveable { mutableStateOf(0L) }
+    var customEnd by rememberSaveable { mutableStateOf(0L) }
+    var showRange by rememberSaveable { mutableStateOf(false) }
+    val today = requireNotNull(parseJalaliDueDate(formatJalaliDueDate(System.currentTimeMillis())))
+    val range = if (preset == "CUSTOM" && customStart > 0 && customEnd > customStart) ReportRange(customStart, customEnd) else reportRange(preset, today)
+    val totals = remember(records.toList(), range) { reportTotals(records, range) }
+    val spending = remember(records.toList(), receiptLines, range) { detailedCategoryExpenses(records, receiptLines, range.start, range.endExclusive) }
+    val previous = remember(records.toList(), range) { reportTotals(records, previousReportRange(range)) }
+    val trend = remember(records.toList(), range) { reportTrend(records, range) }
     var incomeBreakdown by rememberSaveable { mutableStateOf(false) }
     val categories = if (incomeBreakdown) {
-        detailedIncomeCategories(records, month.startMillis, month.endExclusiveMillis)
-    } else categorySpending
-    val expenseRoots = categoryReportRows(categorySpending)
-    var selectedCategoryPath by rememberSaveable { mutableStateOf("") }
-    var selectedLeafPath by rememberSaveable { mutableStateOf("") }
-    var directOnly by rememberSaveable { mutableStateOf(false) }
-    var showAllCategories by rememberSaveable { mutableStateOf(false) }
-    var visibleTransactions by rememberSaveable { mutableStateOf(15) }
+        detailedIncomeCategories(records, range.start, range.endExclusive)
+    } else spending
+    val expenseRoots = categoryReportRows(spending)
+    var selectedCategoryPath by rememberSaveable(range.start, range.endExclusive) { mutableStateOf("") }
+    var selectedLeafPath by rememberSaveable(range.start, range.endExclusive) { mutableStateOf("") }
+    var directOnly by rememberSaveable(range.start, range.endExclusive) { mutableStateOf(false) }
+    var showAllCategories by rememberSaveable(range.start, range.endExclusive) { mutableStateOf(false) }
+    var visibleTransactions by rememberSaveable(range.start, range.endExclusive) { mutableStateOf(15) }
     val displayed = categoryReportRows(categories, selectedCategoryPath)
     val contributions = if (selectedLeafPath.isNotEmpty()) {
         categoryReportContributions(
             if (incomeBreakdown) classifiedIncomeLines(
-                records, month.startMillis, month.endExclusiveMillis,
+                records, range.start, range.endExclusive,
             ) else classifiedExpenseLines(
-                records, receiptLines, month.startMillis, month.endExclusiveMillis,
+                records, receiptLines, range.start, range.endExclusive,
             ),
             selectedLeafPath, directOnly,
         )
     } else emptyList()
-    val cashFlow = totals.incomeToman - totals.expenseToman
+    val cashFlow = totals.net
     Column(
         modifier = modifier.fillMaxSize().liquidBackdrop().verticalScroll(rememberScrollState())
             .padding(20.dp),
@@ -108,34 +116,37 @@ internal fun ReportsScreen(
     ) {
         JibikPageHeader(
             title = "گزارش مالی",
-            subtitle = "آنچه واقعاً در ${month.title} اتفاق افتاده",
+            subtitle = "تحلیل گردش واقعی دفتر مالی",
         )
+        ReportRangeSelector(preset, range, onPreset = { if (it == "CUSTOM") showRange = true else preset = it })
         JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.REPORTS) {
-            Text("خالص جریان پول این ماه", fontSize = 13.sp, color = Color(0xFFDAF1E9))
-            JibikHeroAmount(moneyReport(cashFlow))
+            Text("خالص جریان پول در بازه", fontSize = 13.sp, color = Color(0xFFDAF1E9))
+            JibikHeroAmount(forecastMoney(cashFlow))
             HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("درآمد ماه", color = Color(0xFFCCEEE5), fontSize = 12.sp)
+                    Text("ورودی نقدی", color = Color(0xFFCCEEE5), fontSize = 12.sp)
                     Text(
-                        moneyReport(totals.incomeToman), color = Color.White, fontSize = 13.sp,
+                        forecastMoney(totals.income), color = Color.White, fontSize = 13.sp,
                         fontWeight = FontWeight.Bold, maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("هزینه ماه", color = Color(0xFFCCEEE5), fontSize = 12.sp)
+                    Text("خروجی نقدی", color = Color(0xFFCCEEE5), fontSize = 12.sp)
                     Text(
-                        moneyReport(totals.expenseToman), color = Color.White, fontSize = 13.sp,
+                        forecastMoney(totals.expense), color = Color.White, fontSize = 13.sp,
                         fontWeight = FontWeight.Bold, maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
         }
+        ReportTrendCard(range, totals, previous, trend)
+        ReportPdfAction(range, totals, previous, expenseRoots)
         wealth?.let { worth ->
             LiquidGlassCard(onClick = onAssets, tone = GlassTone.CRYSTAL) {
                 JibikSectionTitle("ارزش خالص دارایی‌ها", "تصویر امروز · بر اساس اطلاعات ثبت‌شده")
@@ -147,7 +158,7 @@ internal fun ReportsScreen(
         }
         if (expenseRoots.isNotEmpty()) {
             JibikSurfaceCard {
-                Text("بیشترین هزینه در این ماه", color = Muted, fontSize = 12.sp)
+                Text("بیشترین هزینه در بازه", color = Muted, fontSize = 12.sp)
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -214,7 +225,7 @@ internal fun ReportsScreen(
                     color = Emerald, fontWeight = FontWeight.ExtraBold,
                     fontSize = 15.sp)
                 if (contributions.isEmpty()) {
-                    JibikFormHint("تراکنشی برای این دسته در این ماه پیدا نشد.")
+                    JibikFormHint("تراکنشی برای این دسته در این بازه پیدا نشد.")
                 }
                 contributions.take(visibleTransactions).forEach { part ->
                     LiquidGlassCard(
@@ -258,7 +269,7 @@ internal fun ReportsScreen(
             } else if (displayed.isEmpty()) {
                 JibikStatePanel(
                     title = "هنوز گزارشی برای این بخش نداریم",
-                    description = "وقتی درآمد یا هزینه‌ای ثبت کنی، دسته‌ها و روند همین ماه اینجا نمایش داده می‌شن.",
+                    description = "وقتی درآمد یا هزینه‌ای ثبت کنی، دسته‌ها و روند بازه اینجا نمایش داده می‌شن.",
                 )
             } else {
                 val levelTotal = displayed.fold(0L) { sum, row ->
@@ -363,6 +374,9 @@ internal fun ReportsScreen(
             color = Muted, fontSize = 12.sp, lineHeight = 20.sp,
         )
         Spacer(Modifier.height(12.dp))
+    }
+    if (showRange) CustomReportRangeDialog(range, today, onDismiss = { showRange = false }) { chosen ->
+        customStart = chosen.start; customEnd = chosen.endExclusive; preset = "CUSTOM"; showRange = false
     }
 }
 
