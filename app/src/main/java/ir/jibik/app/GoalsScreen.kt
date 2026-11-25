@@ -210,7 +210,7 @@ internal fun NewGoalDialog(
         targetAmount != null && targetAmount > 0L &&
         eligible.any { it.id == accountId }
 
-    AlertDialog(
+    JibikModalDialog(
         properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
