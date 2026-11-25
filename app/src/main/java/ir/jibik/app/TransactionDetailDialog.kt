@@ -102,7 +102,8 @@ internal fun TransactionDetailDialog(
         },
         text = {
             Column(
-                Modifier.heightIn(max = 500.dp).verticalScroll(rememberScrollState()),
+                Modifier.fillMaxWidth().heightIn(max = 500.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(13.dp),
             ) {
                 JibikHero(Modifier.fillMaxWidth()) {
@@ -196,6 +197,8 @@ internal fun TransactionDetailDialog(
                                                 color = JibikStyle.forest,
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 12.sp,
+                                                maxLines = 3,
+                                                lineHeight = 18.sp,
                                             )
                                         }
                                         Text(
