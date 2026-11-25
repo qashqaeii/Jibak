@@ -163,7 +163,7 @@ internal object BankSmsNotifications {
             val mutableFlag = if (android.os.Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
             val pending = PendingIntent.getBroadcast(context, 0, reply, PendingIntent.FLAG_UPDATE_CURRENT or mutableFlag)
             val input = androidx.core.app.RemoteInput.Builder(BankAutoReplyReceiver.NOTE)
-                .setLabel("بابت چه چیزی بود؟").build()
+                .setLabel("توضیح؛ دسته پیشنهادی آفلاین").build()
             builder.addAction(NotificationCompat.Action.Builder(0, "نوشتن توضیح", pending)
                 .addRemoteInput(input).setAllowGeneratedReplies(false).build())
         }
@@ -206,7 +206,7 @@ internal class BankAutoReplyReceiver : BroadcastReceiver() {
             try {
                 val store = LocalLedgerStore(context)
                 val row = store.load().firstOrNull { it.id == id && needsBankAutoDetails(it) } ?: return@launch
-                store.completeBankAutoDetails(id, note, row.category)
+                store.completeBankAutoDetailsFromReply(id, note)
                 BankSmsUiEvents.changed()
                 NotificationManagerCompat.from(context).cancel(id, BankSmsSettings.NOTIFICATION_ID)
             } catch (_: Exception) {

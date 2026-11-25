@@ -249,7 +249,7 @@ internal fun BankSmsScreen(
         notice?.let { JibikFormHint(it) }
     }
     completing?.let { row ->
-        BankAutoDetailsDialog(row, customCategories, busy, onDismiss = { if (!busy) completing = null },
+        BankAutoDetailsDialog(row, customCategories, existingRecords.toList(), busy, onDismiss = { if (!busy) completing = null },
             onSave = { note, category ->
                 busy = true
                 scope.launch {
@@ -301,12 +301,13 @@ internal fun BankSmsScreen(
 }
 
 @Composable
-private fun BankAutoDetailsDialog(row: LedgerRecord, custom: List<CustomCategoryEntity>, busy: Boolean,
+private fun BankAutoDetailsDialog(row: LedgerRecord, custom: List<CustomCategoryEntity>, history: List<LedgerRecord>, busy: Boolean,
     onDismiss: () -> Unit, onSave: (String, String) -> Unit) {
     var note by remember(row.id) { mutableStateOf("") }
     var category by remember(row.id) { mutableStateOf(row.category) }
     var picker by remember { mutableStateOf(false) }
     val income = row.kind == ir.jibik.core.finance.LedgerKind.INCOME
+    val suggestion = remember(note, income, history, custom) { suggestBankCategory(note, income, history, custom, row.id) }
     JibikModalDialog(onDismissRequest = onDismiss, modifier = Modifier.jibikDialogSurface(),
         properties = JibikWideDialogProperties,
         title = { JibikDialogHeading("تکمیل تراکنش خودکار", formatToman(row.amountToman)) },
@@ -314,6 +315,13 @@ private fun BankAutoDetailsDialog(row: LedgerRecord, custom: List<CustomCategory
             Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(note, { note = it.take(250) }, modifier = Modifier.fillMaxWidth(),
                     label = { Text(if (income) "بابت چه چیزی دریافت کردی؟" else "بابت چه چیزی پرداخت کردی؟") }, minLines = 2, enabled = !busy)
+                suggestion?.let { suggested ->
+                    if (suggested.path != category) {
+                        JibikFormHint(if (suggested.learned) "پیشنهاد بر اساس دسته‌بندی‌های قبلی تو" else "پیشنهاد آفلاین جیبو")
+                        JibikGlassChip(suggested.path, selected = false, enabled = !busy,
+                            modifier = Modifier.fillMaxWidth(), onClick = { category = suggested.path })
+                    }
+                }
                 TextButton(enabled = !busy, onClick = { picker = true }) { Text("دسته: " + category) }
                 JibikFormHint("مبلغ، حساب و تاریخ از پیامک ثبت شده‌اند؛ فقط توضیح و دسته تکمیل می‌شوند.")
             }

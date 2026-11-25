@@ -74,7 +74,7 @@ internal fun BankSenderSettingsPanel(accounts: List<Account>, busy: Boolean, onS
                 val account = accounts.firstOrNull { it.id == profile.accountId && !it.archived }
                 JibikFinancialDetail("حساب جیبیک", account?.title ?: "حساب در دسترس نیست")
                 JibikStatusText(if (profile.autoTemplates.isEmpty()) "فقط بررسی" else "ثبت خودکار: " + profile.autoTemplates.size + " قالب")
-                if (profile.bankId == "melli" && profile.accountLast4.isNotBlank() && account != null && profile.enabled) {
+                if (profile.accountLast4.isNotBlank() && account != null && profile.enabled) {
                     TextButton(onClick = { training = profile }) { Text("آموزش قالب ثبت خودکار") }
                     if (profile.autoTemplates.isNotEmpty()) TextButton(onClick = {
                         runCatching { BankSenderRegistry.stopAuto(context, profile.id); refresh() }
@@ -191,7 +191,7 @@ private fun BankAutoTrainingDialog(profile: BankSenderProfile, onDismiss: () -> 
     var confirmed by remember { mutableStateOf(false) }
     JibikModalDialog(onDismissRequest = onDismiss, modifier = Modifier.jibikDialogSurface(),
         properties = JibikWideDialogProperties,
-        title = { JibikDialogHeading("آموزش ثبت خودکار", "نمونه بانک ملی · فقط روی گوشی") },
+        title = { JibikDialogHeading("آموزش ثبت خودکار", "نمونه بانک معرفی‌شده · فقط روی گوشی") },
         text = {
             Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 JibikFormHint("یک نمونه خرید، برداشت یا واریز موفق از همین حساب را وارد کن. انتقال و پیام مبهم خودکار ثبت نمی‌شوند.")
@@ -208,7 +208,7 @@ private fun BankAutoTrainingDialog(profile: BankSenderProfile, onDismiss: () -> 
                     JibikFinancialDetail("نوع", if (it.income) "واریز" else "برداشت")
                     JibikFinancialDetail("مبلغ", it.amountToman?.let(::formatToman) ?: "نامعتبر")
                     JibikFinancialDetail("حساب", "••••" + it.accountLast4)
-                    JibikFormHint(if (template != null) "این قالب قابل تأیید است؛ واحد ریال است." else "این قالب فعلاً فقط برای بررسی دستی مناسب است.")
+                    JibikFormHint(if (template != null) "این قالب قابل تأیید است؛ واحد " + (if (template?.endsWith(":تومان") == true) "تومان" else "ریال") + " است." else "این قالب فعلاً فقط برای بررسی دستی مناسب است.")
                 }
                 if (template != null) Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Checkbox(confirmed, onCheckedChange = { confirmed = it })

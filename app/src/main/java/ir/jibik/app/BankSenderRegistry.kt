@@ -78,10 +78,9 @@ internal object BankSenderRegistry {
         write(context, rows.map { if (it.id == id) it.copy(enabled = enabled) else it })
     }
     @Synchronized fun approveAutoTemplate(context: Context, id: String, template: String) {
-        require(template in setOf("melli-signed-rial-v1:خریداینترنتی", "melli-signed-rial-v1:خرید",
-            "melli-signed-rial-v1:برداشت", "melli-signed-rial-v1:واریز"))
         val rows = list(context)
-        require(rows.any { it.id == id && it.bankId == "melli" && it.enabled })
+        val profile = rows.single { it.id == id && it.enabled }
+        require(isSupportedAutoTemplate(profile.bankId, template))
         write(context, rows.map { if (it.id == id) it.copy(autoTemplates = it.autoTemplates + template) else it })
     }
     @Synchronized fun stopAuto(context: Context, id: String) {

@@ -610,6 +610,17 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
     }
 
     /** Metadata-only completion of a linked automatic entry. Never moves money. */
+    /** Inline reply implies consent to classify the provided explanation; only an
+     * unambiguous local suggestion is used, otherwise keep the existing category.
+     */
+    suspend fun completeBankAutoDetailsFromReply(id: String, note: String): LedgerRecord =
+        database.withTransaction {
+            val row = requireNotNull(dao.find(id)).toRecord()
+            val suggestion = suggestBankCategory(note, row.kind == LedgerKind.INCOME,
+                dao.getAll().map { it.toRecord() }, customCategoryDao.list(), id)
+            completeBankAutoDetails(id, note, suggestion?.path ?: row.category)
+        }
+
     suspend fun completeBankAutoDetails(id: String, note: String, category: String): LedgerRecord =
         database.withTransaction {
             val previous = requireNotNull(dao.find(id))

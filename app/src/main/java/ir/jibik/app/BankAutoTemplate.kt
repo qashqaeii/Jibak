@@ -7,7 +7,9 @@ import ir.jibik.core.finance.LedgerRecord
  * A sample explicitly confirms the label/direction/unit. All transfers remain review-only.
  */
 internal fun strictBankAutoTemplate(body: String, match: BankSmsMatch): String? {
-    if (match.bankId != "melli" || match.accountLast4.length != 4 || match.amountToman == null) return null
+    if (match.accountLast4.length != 4 || match.amountToman == null) return null
+    explicitBankAutoTemplate(body, match)?.let { return it }
+    if (match.bankId != "melli") return null
     val lines = BankSmsParser.normalise(body).lines().map { it.trim() }.filter { it.isNotBlank() }
     if (lines.size !in 4..5 || lines[0] != "بانک ملی ایران") return null
     val event = Regex("^(خرید ?اینترنتی|خرید|برداشت|واریز)\\s*[:：]\\s*([0-9][0-9,]*)\\s*([+-])$").matchEntire(lines[1]) ?: return null
@@ -39,3 +41,32 @@ internal fun conflictsWithBankAuto(record: LedgerRecord, existing: List<LedgerRe
             (old.kind == LedgerKind.TRANSFER || old.fromAccountId == record.fromAccountId && record.fromAccountId != null ||
                 old.toAccountId == record.toAccountId && record.toAccountId != null || old.kind != record.kind)
     }
+
+/** Additional known-bank format: fixed financial label and explicit unit,
+ * account and balance lines. Never treat a free-form message as a template.
+ */
+private fun explicitBankAutoTemplate(body: String, match: BankSmsMatch): String? {
+    val lines = BankSmsParser.normalise(body).lines().map { it.trim() }.filter { it.isNotBlank() }
+    if (lines.size != 5) return null
+    val bank = BankSmsParser.banks.firstOrNull { it.id == match.bankId } ?: return null
+    if (bank.aliases.none { BankSmsParser.normalise(it) == lines[0] }) return null
+    val label = lines[1]
+    if (label !in setOf("واریز", "برداشت", "خرید", "خرید اینترنتی")) return null
+    if ((label == "واریز") != match.income) return null
+    val amount = Regex("^مبلغ\\s*[:：]\\s*([0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)\\s*(ریال|تومان)$")
+        .matchEntire(lines[2]) ?: return null
+    val raw = amount.groupValues[1].replace(",", "").toLongOrNull() ?: return null
+    val unit = amount.groupValues[2]
+    val rial = if (unit == "ریال") raw else runCatching { Math.multiplyExact(raw, 10L) }.getOrNull()
+    if (rial != match.amountRial) return null
+    val account = Regex("^حساب\\s*[:：]\\s*([0-9]{4,24})$").matchEntire(lines[3]) ?: return null
+    if (account.groupValues[1].takeLast(4) != match.accountLast4) return null
+    if (!Regex("^(مانده|موجودی)\\s*[:：]\\s*(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)\\s*" + unit + "$").matches(lines[4])) return null
+    return "explicit-v1:" + match.bankId + ":" + label.replace(" ", "") + ":" + unit
+}
+
+internal fun isSupportedAutoTemplate(bankId: String, template: String): Boolean {
+    val labels = setOf("خریداینترنتی", "خرید", "برداشت", "واریز")
+    return (bankId == "melli" && labels.any { template == "melli-signed-rial-v1:" + it }) ||
+        labels.any { label -> listOf("ریال", "تومان").any { unit -> template == "explicit-v1:$bankId:$label:$unit" } }
+}
