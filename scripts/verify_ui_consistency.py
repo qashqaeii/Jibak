@@ -144,6 +144,26 @@ for filename in ("MainActivity.kt", "ReportsScreen.kt", "AccountsScreen.kt"):
     if "Color(0xFF677A78)" in text_colors or "Color(0xFFE95C50)" in text_colors:
         errors.append(f"{filename}: low-contrast legacy text token has returned")
 
+# Editorial UI contracts: single-choice fields behave as grouped controls,
+# and the modal footer is a distinct persistent hierarchy.
+segmented = (APP / "JibikSegmentedControl.kt").read_text(encoding="utf-8")
+if "selectableGroup()" not in segmented or "Role.RadioButton" not in segmented:
+    errors.append("Segmented controls require grouped single-choice semantics")
+for filename in (
+    "MainActivity.kt",
+    "ReportsScreen.kt",
+    "CategoryManagementScreen.kt",
+    "CategoryBudgetsUi.kt",
+):
+    if "JibikSegmentedControl(" not in (APP / filename).read_text(encoding="utf-8"):
+        errors.append(f"{filename}: finance modes must use the shared segmented selector")
+if "drawWithContent" in (
+    APP / "JibikLiquidGlass.kt"
+).read_text(encoding="utf-8"):
+    errors.append("Ordinary cards should not regress to layered specular glass rims")
+if "HorizontalDivider(" not in modal_shell:
+    errors.append("Finance modal header, body and actions need visible separation")
+
 # Trust-critical UX regression guards. Logic has corresponding JVM unit tests.
 main_source = (APP / "MainActivity.kt").read_text(encoding="utf-8")
 store_source = (APP / "LocalLedgerStore.kt").read_text(encoding="utf-8")
