@@ -63,6 +63,48 @@ class FinancialRecoveryTest {
         }
     }
 
+    @Test fun virtualEnvelopesReserveOnlyExistingFundsAndRestoreAudit() = runBlocking {
+        val ctx: Context = RuntimeEnvironment.getApplication()
+        JibikDatabase.open(ctx, "envelope-source").withOpenDatabase { db ->
+            val store = LocalLedgerStore(ctx, db)
+            val now = System.currentTimeMillis()
+            store.loadAccounts()
+            store.addAccount(Account("bank", "بانک", 1000))
+            val first = MoneyEnvelope("a", "سفر", "bank", 800, createdAtMillis = now)
+            val second = MoneyEnvelope("b", "اضطراری", "bank", 800, createdAtMillis = now + 1)
+            store.addEnvelope(first)
+            store.addEnvelope(second)
+            val before = FinanceEngine.balances(store.loadAccounts(), store.load())
+            store.setEnvelopeReserve(first.id, 0, 600)
+            assertTrue(runCatching { store.setEnvelopeReserve(second.id, 0, 500) }.isFailure)
+            store.setEnvelopeReserve(second.id, 0, 400)
+            assertTrue(runCatching { store.setEnvelopeReserve(first.id, 0, 100) }.isFailure)
+            assertTrue(runCatching { store.addSavingsGoal(SavingsGoalEntity("g", "هدف", "bank", 100, now)) }.isFailure)
+            assertEquals(before, FinanceEngine.balances(store.loadAccounts(), store.load()))
+            assertTrue(store.load().isEmpty())
+            store.append(LedgerRecord("expense", LedgerKind.EXPENSE, 300, fromAccountId = "bank",
+                category = "سایر هزینه‌ها", timestampMillis = now))
+            val balances = FinanceEngine.balances(store.loadAccounts(), store.load())
+            val funding = envelopeFunding(balances, emptyList(), store.loadEnvelopes())
+            assertEquals(listOf(600L, 100L), funding.map { it.fundedToman })
+            assertEquals(listOf(0L, 300L), funding.map { it.shortfallToman })
+            store.setEnvelopeReserve(second.id, 400, 0)
+            assertEquals(balances, FinanceEngine.balances(store.loadAccounts(), store.load()))
+            assertEquals(2, store.envelopeHistory(second.id).size)
+            val result = spendableBalance(balances, emptyList(), emptyList(), emptyList(), now + 1, store.loadEnvelopes())
+            assertEquals(100.toBigInteger(), result.available)
+            val backup = store.backup()
+            JibikDatabase.open(ctx, "envelope-target").withOpenDatabase { targetDb ->
+                val target = LocalLedgerStore(ctx, targetDb)
+                target.loadAccounts()
+                target.restoreBackup(backup)
+                assertEquals(store.loadEnvelopes(), target.loadEnvelopes())
+                assertEquals(store.envelopeHistory(second.id), target.envelopeHistory(second.id))
+                assertEquals(store.load(), target.load())
+            }
+        }
+    }
+
     @Test fun recurringPaymentsCannotBeReusedEditedOrVoided() = runBlocking {
         val ctx: Context = RuntimeEnvironment.getApplication()
         JibikDatabase.open(ctx, "recurring-integrity").withOpenDatabase { db ->
