@@ -70,12 +70,6 @@ internal fun GoalsScreen(
             subtitle = "برای آینده، قدم‌های کوچک اما واقعی",
             onBack = onBack,
         )
-        LiquidGlassCard(onClick = onAi, tone = GlassTone.CRYSTAL) {
-            Text("✦ جیبو و ایده‌های پس‌انداز", color = JibikStyle.forest,
-                fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Text("راهنمایی مالی، بدون جابه‌جایی پول",
-                color = JibikStyle.muted, fontSize = 12.sp)
-        }
         JibikHero(Modifier.fillMaxWidth(), illustration = JiboArtwork.GOALS) {
             Text(
                 "مسیر پس‌انداز", color = Color(0xFFDCF3EA), fontSize = 13.sp,
@@ -186,6 +180,16 @@ internal fun GoalsScreen(
                     )
                 }
             }
+        }
+        JibikSectionTitle(
+            title = "راهنمای پس‌انداز",
+            subtitle = "پیشنهادهای جیبو، بعد از اطلاعات و اهداف خودت",
+        )
+        LiquidGlassCard(onClick = onAi, tone = GlassTone.CRYSTAL) {
+            Text("✦ جیبو و ایده‌های پس‌انداز", color = JibikStyle.forest,
+                fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text("راهنمایی مالی، بدون جابه‌جایی پول",
+                color = JibikStyle.muted, fontSize = 12.sp)
         }
         Spacer(Modifier.height(12.dp))
     }

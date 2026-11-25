@@ -114,58 +114,6 @@ internal fun AccountsScreen(
                 modifier = Modifier.weight(1f).heightIn(min = 54.dp),
             )
         }
-        LiquidGlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            tone = GlassTone.CRYSTAL,
-            onClick = onGoals,
-        ) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        "هدف‌های پس‌انداز", fontSize = 15.sp,
-                        color = Green, fontWeight = FontWeight.ExtraBold,
-                    )
-                    Text("پس‌انداز واقعی، بر پایه حساب‌های تو", color = Subtle, fontSize = 12.sp)
-                }
-                JibikChevronIcon(color = Green)
-            }
-        }
-        LiquidGlassCard(onClick = onObligations, tone = GlassTone.CRYSTAL) {
-            Row(Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("تعهدات، بدهی‌ها و اقساط", color = Green,
-                        fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-                    Text("وام، قبض، طلب و تسویه‌های واقعی با سررسید شمسی",
-                        color = Subtle, fontSize = 12.sp)
-                }
-                JibikChevronIcon(color = Green)
-            }
-        }
-        LiquidGlassCard(onClick = onCategories, tone = GlassTone.CRYSTAL) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("دسته‌ها و زیر‌دسته‌ها", color = Green,
-                        fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-                    Text(
-                        "مدیریت دسته‌بندی هزینه، درآمد و دسته‌های شخصی",
-                        color = Subtle, fontSize = 12.sp,
-                    )
-                }
-                JibikChevronIcon(color = Green)
-            }
-        }
         JibikSectionTitle(
             title = "حساب‌های ثبت‌شده",
             subtitle = "جزئیات موجودی هر حساب",
@@ -220,6 +168,62 @@ internal fun AccountsScreen(
                         valueColor = Green,
                     )
                 }
+            }
+        }
+        JibikSectionTitle(
+            title = "ابزارهای مدیریت",
+            subtitle = "پس‌انداز، اقساط و دسته‌بندی‌ها",
+        )
+        LiquidGlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            tone = GlassTone.CRYSTAL,
+            onClick = onGoals,
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "هدف‌های پس‌انداز", fontSize = 15.sp,
+                        color = Green, fontWeight = FontWeight.ExtraBold,
+                    )
+                    Text("پس‌انداز واقعی، بر پایه حساب‌های تو", color = Subtle, fontSize = 12.sp)
+                }
+                JibikChevronIcon(color = Green)
+            }
+        }
+        LiquidGlassCard(onClick = onObligations, tone = GlassTone.CRYSTAL) {
+            Row(Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("تعهدات، بدهی‌ها و اقساط", color = Green,
+                        fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("وام، قبض، طلب و تسویه‌های واقعی با سررسید شمسی",
+                        color = Subtle, fontSize = 12.sp)
+                }
+                JibikChevronIcon(color = Green)
+            }
+        }
+        LiquidGlassCard(onClick = onCategories, tone = GlassTone.CRYSTAL) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("دسته‌ها و زیر‌دسته‌ها", color = Green,
+                        fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(
+                        "مدیریت دسته‌بندی هزینه، درآمد و دسته‌های شخصی",
+                        color = Subtle, fontSize = 12.sp,
+                    )
+                }
+                JibikChevronIcon(color = Green)
             }
         }
         Spacer(Modifier.height(12.dp))

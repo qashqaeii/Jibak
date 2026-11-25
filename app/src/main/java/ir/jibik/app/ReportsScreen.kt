@@ -133,12 +133,6 @@ internal fun ReportsScreen(
                 }
             }
         }
-        LiquidGlassCard(onClick = onAi, tone = GlassTone.CRYSTAL) {
-            Text("✦ تحلیل هوشمند هزینه‌ها با جیبو",
-                fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Emerald)
-            Text("پیشنهادهای کاربردی از روی خلاصه ۳۰ روز گذشته",
-                fontSize = 12.sp, color = Muted)
-        }
         if (expenseRoots.isNotEmpty()) {
             JibikSurfaceCard {
                 Text("بیشترین هزینه در این ماه", color = Muted, fontSize = 12.sp)
@@ -168,9 +162,9 @@ internal fun ReportsScreen(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(9.dp),
             ) {
-                LiquidGlassButton(
+                JibikGlassChip(
                     text = "هزینه‌ها",
-                    tone = if (!incomeBreakdown) GlassTone.EMERALD else GlassTone.CRYSTAL,
+                    selected = !incomeBreakdown,
                     modifier = Modifier.weight(1f),
                     onClick = {
                         incomeBreakdown = false
@@ -180,9 +174,9 @@ internal fun ReportsScreen(
                         visibleTransactions = 15
                     },
                 )
-                LiquidGlassButton(
+                JibikGlassChip(
                     text = "درآمدها",
-                    tone = if (incomeBreakdown) GlassTone.EMERALD else GlassTone.CRYSTAL,
+                    selected = incomeBreakdown,
                     modifier = Modifier.weight(1f),
                     onClick = {
                         incomeBreakdown = true
@@ -334,6 +328,12 @@ internal fun ReportsScreen(
                     )
                 }
             }
+        }
+        LiquidGlassCard(onClick = onAi, tone = GlassTone.CRYSTAL) {
+            Text("✦ تحلیل هوشمند هزینه‌ها با جیبو",
+                fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Emerald)
+            Text("پیشنهادهای کاربردی از روی خلاصه ۳۰ روز گذشته",
+                fontSize = 12.sp, color = Muted)
         }
         JibikSurfaceCard {
             Text(
