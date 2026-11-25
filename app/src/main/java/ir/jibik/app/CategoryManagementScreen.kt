@@ -237,7 +237,7 @@ internal fun NewCustomCategoryDialog(
         title = title.trim(), createdAtMillis = 0L,
     )
     val error = customCategoryValidation(candidate, existing)
-    AlertDialog(
+    JibikModalDialog(
         properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
