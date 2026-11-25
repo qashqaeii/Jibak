@@ -281,6 +281,7 @@ internal fun CreateAccountDialog(
                     onValueChange = { opening = it },
                     label = "موجودی اولیه",
                     allowZero = true,
+                    enabled = !isSaving,
                 )
                 JibikFormHint(
                     "موجودی اولیه درآمد محسوب نمی‌شه؛ فقط مقدار شروع حسابه.",
