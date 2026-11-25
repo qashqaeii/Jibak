@@ -1949,33 +1949,25 @@ private fun AddTransactionDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(13.dp),
             ) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(5.dp),
-                ) {
-                    listOf(
+                JibikSegmentedControl(
+                    items = listOf(
                         LedgerKind.EXPENSE to "هزینه",
                         LedgerKind.INCOME to "درآمد",
                         LedgerKind.TRANSFER to "انتقال",
-                    ).forEach { (option, label) ->
-                        JibikGlassChip(
-                            text = label,
-                            selected = kind == option,
-                            onClick = {
-                                kind = option
-                                category = if (option == LedgerKind.INCOME) "حقوق و دستمزد" else "خوراک"
-                                if (option == LedgerKind.TRANSFER && targetId == sourceId) {
-                                    targetId = accounts.firstOrNull {
-                                        it.id != sourceId
-                                    }?.id.orEmpty()
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            enabled = !isSaving &&
-                                (option != LedgerKind.TRANSFER || accounts.size > 1),
-                        )
-                    }
-                }
+                    ),
+                    selected = kind,
+                    enabled = { option ->
+                        !isSaving && (option != LedgerKind.TRANSFER || accounts.size > 1)
+                    },
+                    onSelected = { option ->
+                        kind = option
+                        category = if (option == LedgerKind.INCOME)
+                            "حقوق و دستمزد" else "خوراک"
+                        if (option == LedgerKind.TRANSFER && targetId == sourceId) {
+                            targetId = accounts.firstOrNull { it.id != sourceId }?.id.orEmpty()
+                        }
+                    },
+                )
                 if (accounts.size < 2) {
                     JibikFormHint("برای انتقال پول بین حساب‌ها باید حداقل دو حساب داشته باشی.")
                 }

@@ -201,17 +201,12 @@ internal fun CategoryBudgetDialog(
                     enabled = !isSaving,
                 )
                 Text("هشدار در میزان مصرف", color = JibikStyle.muted, fontSize = 12.sp)
-                Row(Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    listOf(70, 80, 90).forEach { threshold ->
-                        JibikGlassChip(
-                            text = "$threshold٪", selected = warning == threshold,
-                            onClick = { warning = threshold },
-                            enabled = !isSaving,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
+                JibikSegmentedControl(
+                    items = listOf(70 to "۷۰٪", 80 to "۸۰٪", 90 to "۹۰٪"),
+                    selected = warning,
+                    enabled = { !isSaving },
+                    onSelected = { warning = it },
+                )
                 JibikFormHint(
                     "سقف از ابتدای هر ماه شمسی روی خرج واقعی همین دسته و زیرمجموعه‌اش حساب می‌شود."
                 )

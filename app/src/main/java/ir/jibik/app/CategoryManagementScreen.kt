@@ -252,20 +252,15 @@ internal fun NewCustomCategoryDialog(
                 verticalArrangement = Arrangement.spacedBy(13.dp),
             ) {
                 Text("نوع دسته", color = JibikStyle.muted, fontSize = 12.sp)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    JibikGlassChip(
-                        text = "هزینه", selected = !income,
-                        onClick = { income = false; parentPath = "" },
-                        enabled = !isSaving,
-                        modifier = Modifier.weight(1f),
-                    )
-                    JibikGlassChip(
-                        text = "درآمد", selected = income,
-                        onClick = { income = true; parentPath = "" },
-                        enabled = !isSaving,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+                JibikSegmentedControl(
+                    items = listOf(false to "هزینه", true to "درآمد"),
+                    selected = income,
+                    enabled = { !isSaving },
+                    onSelected = { newValue ->
+                        income = newValue
+                        parentPath = ""
+                    },
+                )
                 OutlinedTextField(
                     value = title, onValueChange = { title = it.take(40) },
                     label = { Text("نام دسته جدید") },

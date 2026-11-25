@@ -158,35 +158,17 @@ internal fun ReportsScreen(
             modifier = Modifier.fillMaxWidth(),
             tone = GlassTone.CRYSTAL,
         ) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
-            ) {
-                JibikGlassChip(
-                    text = "هزینه‌ها",
-                    selected = !incomeBreakdown,
-                    modifier = Modifier.weight(1f),
-                    onClick = {
-                        incomeBreakdown = false
-                        selectedCategoryPath = ""
-                        selectedLeafPath = ""
-                        showAllCategories = false
-                        visibleTransactions = 15
-                    },
-                )
-                JibikGlassChip(
-                    text = "درآمدها",
-                    selected = incomeBreakdown,
-                    modifier = Modifier.weight(1f),
-                    onClick = {
-                        incomeBreakdown = true
-                        selectedCategoryPath = ""
-                        selectedLeafPath = ""
-                        showAllCategories = false
-                        visibleTransactions = 15
-                    },
-                )
-            }
+            JibikSegmentedControl(
+                items = listOf(false to "هزینه‌ها", true to "درآمدها"),
+                selected = incomeBreakdown,
+                onSelected = { newValue ->
+                    incomeBreakdown = newValue
+                    selectedCategoryPath = ""
+                    selectedLeafPath = ""
+                    showAllCategories = false
+                    visibleTransactions = 15
+                },
+            )
             JibikSectionTitle(
                 title = if (selectedLeafPath.isNotEmpty()) "جزئیات تراکنش‌های این دسته"
                 else if (selectedCategoryPath.isEmpty())
