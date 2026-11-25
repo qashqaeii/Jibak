@@ -970,9 +970,10 @@ private fun JibikApp(
     }
     if (storageError != null) {
         AlertDialog(
+        properties = JibikWideDialogProperties,
             modifier = Modifier.jibikDialogSurface(),
             onDismissRequest = { storageError = null },
-            title = { Text("خطا در ثبت اطلاعات") },
+            title = { JibikDialogHeading("خطا در ذخیره اطلاعات", "اطلاعات قبلی محفوظ‌اند.") },
             text = { Text(storageError ?: "") },
             confirmButton = { TextButton(onClick = { storageError = null }) { Text("متوجه شدم") } },
         )
@@ -1929,6 +1930,7 @@ private fun AddTransactionDialog(
             (accounts.size > 1 && targetValid && sourceId != targetId)) &&
         categoryValid
     AlertDialog(
+        properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
         title = {
@@ -2127,6 +2129,7 @@ private fun BudgetDialog(
     }
     val parsed = parseTomanDraft(value)
     AlertDialog(
+        properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = onDismiss,
         containerColor = Color.Transparent,
