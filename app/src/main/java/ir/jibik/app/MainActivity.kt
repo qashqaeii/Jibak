@@ -376,15 +376,19 @@ private fun JibikApp(
     var receiptRows by remember { mutableStateOf<List<PurchaseLine>?>(null) }
     var receiptLoadError by remember { mutableStateOf(false) }
     var revisions by remember { mutableStateOf(emptyList<LedgerRevision>()) }
+    var financialEdits by remember { mutableStateOf(emptyList<FinancialEditHistory>()) }
     var bankLinked by remember { mutableStateOf(true) }
     var receiptRetry by remember { mutableIntStateOf(0) }
     LaunchedEffect(selectedTransactionId, receiptRetry) {
         val id = selectedTransactionId ?: return@LaunchedEffect
         receiptRows = null
+        bankLinked = true
+        financialEdits = emptyList()
         receiptLoadError = false
         try {
             bankLinked = store.isBankLinked(id)
             revisions = store.revisions(id)
+            financialEdits = store.financialEdits(id)
             receiptRows = store.loadPurchaseLines(id)
         } catch (_: Exception) {
             receiptLoadError = true
@@ -402,6 +406,7 @@ private fun JibikApp(
     var showNewGoal by remember { mutableStateOf(false) }
     // Keep the editor composed after rotation so its SavedState draft can be restored.
     var showItemizedPurchase by rememberSaveable { mutableStateOf(false) }
+    var receiptEditId by rememberSaveable { mutableStateOf<String?>(null) }
 
     var showEditBudget by remember { mutableStateOf(false) }
     var editingCategoryBudget by remember { mutableStateOf<CategoryBudgetEntity?>(null) }
@@ -761,6 +766,19 @@ private fun JibikApp(
                 },
                 revisions = revisions.filter { it.transactionId == id },
                 recurringLinked = recurringDecisions.any { it.transactionId == id },
+                financialEdits = financialEdits.filter { it.transactionId == id },
+                onDetach = if (!isSaving && receiptRows != null && !receiptLoadError && (bankLinked || recurringDecisions.any { it.transactionId == id } || obligationPayments.any { it.transactionId == id })) ({
+                    isSaving = true
+                    scope.launch {
+                        try {
+                            store.detachPaymentLinks(record)
+                            selectedTransactionId = null
+                            retryLoad++
+                            notifications.showSnackbar("ارتباط‌ها باز شدند؛ مبلغ حساب تغییر نکرد.")
+                        } catch (_: Exception) { storageError = "قطع ارتباط انجام نشد؛ دوباره بررسی کن." }
+                        finally { isSaving = false }
+                    }
+                }) else null,
                 voided = voided != null,
                 onSchedule = if (voided == null && recurringDecisions.none { it.transactionId == id } && record.kind != LedgerKind.TRANSFER &&
                     obligationPayments.none { it.transactionId == id }) ({
@@ -780,12 +798,17 @@ private fun JibikApp(
                         } finally { isSaving = false }
                     }
                 }) else null,
-                onEdit = if (voided == null && recurringDecisions.none { it.transactionId == id } && !bankLinked && receiptRows?.isEmpty() == true &&
+                onEdit = if (voided == null && recurringDecisions.none { it.transactionId == id } && !bankLinked && receiptRows != null && !receiptLoadError && !isSaving &&
                     obligationPayments.none { it.transactionId == id }) ({
-                    editOriginal = record
+                    if (receiptRows?.isNotEmpty() == true) {
+                        receiptEditId = record.id
+                        showItemizedPurchase = true
+                    } else {
+                        editOriginal = record
+                        showAdd = true
+                    }
                     selectedTransactionId = null
                     receiptRows = null
-                    showAdd = true
                 }) else null,
                 onRepeat = if (
                     voided == null && obligationPayments.none { it.transactionId == record.id } &&
@@ -918,26 +941,37 @@ private fun JibikApp(
             },
         )
     }
-    if (showItemizedPurchase) {
+    val editingReceipt = receiptEditId?.let { id -> records.firstOrNull { it.id == id } }
+    val editingReceiptLines = receiptEditId?.let { savedReceiptLines[it] }
+    if (showItemizedPurchase && (receiptEditId == null || (editingReceipt != null && !editingReceiptLines.isNullOrEmpty()))) {
         ItemizedPurchaseDialog(
             accounts = accounts,
             customCategories = customCategories,
-            onDismiss = { if (!isSaving) showItemizedPurchase = false },
+            onDismiss = { if (!isSaving) { showItemizedPurchase = false; receiptEditId = null } },
+            original = editingReceipt,
+            originalLines = editingReceiptLines.orEmpty(),
             isSaving = isSaving,
             onSave = { purchase, lines ->
                 if (!isSaving) {
                     isSaving = true
                     scope.launch {
                         try {
-                            store.appendItemizedPurchase(purchase, lines)
-                            savedReceiptLines[purchase.id] = lines.toList()
-                            records.add(0, purchase)
+                            if (editingReceipt == null) {
+                                store.appendItemizedPurchase(purchase, lines)
+                                savedReceiptLines[purchase.id] = lines.toList()
+                                records.add(0, purchase)
+                            } else {
+                                store.correctReceipt(editingReceipt, purchase, editingReceiptLines.orEmpty(), lines)
+                                records.clear(); records.addAll(store.load())
+                                savedReceiptLines[purchase.id] = store.loadPurchaseLines(purchase.id)
+                            }
+                            receiptEditId = null
                             showItemizedPurchase = false
                             // Show the immutable saved receipt immediately after commit.
                             selectedTransactionId = purchase.id
-                            scope.launch { notifications.showSnackbar("خرید با موفقیت ثبت شد.") }
+                            scope.launch { notifications.showSnackbar(if (editingReceipt == null) "خرید با موفقیت ثبت شد." else "رسید اصلاح شد؛ نسخه قبلی محفوظ است.") }
                         } catch (_: Exception) {
-                            storageError = "خرید ذخیره نشد؛ هیچ مبلغی از حساب کسر نشده است."
+                            storageError = "ذخیره انجام نشد؛ دفتر مالی را دوباره بررسی کن."
                         } finally {
                             isSaving = false
                         }

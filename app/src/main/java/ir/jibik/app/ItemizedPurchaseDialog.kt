@@ -71,11 +71,17 @@ internal fun ItemizedPurchaseDialog(
     onDismiss: () -> Unit,
     onSave: (LedgerRecord, List<PurchaseLine>) -> Unit,
     isSaving: Boolean = false,
+    original: LedgerRecord? = null,
+    originalLines: List<PurchaseLine> = emptyList(),
 ) {
-    var accountId by rememberSaveable { mutableStateOf(accounts.firstOrNull()?.id.orEmpty()) }
-    var note by rememberSaveable { mutableStateOf("") }
+    var accountId by rememberSaveable { mutableStateOf(original?.fromAccountId ?: accounts.firstOrNull()?.id.orEmpty()) }
+    var note by rememberSaveable { mutableStateOf(original?.note.orEmpty()) }
     val drafts = rememberSaveable(saver = purchaseDraftStateSaver) {
-        mutableStateListOf(PurchaseDraftItem())
+        mutableStateListOf<PurchaseDraftItem>().apply {
+            if (original == null) add(PurchaseDraftItem()) else addAll(originalLines.map {
+                PurchaseDraftItem(it.title, it.quantity.toString(), it.unitPriceToman.toString(), it.category, it.unit)
+            })
+        }
     }
     val lines = drafts.mapNotNull { it.asPurchaseLine(customCategories) }
     val total = if (lines.size == drafts.size) runCatching {
@@ -97,7 +103,7 @@ internal fun ItemizedPurchaseDialog(
         tonalElevation = 0.dp,
         shape = RoundedCornerShape(26.dp),
         title = {
-            JibikDialogHeading("خرید چندقلمی", "یک پرداخت، با جزئیات هر کالا")
+            JibikDialogHeading(if (original == null) "خرید چندقلمی" else "اصلاح رسید خرید", "یک پرداخت، با جزئیات هر کالا")
         },
         text = {
             Column(
@@ -105,7 +111,7 @@ internal fun ItemizedPurchaseDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(13.dp),
             ) {
-                JibikFormHint("جمع نهایی از تعداد × قیمت واحد محاسبه می‌شود؛ ثبت ناقص موجودی را تغییر نمی‌دهد.")
+                JibikFormHint(if (original == null) "جمع نهایی از تعداد × قیمت واحد محاسبه می‌شود؛ ثبت ناقص موجودی را تغییر نمی‌دهد." else "مبلغ قبلی: " + money(original.amountToman) + " · مانده بر اساس رسید اصلاح‌شده محاسبه می‌شود؛ نسخه قبلی محفوظ می‌ماند.")
                 JibikAccountChoice(
                     title = "پرداخت از حساب",
                     accounts = accounts,
@@ -320,20 +326,20 @@ internal fun ItemizedPurchaseDialog(
         },
         confirmButton = {
             LiquidGlassButton(
-                text = if (isSaving) "در حال ثبت..." else if (valid) "ثبت خرید • " + money(total!!) else "تکمیل اقلام برای ثبت",
+                text = if (isSaving) "در حال ثبت..." else if (valid) (if (original == null) "ثبت خرید • " else "ذخیره اصلاح • ") + money(total!!) else "تکمیل اقلام برای ثبت",
                 enabled = valid,
                 tone = GlassTone.EMERALD,
                 onClick = {
                     val sum = total ?: return@LiquidGlassButton
                     onSave(
                         LedgerRecord(
-                            id = UUID.randomUUID().toString(),
+                            id = original?.id ?: UUID.randomUUID().toString(),
                             kind = LedgerKind.EXPENSE,
                             amountToman = sum,
                             fromAccountId = accountId,
-                            category = "خرید منزل",
+                            category = original?.category ?: "خرید منزل",
                             note = note.trim(),
-                            timestampMillis = System.currentTimeMillis(),
+                            timestampMillis = original?.timestampMillis ?: System.currentTimeMillis(),
                         ),
                         lines,
                     )

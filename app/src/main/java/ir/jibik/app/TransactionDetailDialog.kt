@@ -74,12 +74,15 @@ internal fun TransactionDetailDialog(
     revisions: List<LedgerRevision> = emptyList(),
     voided: Boolean = false,
     recurringLinked: Boolean = false,
+    financialEdits: List<FinancialEditHistory> = emptyList(),
+    onDetach: (() -> Unit)? = null,
     onSchedule: (() -> Unit)? = null,
     onToggleVoid: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     onRepeat: (() -> Unit)? = null,
 ) {
     var confirmVoid by remember(record.id) { mutableStateOf(false) }
+    var confirmDetach by remember(record.id) { mutableStateOf(false) }
     val isTransfer = record.kind == LedgerKind.TRANSFER
     val title = when (record.kind) {
         LedgerKind.EXPENSE -> "جزئیات هزینه"
@@ -234,6 +237,17 @@ internal fun TransactionDetailDialog(
                             }
                         }
                     }
+                }
+                if (onDetach != null) {
+                    if (confirmDetach) {
+                        JibikFormHint("تمام ارتباط‌های این تراکنش با قسط، نوبت دوره‌ای و پیام بانکی باز می‌شوند و باید دوباره بررسی شوند. خود تراکنش و مانده حساب تغییر نمی‌کند.", isWarning = true)
+                        TextButton(onClick = onDetach) { Text("تأیید قطع ارتباط‌ها") }
+                        TextButton(onClick = { confirmDetach = false }) { Text("انصراف") }
+                    } else TextButton(onClick = { confirmDetach = true }) { Text("قطع ارتباط برای اصلاح") }
+                }
+                financialEdits.forEach { edit ->
+                    DetailRow(if (edit.action == "RECEIPT") "اقلام پیش از اصلاح" else "ارتباط‌های بازشده",
+                        receiptDate(edit.atMillis) + "\n" + edit.details)
                 }
                 if (onToggleVoid != null) {
                     if (confirmVoid) {
