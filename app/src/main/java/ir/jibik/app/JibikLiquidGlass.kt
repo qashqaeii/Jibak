@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -234,9 +235,18 @@ internal fun Modifier.liquidGlass(
  * max width keeps tablets readable; the host Dialog still handles screen edges.
  * Do not use translucent CRYSTAL for sensitive form content.
  */
+/**
+ * The dialog window and surface must BOTH allow expanded width. Android's
+ * platform default dialog width otherwise produces narrow forms on phones.
+ */
+internal val JibikWideDialogProperties = DialogProperties(
+    usePlatformDefaultWidth = false,
+)
+
 internal fun Modifier.jibikDialogSurface(): Modifier =
-    this.widthIn(max = 520.dp)
-        .liquidGlass(tone = GlassTone.FROSTED, radius = 26.dp, elevation = 11.dp)
+    this.widthIn(max = 600.dp)
+        .fillMaxWidth(0.94f)
+        .liquidGlass(tone = GlassTone.FROSTED, radius = 26.dp, elevation = 8.dp)
 
 /** Shared surface used for structural content cards on all finance screens. */
 @Composable
