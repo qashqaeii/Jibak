@@ -62,6 +62,10 @@ internal fun BankSmsScreen(
     var reviewError by remember { mutableStateOf("") }
     var linkedIds by remember { mutableStateOf(emptySet<String>()) }
     var completing by remember { mutableStateOf<LedgerRecord?>(null) }
+    var confirmingPair by remember { mutableStateOf<BankTransferPair?>(null) }
+    var voiding by remember { mutableStateOf<LedgerRecord?>(null) }
+    var showHistory by rememberSaveable { mutableStateOf(false) }
+    var showMoreAuto by rememberSaveable { mutableStateOf(false) }
 
     val bankRevision by BankSmsUiEvents.changes.collectAsState()
     LaunchedEffect(bankRevision) {
@@ -147,16 +151,46 @@ internal fun BankSmsScreen(
                 }) { Text("انتخاب این بانک", color = JibikStyle.forest) }
             }
         }
+        val pairs = bankTransferPairs(pendingItems, BankSenderRegistry.active(context), accounts, existingRecords)
+        if (pairs.isNotEmpty()) {
+            JibikSectionTitle("انتقال احتمالی بین حساب‌ها", "فقط پس از تأیید تو ثبت می‌شود")
+            pairs.take(20).forEach { pair ->
+                JibikSurfaceCard {
+                    JibikFinancialDetail("مبلغ انتقال", formatToman(pair.amountToman), emphasis = true)
+                    JibikFinancialDetail("از", accounts.firstOrNull { it.id == pair.fromId }?.title.orEmpty())
+                    JibikFinancialDetail("به", accounts.firstOrNull { it.id == pair.toId }?.title.orEmpty())
+                    JibikFormHint("دو پیام هم‌مبلغ و نزدیک به هم پیدا شده‌اند. فقط اگر مربوط به یک انتقال هستند تأیید کن.")
+                    LiquidGlassButton("بررسی انتقال", modifier = Modifier.fillMaxWidth(), enabled = !busy,
+                        onClick = { confirmingPair = pair })
+                }
+            }
+        }
         val autoPending = existingRecords.filter(::needsBankAutoDetails)
         if (autoPending.isNotEmpty()) {
             JibikSectionTitle("تکمیل تراکنش‌های خودکار", autoPending.size.toString() + " مورد بدون توضیح")
-            autoPending.take(30).forEach { row ->
+            autoPending.take(if (showMoreAuto) 200 else 12).forEach { row ->
                 JibikSurfaceCard {
                     JibikFinancialDetail(if (row.kind == ir.jibik.core.finance.LedgerKind.INCOME) "واریز ثبت‌شده" else "برداشت ثبت‌شده",
                         formatToman(row.amountToman), emphasis = true)
                     JibikFormHint(formatJalaliDueDate(row.timestampMillis))
                     LiquidGlassButton("بابت چه چیزی بود؟", modifier = Modifier.fillMaxWidth(), enabled = !busy,
                         onClick = { completing = row })
+                    TextButton(enabled = !busy, onClick = { voiding = row }) { Text("ثبت اشتباه است") }
+                }
+            }
+            if (autoPending.size > 12) TextButton(onClick = { showMoreAuto = !showMoreAuto }) {
+                Text(if (showMoreAuto) "نمایش کمتر" else "مشاهده موارد بیشتر")
+            }
+        }
+        val completedAuto = existingRecords.filter { it.id.startsWith(BANK_AUTO_PREFIX) && it.id in linkedIds &&
+            it.kind != ir.jibik.core.finance.LedgerKind.TRANSFER && !needsBankAutoDetails(it) }
+        if (completedAuto.isNotEmpty()) {
+            TextButton(onClick = { showHistory = !showHistory }) { Text(if (showHistory) "بستن ثبت‌های خودکار قبلی" else "مشاهده ثبت‌های خودکار قبلی") }
+            if (showHistory) completedAuto.take(50).forEach { row ->
+                JibikSurfaceCard {
+                    JibikFinancialDetail(row.note, formatToman(row.amountToman))
+                    JibikFormHint(formatJalaliDueDate(row.timestampMillis))
+                    TextButton(enabled = !busy, onClick = { voiding = row }) { Text("ابطال ثبت اشتباه") }
                 }
             }
         }
@@ -247,6 +281,59 @@ internal fun BankSmsScreen(
             color = JibikStyle.forest, modifier = Modifier.size(24.dp)
         )
         notice?.let { JibikFormHint(it) }
+    }
+    confirmingPair?.let { pair ->
+        JibikModalDialog(onDismissRequest = { if (!busy) confirmingPair = null },
+            modifier = Modifier.jibikDialogSurface(), properties = JibikWideDialogProperties,
+            title = { JibikDialogHeading("تأیید انتقال داخلی", formatToman(pair.amountToman)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    JibikFinancialDetail("مبدأ", accounts.firstOrNull { it.id == pair.fromId }?.title.orEmpty())
+                    JibikFinancialDetail("مقصد", accounts.firstOrNull { it.id == pair.toId }?.title.orEmpty())
+                    JibikFormHint("هر دو پیام باید مربوط به یک جابه‌جایی بین حساب‌های خودت باشند. این انتقال درآمد یا هزینه نیست.")
+                    JibikFormHint("اگر یکی قبلاً خودکار ثبت شده باشد، همان رکورد به انتقال تبدیل می‌شود.")
+                }
+            },
+            confirmButton = { LiquidGlassButton("تأیید انتقال", enabled = !busy, onClick = {
+                busy = true
+                scope.launch {
+                    try {
+                        val posted = store.confirmBankTransfer(pair, context)
+                        listOfNotNull(pair.debit.linkedTransactionId, pair.credit.linkedTransactionId).forEach {
+                            androidx.core.app.NotificationManagerCompat.from(context).cancel(it, BankSmsSettings.NOTIFICATION_ID)
+                        }
+                        confirmingPair = null
+                        BankSmsUiEvents.changed()
+                        onRegistered(posted)
+                        notice = "انتقال داخلی ثبت شد؛ درآمد یا هزینه تکراری ایجاد نشد."
+                    } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (_: Exception) { confirmingPair = null; notice = "انتقال ثبت نشد؛ احتمال تراکنش مشابه یا تغییر حساب وجود دارد." }
+                    finally { busy = false }
+                }
+            }) },
+            dismissButton = { TextButton(enabled = !busy, onClick = { confirmingPair = null }) { Text("انصراف") } })
+    }
+    voiding?.let { row ->
+        JibikModalDialog(onDismissRequest = { if (!busy) voiding = null },
+            modifier = Modifier.jibikDialogSurface(), properties = JibikWideDialogProperties,
+            title = { JibikDialogHeading("ابطال ثبت خودکار", formatToman(row.amountToman)) },
+            text = { JibikFormHint("اثر این ثبت از موجودی و گزارش حذف می‌شود؛ سابقه آن و شناسه پیام محفوظ می‌ماند تا دوباره ثبت نشود. فقط اگر تراکنش اشتباه است تأیید کن.", isWarning = true) },
+            confirmButton = { LiquidGlassButton("ابطال تراکنش", enabled = !busy, onClick = {
+                busy = true
+                scope.launch {
+                    try {
+                        val saved = store.voidBankAuto(row)
+                        androidx.core.app.NotificationManagerCompat.from(context).cancel(row.id, BankSmsSettings.NOTIFICATION_ID)
+                        voiding = null
+                        BankSmsUiEvents.changed()
+                        onRegistered(saved)
+                        notice = "ثبت اشتباه ابطال شد."
+                    } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (_: Exception) { voiding = null; notice = "ابطال انجام نشد؛ ارتباط‌های مالی تراکنش را بررسی کن." }
+                    finally { busy = false }
+                }
+            }) },
+            dismissButton = { TextButton(enabled = !busy, onClick = { voiding = null }) { Text("انصراف") } })
     }
     completing?.let { row ->
         BankAutoDetailsDialog(row, customCategories, existingRecords.toList(), busy, onDismiss = { if (!busy) completing = null },

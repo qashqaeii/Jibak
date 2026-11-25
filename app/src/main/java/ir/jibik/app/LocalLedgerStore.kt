@@ -542,7 +542,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
     suspend fun bankLinkedTransactionIds() = withContext(Dispatchers.IO) { bankSmsDao.linkedTransactionIds().toSet() }
 
     suspend fun bankSmsSuggestions(): List<BankSmsCandidateEntity> =
-        withContext(Dispatchers.IO) { bankSmsDao.recent() }
+        withContext(Dispatchers.IO) { (bankSmsDao.pending() + bankSmsDao.recent()).distinctBy { it.id } }
 
     /**
      * Intake is idempotent: matching duplicate messages from broadcast and inbox
@@ -635,6 +635,80 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
             check(dao.update(updated.toEntity()) == 1)
             updated
         }
+
+    /** A confirmed pair is one internal transfer, never two cash-flow entries.
+     * An already posted automatic side may be converted in place, preserving its ID
+     * and revision history. All checks are repeated inside the write transaction.
+     */
+    suspend fun confirmBankTransfer(expected: BankTransferPair, context: Context): LedgerRecord =
+        withContext(Dispatchers.IO) {
+            ensureDefaultWallet()
+            migrateLegacyIfNeeded()
+            database.withTransaction {
+                val debit = requireNotNull(bankSmsDao.find(expected.debit.id))
+                val credit = requireNotNull(bankSmsDao.find(expected.credit.id))
+                require(debit == expected.debit && credit == expected.credit)
+                val accounts = loadAccounts()
+                val records = dao.getAll().map { it.toRecord() }
+                val candidates = (bankSmsDao.pending() + bankSmsDao.recent() + listOf(debit, credit)).distinctBy { it.id }
+                val pair = bankTransferPairs(candidates, BankSenderRegistry.active(context), accounts, records)
+                    .singleOrNull { it == expected } ?: error("Transfer pair changed or ambiguous")
+                val oldCandidate = listOf(debit, credit).singleOrNull { it.state == "REGISTERED" }
+                val old = oldCandidate?.let { requireNotNull(dao.find(requireNotNull(it.linkedTransactionId))) }
+                if (old != null) {
+                    val record = old.toRecord()
+                    val source = requireNotNull(oldCandidate)
+                    require(record.id.startsWith(BANK_AUTO_PREFIX) && record.amountToman == pair.amountToman)
+                    require(record.kind == (if (source.income) LedgerKind.INCOME else LedgerKind.EXPENSE))
+                    require((if (source.income) record.toAccountId else record.fromAccountId) ==
+                        (if (source.income) pair.toId else pair.fromId))
+                    require(bankSmsDao.linked(record.id) == listOf(source))
+                    require(database.purchaseLineDao().forTransaction(record.id).isEmpty())
+                    require(!database.assetDao().isLinked(record.id) && !database.recurringDao().isLinked(record.id))
+                    require(obligationPaymentDao.list().none { it.transactionId == record.id })
+                }
+                val id = old?.id ?: java.util.UUID.randomUUID().toString()
+                val transfer = LedgerRecord(id, LedgerKind.TRANSFER, pair.amountToman,
+                    fromAccountId = pair.fromId, toAccountId = pair.toId, category = "",
+                    note = "انتقال بین حساب‌ها · تأیید دو پیام بانکی",
+                    timestampMillis = debit.receivedAtMillis)
+                // Existing manual transfer or separate cash movements might represent the same event.
+                require(!conflictsWithBankAuto(transfer, records.filter { it.id != id })) {
+                    "Possible existing transfer or cash movement"
+                }
+                requireActiveAccounts(pair.fromId, pair.toId)
+                FinanceEngine.balances(accounts, records.filter { it.id != id } + transfer)
+                if (old == null) dao.insert(transfer.toEntity()) else {
+                    dao.recordRevision(LedgerRevision(transactionId = id, editedAt = System.currentTimeMillis(), previous = old))
+                    check(dao.update(transfer.toEntity()) == 1)
+                }
+                for (candidate in listOf(debit, credit).filter { it.state == "PENDING" }) {
+                    check(bankSmsDao.markRegistered(candidate.id, id) == 1)
+                }
+                dao.recordFinancialEdit(FinancialEditHistory(transactionId = id, atMillis = System.currentTimeMillis(),
+                    action = "BANK_TRANSFER", details = "تأیید کاربر: " + debit.id + " · " + credit.id))
+                transfer
+            }
+        }
+
+    /** Undo a standalone automatic posting without resurrecting its SMS.
+     * Linked obligations, purchases, assets and transfers require their own reversal flow.
+     */
+    suspend fun voidBankAuto(expected: LedgerRecord): LedgerRecord = database.withTransaction {
+        val saved = requireNotNull(dao.find(expected.id)).toRecord()
+        require(saved == expected && saved.id.startsWith(BANK_AUTO_PREFIX) && saved.kind != LedgerKind.TRANSFER)
+        val evidence = bankSmsDao.linked(saved.id).singleOrNull() ?: error("Bank link changed")
+        require(evidence.state == "REGISTERED" && evidence.id == saved.id.removePrefix(BANK_AUTO_PREFIX))
+        require(database.purchaseLineDao().forTransaction(saved.id).isEmpty())
+        require(!database.assetDao().isLinked(saved.id) && !database.recurringDao().isLinked(saved.id))
+        require(obligationPaymentDao.list().none { it.transactionId == saved.id })
+        check(bankSmsDao.ignoreRegistered(evidence.id, saved.id) == 1)
+        dao.markVoid(LedgerVoid(saved.id, System.currentTimeMillis()))
+        dao.recordFinancialEdit(FinancialEditHistory(transactionId = saved.id, atMillis = System.currentTimeMillis(),
+            action = "BANK_AUTO_VOID", details = "ابطال ثبت خودکار با تأیید کاربر"))
+        FinanceEngine.balances(accountDao.list().map { it.toAccount() }, dao.getAll().map { it.toRecord() })
+        saved
+    }
 
     suspend fun ignoreBankSms(id: String): Boolean = withContext(Dispatchers.IO) {
         bankSmsDao.ignore(id) == 1

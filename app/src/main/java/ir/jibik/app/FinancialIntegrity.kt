@@ -18,7 +18,13 @@ internal object FinancialIntegrity {
         }
         scan("چند نوبت برای یک پرداخت", "SELECT transactionId FROM recurring_decisions WHERE transactionId IS NOT NULL GROUP BY transactionId HAVING COUNT(*) > 1")
         scan("پرداخت مشترک تعهد و نوبت", "SELECT DISTINCT r.transactionId FROM recurring_decisions r JOIN obligation_payments p ON p.transactionId = r.transactionId")
-        scan("چند پیام بانکی برای یک تراکنش", "SELECT linkedTransactionId FROM bank_sms_candidates WHERE linkedTransactionId IS NOT NULL GROUP BY linkedTransactionId HAVING COUNT(*) > 1")
+        scan("تعداد یا جهت نامعتبر پیام‌های بانکی", """
+            SELECT s.linkedTransactionId FROM bank_sms_candidates s
+            JOIN ledger_records l ON l.id = s.linkedTransactionId
+            GROUP BY s.linkedTransactionId, l.kind
+            HAVING (l.kind != 'TRANSFER' AND COUNT(*) > 1)
+                OR (l.kind = 'TRANSFER' AND (COUNT(*) != 2 OR SUM(s.income) != 1))
+        """.trimIndent())
         scan("ارتباط نامعتبر نوبت", """
             SELECT COALESCE(d.transactionId, d.ruleId) FROM recurring_decisions d
             LEFT JOIN recurring_rules r ON r.id = d.ruleId
@@ -47,7 +53,8 @@ internal object FinancialIntegrity {
             OR (s.linkedTransactionId IS NOT NULL AND (s.state != 'REGISTERED' OR l.id IS NULL
             OR v.transactionId IS NOT NULL OR s.amountRial <= 0 OR s.amountRial % 10 != 0
             OR s.amountRial / 10 != l.amountToman
-            OR l.kind != CASE WHEN s.income = 1 THEN 'INCOME' ELSE 'EXPENSE' END))
+            OR (l.kind != 'TRANSFER' AND l.kind != CASE WHEN s.income = 1 THEN 'INCOME' ELSE 'EXPENSE' END)
+            OR (l.kind = 'TRANSFER' AND (l.fromAccountId IS NULL OR l.toAccountId IS NULL OR l.fromAccountId = l.toAccountId))))
         """.trimIndent())
         scan("پاکت مالی نامعتبر", "SELECT e.id FROM money_envelopes e LEFT JOIN financial_accounts a ON a.id = e.accountId LEFT JOIN savings_goals g ON g.accountId = e.accountId WHERE a.id IS NULL OR g.id IS NOT NULL OR e.targetToman <= 0 OR e.reservedToman < 0 OR e.reservedToman > e.targetToman OR e.priority NOT BETWEEN 0 AND 2 OR e.monthlyPlanToman < 0")
         if (runCatching { validateAssetTransactions(assetPositions(room.assetDao().holdings(), room.assetDao().events()), room.ledgerDao().getAll().map { it.toRecord() }) }.isFailure)

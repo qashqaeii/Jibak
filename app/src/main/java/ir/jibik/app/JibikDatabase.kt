@@ -317,6 +317,9 @@ internal interface BankSmsCandidateDao {
     @Query("UPDATE bank_sms_candidates SET state = 'REGISTERED', linkedTransactionId = :transactionId WHERE id = :id AND state = 'PENDING'")
     suspend fun markRegistered(id: String, transactionId: String): Int
 
+    @Query("UPDATE bank_sms_candidates SET state = 'IGNORED', linkedTransactionId = NULL WHERE id = :id AND state = 'REGISTERED' AND linkedTransactionId = :transactionId")
+    suspend fun ignoreRegistered(id: String, transactionId: String): Int
+
     @Query("SELECT EXISTS(SELECT 1 FROM bank_sms_candidates WHERE linkedTransactionId = :id)")
     suspend fun isLinked(id: String): Boolean
 
