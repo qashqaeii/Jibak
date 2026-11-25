@@ -969,7 +969,7 @@ private fun JibikApp(
         )
     }
     if (storageError != null) {
-        AlertDialog(
+        JibikModalDialog(
         properties = JibikWideDialogProperties,
             modifier = Modifier.jibikDialogSurface(),
             onDismissRequest = { storageError = null },
@@ -1929,7 +1929,7 @@ private fun AddTransactionDialog(
         sourceValid && (kind != LedgerKind.TRANSFER ||
             (accounts.size > 1 && targetValid && sourceId != targetId)) &&
         categoryValid
-    AlertDialog(
+    JibikModalDialog(
         properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
@@ -2128,7 +2128,7 @@ private fun BudgetDialog(
         mutableStateOf(if (current > 0L) current.toString() else "")
     }
     val parsed = parseTomanDraft(value)
-    AlertDialog(
+    JibikModalDialog(
         properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = onDismiss,
