@@ -17,13 +17,14 @@ import kotlinx.coroutines.launch
 internal fun BankSenderSettingsPanel(accounts: List<Account>, busy: Boolean, onScan: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var profiles by remember { mutableStateOf(BankSenderRegistry.list(context)) }
+    var profiles by remember { mutableStateOf(runCatching { BankSenderRegistry.list(context) }.getOrDefault(emptyList())) }
     var allowed by remember { mutableStateOf(BankSmsSettings.permissionGranted(context)) }
     var monitoring by remember { mutableStateOf(BankSmsSettings.isEnabled(context)) }
     var add by remember { mutableStateOf(false) }
     var discovered by remember { mutableStateOf(emptyList<String>()) }
     var discovering by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf(if (runCatching { BankSenderRegistry.list(context) }.isFailure)
+        "تنظیمات بانکی قابل خواندن نیست؛ برای جلوگیری از ثبت اشتباه، پایش متوقف شده است." else "") }
     var remove by remember { mutableStateOf<BankSenderProfile?>(null) }
     var training by remember { mutableStateOf<BankSenderProfile?>(null) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
@@ -33,7 +34,9 @@ internal fun BankSenderSettingsPanel(accounts: List<Account>, busy: Boolean, onS
     }
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     fun refresh() {
-        profiles = BankSenderRegistry.list(context)
+        profiles = runCatching { BankSenderRegistry.list(context) }.getOrElse {
+            error = "تنظیمات بانکی قابل خواندن نیست."; emptyList()
+        }
         allowed = BankSmsSettings.permissionGranted(context)
         monitoring = BankSmsSettings.isEnabled(context)
     }
@@ -159,7 +162,7 @@ private fun BankSenderEditor(accounts: List<Account>, discovered: List<String>, 
                 }
                 OutlinedTextField(sender, { sender = it.take(48) }, label = { Text("سرشماره یا نام دقیق فرستنده") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 TextButton(onClick = { bankExpanded = !bankExpanded }) {
-                    Text(BankSmsParser.banks.firstOrNull { it.id == bank }?.title ?: "انتخاب بانک")
+                    Text(BankSmsParser.banks.firstOrNull { it.id == bank }?.title ?: "انتخاب بانک یا بانک دیگر")
                 }
                 if (bankExpanded) BankSmsParser.banks.forEach { item ->
                     JibikGlassChip(item.title, bank == item.id, onClick = { bank = item.id; bankExpanded = false },
@@ -174,7 +177,7 @@ private fun BankSenderEditor(accounts: List<Account>, discovered: List<String>, 
                     last4 = BankSmsParser.normalise(raw).filter { it in '0'..'9' }.take(4)
                 }, label = { Text("چهار رقم انتهایی حساب در پیامک") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
-                JibikFormHint("فقط همین فرستنده و همین شناسه بررسی می‌شود. بدون شناسه، فقط پیام‌هایی که شماره حساب ندارند تطبیق می‌یابند.")
+                JibikFormHint("فقط همین فرستنده و همین شناسه بررسی می‌شود. برای بانک دیگر، قالب دارای شناسه حساب و واحد صریح ریال یا تومان را آموزش بده.")
             }
         },
         confirmButton = { LiquidGlassButton("ذخیره ارتباط", enabled = valid, onClick = {
@@ -191,13 +194,14 @@ private fun BankAutoTrainingDialog(profile: BankSenderProfile, onDismiss: () -> 
     var match by remember { mutableStateOf<BankSmsMatch?>(null) }
     var template by remember { mutableStateOf<String?>(null) }
     var confirmed by remember { mutableStateOf(false) }
+    var analyzed by remember { mutableStateOf(false) }
     JibikModalDialog(onDismissRequest = onDismiss, modifier = Modifier.jibikDialogSurface(),
         properties = JibikWideDialogProperties,
         title = { JibikDialogHeading("آموزش ثبت خودکار", "نمونه بانک معرفی‌شده · فقط روی گوشی") },
         text = {
             Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 JibikFormHint("یک نمونه خرید، برداشت یا واریز موفق از همین حساب را وارد کن. انتقال و پیام مبهم خودکار ثبت نمی‌شوند.")
-                OutlinedTextField(sample, { sample = it.take(1500); match = null; template = null; confirmed = false },
+                OutlinedTextField(sample, { sample = it.take(1500); match = null; template = null; confirmed = false; analyzed = false },
                     label = { Text("متن نمونه پیامک") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
                 TextButton(enabled = sample.isNotBlank(), onClick = {
                     val parsed = BankSmsParser.parse(profile.sender, sample, System.currentTimeMillis(),
@@ -205,7 +209,9 @@ private fun BankAutoTrainingDialog(profile: BankSenderProfile, onDismiss: () -> 
                     match = parsed?.takeIf { it.accountLast4 == profile.accountLast4 }
                     template = match?.let { strictBankAutoTemplate(sample, it) }
                     confirmed = false
+                    analyzed = true
                 }) { Text("تحلیل نمونه") }
+                if (analyzed && match == null) JibikFormHint("نمونه قابل تشخیص نیست یا شناسه حساب با ارتباط انتخاب‌شده برابر نیست.", isWarning = true)
                 match?.let {
                     JibikFinancialDetail("نوع", if (it.income) "واریز" else "برداشت")
                     JibikFinancialDetail("مبلغ", it.amountToman?.let(::formatToman) ?: "نامعتبر")
@@ -213,6 +219,8 @@ private fun BankAutoTrainingDialog(profile: BankSenderProfile, onDismiss: () -> 
                     if (it.accountLast4.isBlank()) JibikFormHint("فقط اگر تمام پیام‌های این سرشماره به همین یک حساب تعلق دارند، ثبت خودکار را تأیید کن.", isWarning = true)
                     JibikFormHint(if (template != null) "این قالب قابل تأیید است؛ واحد " + (if (template?.endsWith(":تومان") == true) "تومان" else "ریال") + " است." else "این قالب فعلاً فقط برای بررسی دستی مناسب است.")
                 }
+                if (template?.startsWith("learned-v1:") == true)
+                    JibikFormHint("ساختار این نمونه یاد گرفته شد؛ فقط فیلدهای مالی مشخص تغییرپذیرند. متن و شماره کامل حساب ذخیره نمی‌شوند.")
                 if (template != null) Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Checkbox(confirmed, onCheckedChange = { confirmed = it })
                     Text("مبلغ، واحد، نوع و حساب درست است و اجازه ثبت پیام‌های جدید مشابه را می‌دهم.", modifier = Modifier.weight(1f))

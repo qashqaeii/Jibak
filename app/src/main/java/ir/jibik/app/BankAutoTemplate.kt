@@ -11,6 +11,7 @@ internal fun strictBankAutoTemplate(body: String, match: BankSmsMatch): String? 
     if (match.bankId == "blu" && match.accountLast4.isEmpty()) return bluAutoTemplate(body, match)
     if (match.accountLast4.length != 4) return null
     explicitBankAutoTemplate(body, match)?.let { return it }
+    learnedBankTemplate(body, match)?.let { return it }
     if (match.bankId != "melli") return null
     val lines = BankSmsParser.normalise(body).lines().map { it.trim() }.filter { it.isNotBlank() }
     if (lines.size !in 4..5 || lines[0] != "بانک ملی ایران") return null
@@ -69,7 +70,8 @@ private fun explicitBankAutoTemplate(body: String, match: BankSmsMatch): String?
 
 internal fun isSupportedAutoTemplate(bankId: String, template: String): Boolean {
     val labels = setOf("خریداینترنتی", "خرید", "برداشت", "واریز")
-    return (bankId == "blu" && template in setOf("blu-rial-v1:credit", "blu-rial-v1:debit")) ||
+    return isLearnedBankTemplate(bankId, template) ||
+        (bankId == "blu" && template in setOf("blu-rial-v1:credit", "blu-rial-v1:debit")) ||
         (bankId == "melli" && labels.any { template == "melli-signed-rial-v1:" + it }) ||
         labels.any { label -> listOf("ریال", "تومان").any { unit -> template == "explicit-v1:$bankId:$label:$unit" } }
 }

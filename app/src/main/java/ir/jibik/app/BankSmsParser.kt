@@ -44,6 +44,8 @@ internal object BankSmsParser {
         SupportedBank("maskan", "بانک مسکن", listOf("بانک مسکن"), listOf("maskan")),
         SupportedBank("ayandeh", "بانک آینده", listOf("بانک آینده"), listOf("ayandeh")),
         SupportedBank("keshavarzi", "بانک کشاورزی", listOf("بانک کشاورزی"), listOf("keshavarzi")),
+        // Never autodetect this option: only an explicitly introduced sender.
+        SupportedBank("custom", "بانک دیگر / سرشماره اختصاصی", emptyList(), emptyList()),
     )
     private val otp = Regex("رمز|یکبارمصرف|یک بار مصرف|کد( تایید| تأیید| ورود| فعال)|otp|verification|رمز پویا", RegexOption.IGNORE_CASE)
     private val dangerous = Regex("https?://|www\\.|\\bbit\\.ly\\b", RegexOption.IGNORE_CASE)
@@ -127,6 +129,7 @@ internal object BankSmsParser {
                 if (unit.isBlank()) return null
             }
         }
+        if (!Regex("[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+").matches(amountString)) return null
         val numeric = amountString.replace(",", "")
         val rawAmount = numeric.toLongOrNull()?.takeIf { it > 0L } ?: return null
         val rial = try {

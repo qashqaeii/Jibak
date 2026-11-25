@@ -19,7 +19,12 @@ internal data class BankTransferPair(
  */
 internal fun candidateMappedAccount(candidate: BankSmsCandidateEntity,
     profiles: List<BankSenderProfile>, accounts: List<Account>): String? {
-    if (candidate.accountLast4.length != 4) return null
+    if (candidate.accountLast4.length != 4) {
+        if (candidate.bankId != "blu" || candidate.accountLast4.isNotEmpty()) return null
+        val only = profiles.filter { it.enabled && it.bankId == "blu" }.singleOrNull() ?: return null
+        if (only.accountLast4.isNotEmpty()) return null
+        return only.accountId.takeIf { id -> accounts.any { it.id == id && !it.archived } }
+    }
     val profile = profiles.filter { it.enabled && it.bankId == candidate.bankId &&
         it.accountLast4 == candidate.accountLast4 }.singleOrNull() ?: return null
     return profile.accountId.takeIf { id -> accounts.any { it.id == id && !it.archived } }

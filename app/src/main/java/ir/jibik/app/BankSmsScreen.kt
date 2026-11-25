@@ -56,7 +56,7 @@ internal fun BankSmsScreen(
     var sampleResult by remember { mutableStateOf<BankSmsMatch?>(null) }
     var balanceAccountId by remember { mutableStateOf("") }
     var showAllBanks by rememberSaveable { mutableStateOf(false) }
-    var showAllPending by rememberSaveable { mutableStateOf(false) }
+    var pendingLimit by rememberSaveable { mutableStateOf(12) }
     var selected by remember { mutableStateOf<BankSmsCandidateEntity?>(null) }
     var busy by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -229,7 +229,7 @@ internal fun BankSmsScreen(
             title = "پیام جدیدی در صف نیست",
             description = "پیام‌های قابل تشخیص از سرشماره‌های معرفی‌شده پس از دریافت یا اسکن در این بخش نمایش داده می‌شوند.",
         )
-        pending.take(if (showAllPending) 100 else 12).forEach { item ->
+        pending.take(pendingLimit).forEach { item ->
             LiquidGlassCard(tone = GlassTone.CRYSTAL) {
                 Row(Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -283,14 +283,9 @@ internal fun BankSmsScreen(
                 }
             }
         }
-        if (pending.size > 12) TextButton(onClick = {
-            showAllPending = !showAllPending
-        }) {
-            Text(
-                if (showAllPending) "نمایش ۱۲ مورد اول" else "مشاهده موارد بیشتر",
-                color = JibikStyle.forest,
-            )
-        }
+        if (pending.size > pendingLimit) TextButton(onClick = {
+            pendingLimit = (pendingLimit + 30).coerceAtMost(pending.size)
+        }) { Text("نمایش موارد بیشتر · " + (pending.size - pendingLimit), color = JibikStyle.forest) }
         if (handled > 0) JibikFormHint(
             handled.toString() + " مورد قبلاً ثبت یا نادیده گرفته شده است."
         )
