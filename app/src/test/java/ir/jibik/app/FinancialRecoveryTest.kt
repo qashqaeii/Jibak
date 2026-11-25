@@ -18,6 +18,51 @@ class FinancialRecoveryTest {
         try { block(this) } finally { close() }
     }
 
+    @Test fun bankAndCommitmentReconcileAtomicallyWithoutDuplicateMoney() = runBlocking {
+        val ctx: Context = RuntimeEnvironment.getApplication()
+        JibikDatabase.open(ctx, "bank-combined").withOpenDatabase { db ->
+            val store = LocalLedgerStore(ctx, db)
+            val day = requireNotNull(parseJalaliDueDate("1403/07/01"))
+            store.loadAccounts()
+            store.addObligation(FinancialObligationEntity("bill", "قبض", "BILL", 100, day, 1, "", day))
+            store.addRecurring(RecurringRule("rent", "اجاره", false, "wallet", 30, day))
+            val first = LedgerRecord("first", LedgerKind.EXPENSE, 30, fromAccountId = "wallet",
+                category = "سایر هزینه‌ها", timestampMillis = day)
+            suspend fun sms(id: String) {
+                db.bankSmsCandidateDao().insertIgnore(BankSmsCandidateEntity(id, "bank", "بانک", false, 300, "", day))
+            }
+            sms("one")
+            val before = store.load()
+            assertTrue(runCatching { store.reconcileBankPayment("one", first, false,
+                BankPaymentTarget.Obligation("missing")) }.isFailure)
+            assertEquals(before, store.load())
+            assertEquals("PENDING", db.bankSmsCandidateDao().find("one")?.state)
+            assertTrue(store.loadObligationPayments().isEmpty())
+            val posted = store.reconcileBankPayment("one", first, false, BankPaymentTarget.Obligation("bill"))
+            assertEquals(first, posted)
+            assertEquals(listOf(first), store.load())
+            assertEquals(30L, store.loadObligationPayments().single().amountToman)
+            assertEquals("REGISTERED", db.bankSmsCandidateDao().find("one")?.state)
+            assertTrue(runCatching { store.reconcileBankPayment("one", first, false, BankPaymentTarget.Obligation("bill")) }.isFailure)
+            assertEquals(1, store.load().size)
+            val second = first.copy(id = "second")
+            store.append(second)
+            sms("two")
+            val balance = FinanceEngine.balances(store.loadAccounts(), store.load())
+            store.reconcileBankPayment("two", second, true, BankPaymentTarget.Recurring("rent", day))
+            assertEquals(balance, FinanceEngine.balances(store.loadAccounts(), store.load()))
+            assertEquals(second.id, store.allRecurringDecisions().single().transactionId)
+            assertTrue(store.inspectIntegrity().isEmpty())
+            sms("three")
+            val third = first.copy(id = "third")
+            assertTrue(runCatching { store.reconcileBankPayment("three", third, false,
+                BankPaymentTarget.Recurring("rent", day)) }.isFailure)
+            assertEquals("PENDING", db.bankSmsCandidateDao().find("three")?.state)
+            assertEquals(2, store.load().size)
+            assertEquals(balance, FinanceEngine.balances(store.loadAccounts(), store.load()))
+        }
+    }
+
     @Test fun recurringPaymentsCannotBeReusedEditedOrVoided() = runBlocking {
         val ctx: Context = RuntimeEnvironment.getApplication()
         JibikDatabase.open(ctx, "recurring-integrity").withOpenDatabase { db ->
