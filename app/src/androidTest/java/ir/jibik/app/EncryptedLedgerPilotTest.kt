@@ -35,6 +35,8 @@ class EncryptedLedgerPilotTest {
             source.ledgerDao().insert(LedgerEntity("pilot-entry", "EXPENSE", 120, "wallet", null,
                 "سایر هزینه‌ها", "آزمون فارسی", now))
             source.envelopeDao().insert(MoneyEnvelope("pilot-envelope", "سفر", "wallet", 500, 200, now))
+            source.assetDao().insertHolding(AssetHolding("pilot-gold", "سکه", "GOLD", 250L, now))
+            source.assetDao().insertEvent(AssetEvent(assetId = "pilot-gold", kind = "VALUE", valueToman = 300, atMillis = now, note = "ارزش ثبت‌شده"))
             source.ledgerDao().saveBudget(MonthlyBudget(amount = 600))
             val expected = pilotSnapshot(source)
             stageEncryptedLedger(source, targetFile, vault, ::openEncrypted)

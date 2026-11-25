@@ -18,6 +18,56 @@ class FinancialRecoveryTest {
         try { block(this) } finally { close() }
     }
 
+    @Test fun assetHistoryArchiveAndBackupNeverChangeLedger() = runBlocking {
+        val ctx: Context = RuntimeEnvironment.getApplication()
+        JibikDatabase.open(ctx, "asset-source").withOpenDatabase { db ->
+            val store = LocalLedgerStore(ctx, db)
+            val now = System.currentTimeMillis()
+            store.loadAccounts()
+            store.addAccount(Account("bank", "بانک", 1000))
+            val holding = AssetHolding("gold", "سکه", "GOLD", 200L, now)
+            val before = store.load()
+            val balances = FinanceEngine.balances(store.loadAccounts(), before)
+            val legacy = store.backup()
+            store.addAsset(holding, 250)
+            val first = store.loadAssets().single()
+            assertEquals(250L, first.valueToman)
+            assertEquals(50.toBigInteger(), first.valuationChange)
+            store.changeAsset(first, "VALUE", 300, "ارزیابی جدید")
+            assertTrue(runCatching { store.changeAsset(first, "VALUE", 900, "") }.isFailure)
+            val valued = store.loadAssets().single()
+            assertTrue(runCatching { store.changeAsset(valued, "ARCHIVE", 299, "") }.isFailure)
+            store.changeAsset(valued, "ARCHIVE", 300, "بایگانی")
+            val archived = store.loadAssets().single()
+            assertTrue(archived.archived)
+            assertEquals(0.toBigInteger(), netWorth(balances, listOf(archived), emptyList(), emptyList()).nonCash)
+            assertTrue(runCatching { store.changeAsset(archived, "VALUE", 400, "") }.isFailure)
+            store.changeAsset(archived, "RESTORE", 300, "")
+            val restored = store.loadAssets().single()
+            assertFalse(restored.archived)
+            assertEquals(4, restored.history.size)
+            assertEquals(before, store.load())
+            assertEquals(balances, FinanceEngine.balances(store.loadAccounts(), store.load()))
+            assertEquals(1300.toBigInteger(), netWorth(balances, listOf(restored), emptyList(), emptyList()).net)
+            assertTrue(store.inspectIntegrity().isEmpty())
+            val backup = store.backup()
+            JibikDatabase.open(ctx, "asset-target").withOpenDatabase { targetDb ->
+                val target = LocalLedgerStore(ctx, targetDb)
+                target.loadAccounts(); target.restoreBackup(backup)
+                assertEquals(store.loadAssets(), target.loadAssets())
+                assertEquals(before, target.load())
+            }
+            val v7 = org.json.JSONObject(legacy.toString()).put("version", 7)
+            v7.remove("asset_holdings"); v7.remove("asset_events")
+            JibikDatabase.open(ctx, "asset-legacy").withOpenDatabase { targetDb ->
+                val target = LocalLedgerStore(ctx, targetDb)
+                target.loadAccounts(); target.restoreBackup(v7)
+                assertTrue(target.loadAssets().isEmpty())
+                assertEquals(balances, FinanceEngine.balances(target.loadAccounts(), target.load()))
+            }
+        }
+    }
+
     @Test fun bankAndCommitmentReconcileAtomicallyWithoutDuplicateMoney() = runBlocking {
         val ctx: Context = RuntimeEnvironment.getApplication()
         JibikDatabase.open(ctx, "bank-combined").withOpenDatabase { db ->
