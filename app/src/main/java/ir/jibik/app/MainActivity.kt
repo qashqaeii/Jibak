@@ -12,6 +12,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.content.ContextCompat
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -22,6 +23,8 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -78,6 +81,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -462,9 +467,9 @@ private fun JibikApp(
 
     if (!welcomed) {
         WelcomeScreen(onStart = {
-            store.finishWelcome()
-            welcomed = true
-        })
+            try { store.finishWelcome(); welcomed = true }
+            catch (_: Exception) { storageError = "شروع جیبیک کامل نشد؛ دوباره تلاش کن." }
+        }, error = storageError)
         return
     }
 
@@ -1216,74 +1221,110 @@ internal fun compactJibikWelcome(widthDp: Float, heightDp: Float, fontScale: Flo
     widthDp < 360f || heightDp < 720f || fontScale >= 1.3f
 
 @Composable
-private fun WelcomeScreen(onStart: () -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxSize().liquidBackdrop()) {
-        val compact = compactJibikWelcome(
-            maxWidth.value, maxHeight.value, LocalDensity.current.fontScale,
-        )
+private fun WelcomeScreen(onStart: () -> Unit, error: String? = null) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xFFF4F8F2)).safeDrawingPadding()) {
+        val compact = compactJibikWelcome(maxWidth.value, maxHeight.value, LocalDensity.current.fontScale)
+        val wide = maxWidth >= 700.dp && LocalDensity.current.fontScale < 1.3f
+        val side = if (compact) 20.dp else 28.dp
         Column(
-            modifier = Modifier.fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(
-                    horizontal = if (compact) 18.dp else 24.dp,
-                    vertical = if (compact) 16.dp else 24.dp,
-                ),
+            Modifier.fillMaxSize().widthIn(max = if (wide) 960.dp else 560.dp)
+                .align(Alignment.Center).padding(horizontal = side),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(if (compact) 14.dp else 26.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                JibikBrandLogo(Modifier.size(if (compact) 44.dp else 52.dp))
-                Spacer(Modifier.size(8.dp))
-                Text(
-                    "جیبیک", fontSize = if (compact) 26.sp else 29.sp,
-                    color = Forest, fontWeight = FontWeight.ExtraBold,
-                )
-            }
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 14.dp),
-            ) {
-                Box(
-                    modifier = Modifier.size(if (compact) 148.dp else 214.dp)
-                        .liquidGlass(
-                            GlassTone.CRYSTAL,
-                            radius = if (compact) 32.dp else 40.dp,
-                            elevation = 7.dp,
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    JiboMascot(Modifier.size(if (compact) 138.dp else 200.dp))
+            Row(Modifier.fillMaxWidth().padding(vertical = if (compact) 12.dp else 20.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                JibikBrandLogo(Modifier.size(40.dp))
+                Spacer(Modifier.size(9.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("جیبیک", fontSize = 25.sp, color = Forest, fontWeight = FontWeight.ExtraBold)
+                    Text("مدیریت مالی شخصی", fontSize = 11.sp, color = Quiet)
                 }
-                if (!compact) Spacer(Modifier.height(8.dp))
-                Text(
-                    "سلام! من جیبو هستم",
-                    fontSize = if (compact) 22.sp else 25.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Deep, textAlign = TextAlign.Center,
-                    lineHeight = if (compact) 30.sp else 34.sp,
-                )
-                Text(
-                    "حساب‌وکتاب خونه و زندگی رو با هم ساده‌تر می‌کنیم.",
-                    textAlign = TextAlign.Center, color = Quiet,
-                    lineHeight = 25.sp, fontSize = 15.sp,
-                )
-                Text(
-                    "ثبت سریع  •  بودجه‌بندی  •  آرامش بیشتر",
-                    color = Forest, fontSize = 12.sp,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                )
+                Text("به سبک خودت", color = Forest, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             }
-            LiquidGlassButton(
-                text = "شروع با جیبیک",
-                onClick = onStart,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                tone = GlassTone.EMERALD,
-            )
+            Column(Modifier.weight(1f, fill = true).fillMaxWidth().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 20.dp)) {
+                if (wide) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(22.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) { WelcomeHero(false) }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            WelcomeCopy(false)
+                            WelcomeBenefits()
+                        }
+                    }
+                } else {
+                    WelcomeHero(compact)
+                    WelcomeCopy(compact)
+                    WelcomeBenefits()
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+            // Primary action is not part of the scroll region; readable at larger text sizes.
+            Column(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = if (compact) 10.dp else 18.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (error != null) JibikFormHint(error, isWarning = true)
+                LiquidGlassButton(text = "شروع مدیریت مالی", onClick = onStart,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), tone = GlassTone.EMERALD)
+                Text("بدون نیاز به ساخت حساب کاربری برای شروع",
+                    color = Quiet, fontSize = 11.sp, textAlign = TextAlign.Center)
+            }
+        }
+    }
+}
+
+@Composable
+private fun WelcomeHero(compact: Boolean) {
+    Box(Modifier.fillMaxWidth().height(if (compact) 180.dp else 260.dp)
+        .clip(RoundedCornerShape(28.dp)).background(Color(0xFF07574C))) {
+        Canvas(Modifier.fillMaxSize()) {
+            val r = size.minDimension
+            drawCircle(Color(0xFF176C5C), r * .63f, Offset(size.width * .77f, size.height * .55f))
+            drawCircle(Color(0xFF20816B), r * .43f, Offset(size.width * .77f, size.height * .55f))
+            drawCircle(Color(0xFFDAF0DD).copy(alpha = .10f), r * .28f, Offset(size.width * .06f, size.height * .95f))
+        }
+        Row(Modifier.fillMaxSize().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("همراه مالی تو", color = Color(0xFFD1EEE0), fontSize = 12.sp)
+                Text("سلام، من\nجیبو هستم!", color = Color.White,
+                    fontSize = if (compact) 22.sp else 30.sp, lineHeight = if (compact) 30.sp else 39.sp,
+                    fontWeight = FontWeight.ExtraBold)
+                Text("قدم‌به‌قدم کنار تو", color = Color(0xFFD1EEE0), fontSize = 11.sp)
+            }
+            JiboMascot(Modifier.weight(1f).height(if (compact) 140.dp else 214.dp))
+        }
+    }
+}
+
+@Composable
+private fun WelcomeCopy(compact: Boolean) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text("پولت را بهتر بشناس.\nبا خیال راحت‌تر خرج کن.", color = Deep,
+            fontSize = if (compact) 23.sp else 30.sp, lineHeight = if (compact) 33.sp else 42.sp,
+            fontWeight = FontWeight.ExtraBold)
+        Text("درآمد، هزینه، تعهدات و پس‌انداز؛ همه در یک دفتر مالی ساده و دقیق.",
+            color = Quiet, fontSize = if (compact) 13.sp else 15.sp, lineHeight = 22.sp)
+    }
+}
+
+@Composable
+private fun WelcomeBenefits() {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color.White).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(
+            Triple(JiboArtwork.TRANSACTIONS, "حساب‌وکتاب روزمره", "ثبت سریع درآمد و خرید"),
+            Triple(JiboArtwork.GOALS, "پول برای هدف‌های تو", "بودجه و پاکت‌های پس‌انداز"),
+            Triple(JiboArtwork.OBLIGATIONS, "آینده مالی روشن‌تر", "تقویم و پیش‌بینی مانده"),
+        ).forEachIndexed { index, (art, title, subtitle) ->
+            if (index > 0) HorizontalDivider(color = Color(0xFFE9EEEA))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFEAF4EE)),
+                    contentAlignment = Alignment.Center) { JiboArt(art, Modifier.size(35.dp)) }
+                Column(Modifier.weight(1f)) {
+                    Text(title, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Deep)
+                    Text(subtitle, color = Quiet, fontSize = 11.sp)
+                }
+            }
         }
     }
 }
