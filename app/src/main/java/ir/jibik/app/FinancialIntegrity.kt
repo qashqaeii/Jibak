@@ -49,7 +49,7 @@ internal object FinancialIntegrity {
             OR s.amountRial / 10 != l.amountToman
             OR l.kind != CASE WHEN s.income = 1 THEN 'INCOME' ELSE 'EXPENSE' END))
         """.trimIndent())
-        scan("پاکت مالی نامعتبر", "SELECT e.id FROM money_envelopes e LEFT JOIN financial_accounts a ON a.id = e.accountId LEFT JOIN savings_goals g ON g.accountId = e.accountId WHERE a.id IS NULL OR g.id IS NOT NULL OR e.targetToman <= 0 OR e.reservedToman < 0 OR e.reservedToman > e.targetToman")
+        scan("پاکت مالی نامعتبر", "SELECT e.id FROM money_envelopes e LEFT JOIN financial_accounts a ON a.id = e.accountId LEFT JOIN savings_goals g ON g.accountId = e.accountId WHERE a.id IS NULL OR g.id IS NOT NULL OR e.targetToman <= 0 OR e.reservedToman < 0 OR e.reservedToman > e.targetToman OR e.priority NOT BETWEEN 0 AND 2 OR e.monthlyPlanToman < 0")
         val records = room.ledgerDao().getAll().map { it.toRecord() }
         val allRecords = (records + room.ledgerDao().voided().map { it.toRecord() }).associateBy { it.id }
         room.purchaseLineDao().all().groupBy { it.transactionId }.forEach { (id, rows) ->

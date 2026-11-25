@@ -579,10 +579,32 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         migrateLegacyIfNeeded()
         database.withTransaction {
             require(item.id.isNotBlank() && item.title.trim().length in 1..60 && item.createdAtMillis > 0)
-            require(item.targetToman > 0 && item.reservedToman == 0L)
+            require(item.targetToman > 0 && item.reservedToman == 0L && item.priority in 0..2 && item.monthlyPlanToman >= 0)
             require(accountDao.list().any { it.id == item.accountId })
             require(database.savingsGoalDao().list().none { it.accountId == item.accountId })
             database.envelopeDao().insert(item.copy(title = item.title.trim()))
+        }
+    }
+
+    /** Metadata edits never move cash; preserve previous plan and priority. */
+    suspend fun editEnvelope(expected: MoneyEnvelope, title: String, target: Long, priority: Int,
+        monthly: Long) = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            val envelopeDao = database.envelopeDao()
+            val current = envelopeDao.list().first { it.id == expected.id }
+            check(current == expected) { "Envelope changed" }
+            require(title.trim().length in 1..60 && target > 0 && target >= current.reservedToman)
+            require(priority in 0..2 && monthly >= 0)
+            val updated = current.copy(title = title.trim(), targetToman = target, priority = priority, monthlyPlanToman = monthly)
+            if (updated != current) {
+                check(envelopeDao.update(updated) == 1)
+                val details = "نام: " + current.title + " ← " + updated.title +
+                    "\nهدف: " + formatToman(current.targetToman) + " ← " + formatToman(updated.targetToman) +
+                    "\nاولویت: " + envelopePriorityLabel(current.priority) + " ← " + envelopePriorityLabel(updated.priority) +
+                    "\nبرنامه ماهانه: " + formatToman(current.monthlyPlanToman) + " ← " + formatToman(updated.monthlyPlanToman)
+                envelopeDao.addEvent(EnvelopeEvent(envelopeId = current.id, atMillis = System.currentTimeMillis(),
+                    previousToman = current.reservedToman, reservedToman = current.reservedToman, details = details))
+            }
         }
     }
 
