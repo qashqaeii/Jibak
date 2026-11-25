@@ -241,7 +241,7 @@ internal fun CreateAccountDialog(
     val valid = !isSaving && cleanTitle.isNotBlank() &&
         cleanTitle.length <= 48 && !duplicated &&
         amount != null && amount >= 0L
-    AlertDialog(
+    JibikModalDialog(
         properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
