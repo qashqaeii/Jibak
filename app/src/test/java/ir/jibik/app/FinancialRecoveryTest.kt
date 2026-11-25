@@ -117,6 +117,57 @@ class FinancialRecoveryTest {
         }
     }
 
+    @Test fun recurringUpgradeReadsOldBackupAndPreservesHistoricalDecisions() = runBlocking {
+        val ctx: Context = RuntimeEnvironment.getApplication()
+        val first = requireNotNull(parseJalaliDueDate("1403/07/01"))
+        JibikDatabase.open(ctx, "recurring-backup-source").withOpenDatabase { sourceDb ->
+            val source = LocalLedgerStore(ctx, sourceDb)
+            source.loadAccounts()
+            val old = RecurringRule("old", "اجاره", false, "wallet", 50, first)
+            source.addRecurring(old)
+            source.decideRecurring(old.id, first, null)
+            val original = source.backup()
+            val v4 = org.json.JSONObject(original.toString()).put("version", 4)
+            val sheet = v4.getJSONObject("recurring_rules")
+            val names = sheet.getJSONArray("columns")
+            val retained = (0 until names.length()).filter {
+                names.getString(it) !in setOf("frequency", "interval", "category", "endDay")
+            }
+            val columns = org.json.JSONArray()
+            retained.forEach { columns.put(names.getString(it)) }
+            val rows = org.json.JSONArray()
+            val originalRows = sheet.getJSONArray("rows")
+            for (i in 0 until originalRows.length()) {
+                val row = org.json.JSONArray()
+                retained.forEach { row.put(originalRows.getJSONArray(i).get(it)) }
+                rows.put(row)
+            }
+            sheet.put("columns", columns).put("rows", rows)
+            JibikDatabase.open(ctx, "recurring-backup-target").withOpenDatabase { db ->
+                val target = LocalLedgerStore(ctx, db)
+                target.loadAccounts()
+                target.restoreBackup(v4)
+                assertEquals(old, target.recurringRules().single())
+                assertEquals(source.allRecurringDecisions(), target.allRecurringDecisions())
+                val tomorrow = jalaliDueDayEndExclusive(System.currentTimeMillis())
+                val successor = old.copy(id = "new", amount = 75, firstDay = tomorrow,
+                    frequency = "WEEKLY", interval = 2, endDay = offsetJalaliDay(tomorrow, 28))
+                val before = target.load()
+                assertTrue(runCatching { target.replaceRecurring(old.id, successor.copy(firstDay = first)) }.isFailure)
+                assertEquals(old, target.recurringRules().single())
+                target.replaceRecurring(old.id, successor)
+                assertEquals(before, target.load())
+                assertEquals(source.allRecurringDecisions(), target.allRecurringDecisions())
+                val rules = target.recurringRules().associateBy { it.id }
+                assertNotNull(rules.getValue(old.id).stoppedAt)
+                assertEquals(successor, rules.getValue(successor.id))
+                assertTrue(rules.getValue(old.id).dueBetween(tomorrow, offsetJalaliDay(tomorrow, 365)).isEmpty())
+                assertEquals(3, successor.dueBetween(tomorrow, offsetJalaliDay(tomorrow, 29)).size)
+                assertTrue(runCatching { target.replaceRecurring(old.id, successor.copy(id = "another")) }.isFailure)
+            }
+        }
+    }
+
     @Test fun migrateCorrectLinkAndRestoreWithoutChangingBalances() = runBlocking {
         val ctx: Context = RuntimeEnvironment.getApplication()
         val name = "recovery-test"
