@@ -571,6 +571,59 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
             }
         }
 
+    /** Only a newly delivered, explicitly trained template is eligible. History
+     * scans remain review-only. Candidate stays pending if any precondition fails.
+     */
+    suspend fun tryAutoPostBankSms(match: BankSmsMatch, profile: BankSenderProfile,
+        template: String, context: Context): LedgerRecord? = withContext(Dispatchers.IO) {
+        ensureDefaultWallet()
+        migrateLegacyIfNeeded()
+        database.withTransaction {
+            val current = resolveBankSender(BankSenderRegistry.active(context), match.sender,
+                match.bankId, match.accountLast4)
+            if (!BankSmsSettings.isEnabled(context) || current != profile || template !in profile.autoTemplates)
+                return@withTransaction null
+            val now = System.currentTimeMillis()
+            if (match.receivedAtMillis !in (now - 15 * 60_000L)..(now + 60_000L)) return@withTransaction null
+            val candidate = bankSmsDao.find(match.fingerprint) ?: return@withTransaction null
+            if (candidate.state != "PENDING") return@withTransaction null
+            val amount = match.amountToman ?: return@withTransaction null
+            val accounts = loadAccounts()
+            if (accounts.none { it.id == profile.accountId && !it.archived }) return@withTransaction null
+            val record = LedgerRecord(id = BANK_AUTO_PREFIX + candidate.id,
+                kind = if (candidate.income) LedgerKind.INCOME else LedgerKind.EXPENSE,
+                amountToman = amount, fromAccountId = profile.accountId.takeUnless { candidate.income },
+                toAccountId = profile.accountId.takeIf { candidate.income },
+                category = if (candidate.income) "سایر درآمدها" else "سایر هزینه‌ها",
+                note = "", timestampMillis = candidate.receivedAtMillis)
+            if (conflictsWithBankAuto(record, (dao.getAll() + dao.voided()).map { it.toRecord() })) return@withTransaction null
+            // If another bank message with matching amount arrived near this one,
+            // do not invent an internal transfer or a second financial posting.
+            if (bankSmsDao.nearby(candidate.id, candidate.amountRial,
+                    candidate.receivedAtMillis - 15 * 60_000L, candidate.receivedAtMillis + 15 * 60_000L) > 0)
+                return@withTransaction null
+            if (bankPaymentOptions(record, obligationDao.list(), obligationPaymentDao.list(),
+                    database.recurringDao().rules(), allRecurringDecisions(), now).isNotEmpty())
+                return@withTransaction null
+            registerBankSms(candidate.id, record)
+        }
+    }
+
+    /** Metadata-only completion of a linked automatic entry. Never moves money. */
+    suspend fun completeBankAutoDetails(id: String, note: String, category: String): LedgerRecord =
+        database.withTransaction {
+            val previous = requireNotNull(dao.find(id))
+            val record = previous.toRecord()
+            require(needsBankAutoDetails(record) && bankSmsDao.isLinked(id))
+            val clean = note.trim()
+            require(clean.length in 1..250)
+            require(isSelectableCategory(category, record.kind == LedgerKind.INCOME, customCategoryDao.list()))
+            val updated = record.copy(note = clean, category = category)
+            dao.recordRevision(LedgerRevision(transactionId = id, editedAt = System.currentTimeMillis(), previous = previous))
+            check(dao.update(updated.toEntity()) == 1)
+            updated
+        }
+
     suspend fun ignoreBankSms(id: String): Boolean = withContext(Dispatchers.IO) {
         bankSmsDao.ignore(id) == 1
     }

@@ -22,6 +22,7 @@ internal data class BankSenderProfile(
     val accountLast4: String,
     val accountId: String,
     val enabled: Boolean = true,
+    val autoTemplates: Set<String> = emptySet(),
 ) {
     init {
         require(id.isNotBlank() && accountId.isNotBlank())
@@ -50,7 +51,10 @@ internal object BankSenderRegistry {
         return List(json.length()) { i ->
             val row = json.getJSONObject(i)
             BankSenderProfile(row.getString("id"), row.getString("bank"), row.getString("sender"),
-                row.getString("last4"), row.getString("account"), row.getBoolean("enabled"))
+                row.getString("last4"), row.getString("account"), row.getBoolean("enabled"),
+                row.optJSONArray("auto")?.let { values ->
+                    (0 until values.length()).map { values.getString(it) }.toSet()
+                }.orEmpty())
         }
     }
     @Synchronized fun save(context: Context, bankId: String, sender: String,
@@ -73,6 +77,16 @@ internal object BankSenderRegistry {
         require(rows.any { it.id == id })
         write(context, rows.map { if (it.id == id) it.copy(enabled = enabled) else it })
     }
+    @Synchronized fun approveAutoTemplate(context: Context, id: String, template: String) {
+        require(template in setOf("melli-signed-rial-v1:خریداینترنتی", "melli-signed-rial-v1:خرید",
+            "melli-signed-rial-v1:برداشت", "melli-signed-rial-v1:واریز"))
+        val rows = list(context)
+        require(rows.any { it.id == id && it.bankId == "melli" && it.enabled })
+        write(context, rows.map { if (it.id == id) it.copy(autoTemplates = it.autoTemplates + template) else it })
+    }
+    @Synchronized fun stopAuto(context: Context, id: String) {
+        write(context, list(context).map { if (it.id == id) it.copy(autoTemplates = emptySet()) else it })
+    }
     @Synchronized fun remove(context: Context, id: String) {
         write(context, list(context).filterNot { it.id == id })
     }
@@ -80,7 +94,7 @@ internal object BankSenderRegistry {
         val json = JSONArray()
         rows.forEach { row -> json.put(JSONObject().put("id", row.id).put("bank", row.bankId)
             .put("sender", row.sender).put("last4", row.accountLast4).put("account", row.accountId)
-            .put("enabled", row.enabled)) }
+            .put("enabled", row.enabled).put("auto", JSONArray(row.autoTemplates.toList()))) }
         check(prefs(context).edit().putString("profiles", json.toString()).commit())
     }
     fun active(context: Context): List<BankSenderProfile> =

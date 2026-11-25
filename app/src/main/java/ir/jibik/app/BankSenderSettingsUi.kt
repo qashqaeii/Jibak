@@ -25,6 +25,7 @@ internal fun BankSenderSettingsPanel(accounts: List<Account>, busy: Boolean, onS
     var discovering by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     var remove by remember { mutableStateOf<BankSenderProfile?>(null) }
+    var training by remember { mutableStateOf<BankSenderProfile?>(null) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         allowed = BankSmsSettings.permissionGranted(context)
         monitoring = BankSmsSettings.isEnabled(context)
@@ -58,7 +59,7 @@ internal fun BankSenderSettingsPanel(accounts: List<Account>, busy: Boolean, onS
                         refresh()
                     })
             }
-            JibikFormHint("در این مرحله پیام جدید فقط وارد صندوق بررسی می‌شود؛ ثبت خودکار مالی هنوز فعال نیست.")
+            JibikFormHint("فقط قالب‌هایی که جداگانه برای ثبت خودکار تأیید می‌کنی می‌توانند موجودی را تغییر دهند؛ سایر پیام‌ها وارد صندوق بررسی می‌شوند.")
             LiquidGlassButton("اسکن پیامک‌های گذشته", onClick = onScan,
                 enabled = allowed && profiles.any { it.enabled } && !busy, modifier = Modifier.fillMaxWidth(), tone = GlassTone.CRYSTAL)
         }
@@ -72,6 +73,14 @@ internal fun BankSenderSettingsPanel(accounts: List<Account>, busy: Boolean, onS
                     profile.sender + " · " + if (profile.accountLast4.isBlank()) "پیام بدون شناسه حساب" else "حساب ••••" + profile.accountLast4)
                 val account = accounts.firstOrNull { it.id == profile.accountId && !it.archived }
                 JibikFinancialDetail("حساب جیبیک", account?.title ?: "حساب در دسترس نیست")
+                JibikStatusText(if (profile.autoTemplates.isEmpty()) "فقط بررسی" else "ثبت خودکار: " + profile.autoTemplates.size + " قالب")
+                if (profile.bankId == "melli" && profile.accountLast4.isNotBlank() && account != null && profile.enabled) {
+                    TextButton(onClick = { training = profile }) { Text("آموزش قالب ثبت خودکار") }
+                    if (profile.autoTemplates.isNotEmpty()) TextButton(onClick = {
+                        runCatching { BankSenderRegistry.stopAuto(context, profile.id); refresh() }
+                            .onFailure { error = "توقف ثبت خودکار انجام نشد." }
+                    }) { Text("توقف ثبت خودکار این حساب") }
+                }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     TextButton(onClick = { remove = profile }) { Text("حذف") }
@@ -98,6 +107,13 @@ internal fun BankSenderSettingsPanel(accounts: List<Account>, busy: Boolean, onS
         runCatching { BankSenderRegistry.save(context, bank, sender, last4, account); refresh() }
             .onSuccess { add = false; discovered = emptyList(); error = "" }
             .onFailure { error = "این سرشماره یا حساب تکراری است یا اطلاعات معتبر نیست."; add = false; discovered = emptyList() }
+    }
+    training?.let { profile ->
+        BankAutoTrainingDialog(profile, onDismiss = { training = null }, onApprove = { template ->
+            runCatching { BankSenderRegistry.approveAutoTemplate(context, profile.id, template); refresh() }
+                .onFailure { error = "الگو ذخیره نشد." }
+            training = null
+        })
     }
     remove?.let { profile ->
         JibikModalDialog(onDismissRequest = { remove = null }, modifier = Modifier.jibikDialogSurface(),
@@ -162,5 +178,45 @@ private fun BankSenderEditor(accounts: List<Account>, discovered: List<String>, 
         confirmButton = { LiquidGlassButton("ذخیره ارتباط", enabled = valid, onClick = {
             onSave(bank, sender, if (noIdentifier) "" else last4, account)
         }) },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } })
+}
+
+@Composable
+private fun BankAutoTrainingDialog(profile: BankSenderProfile, onDismiss: () -> Unit,
+    onApprove: (String) -> Unit) {
+    val context = LocalContext.current
+    var sample by remember { mutableStateOf("") }
+    var match by remember { mutableStateOf<BankSmsMatch?>(null) }
+    var template by remember { mutableStateOf<String?>(null) }
+    var confirmed by remember { mutableStateOf(false) }
+    JibikModalDialog(onDismissRequest = onDismiss, modifier = Modifier.jibikDialogSurface(),
+        properties = JibikWideDialogProperties,
+        title = { JibikDialogHeading("آموزش ثبت خودکار", "نمونه بانک ملی · فقط روی گوشی") },
+        text = {
+            Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                JibikFormHint("یک نمونه خرید، برداشت یا واریز موفق از همین حساب را وارد کن. انتقال و پیام مبهم خودکار ثبت نمی‌شوند.")
+                OutlinedTextField(sample, { sample = it.take(1500); match = null; template = null; confirmed = false },
+                    label = { Text("متن نمونه پیامک") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                TextButton(enabled = sample.isNotBlank(), onClick = {
+                    val parsed = BankSmsParser.parse(profile.sender, sample, System.currentTimeMillis(),
+                        BankSmsSettings.fingerprintSalt(context), profile.bankId)
+                    match = parsed?.takeIf { it.accountLast4 == profile.accountLast4 }
+                    template = match?.let { strictBankAutoTemplate(sample, it) }
+                    confirmed = false
+                }) { Text("تحلیل نمونه") }
+                match?.let {
+                    JibikFinancialDetail("نوع", if (it.income) "واریز" else "برداشت")
+                    JibikFinancialDetail("مبلغ", it.amountToman?.let(::formatToman) ?: "نامعتبر")
+                    JibikFinancialDetail("حساب", "••••" + it.accountLast4)
+                    JibikFormHint(if (template != null) "این قالب قابل تأیید است؛ واحد ریال است." else "این قالب فعلاً فقط برای بررسی دستی مناسب است.")
+                }
+                if (template != null) Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Checkbox(confirmed, onCheckedChange = { confirmed = it })
+                    Text("مبلغ، واحد، نوع و حساب درست است و اجازه ثبت پیام‌های جدید مشابه را می‌دهم.", modifier = Modifier.weight(1f))
+                }
+            }
+        },
+        confirmButton = { LiquidGlassButton("تأیید ثبت خودکار", enabled = template != null && confirmed,
+            onClick = { template?.let(onApprove) }) },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } })
 }

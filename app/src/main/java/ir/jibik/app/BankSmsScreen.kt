@@ -60,6 +60,7 @@ internal fun BankSmsScreen(
     var notice by remember { mutableStateOf<String?>(null) }
     var reviewError by remember { mutableStateOf("") }
     var linkedIds by remember { mutableStateOf(emptySet<String>()) }
+    var completing by remember { mutableStateOf<LedgerRecord?>(null) }
 
     LaunchedEffect(Unit) {
         runCatching { pendingItems = store.bankSmsSuggestions(); linkedIds = store.bankLinkedTransactionIds() }
@@ -84,8 +85,7 @@ internal fun BankSmsScreen(
             Text("پولِ تو، تصمیمِ تو", color = Color.White,
                 fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
             Text(
-                "پیام‌های واریز و برداشت را می‌شناسیم؛ " +
-                    "اما هیچ مبلغی بدون تأیید تو به حساب‌ها اضافه یا از آن‌ها کم نمی‌شود.",
+                "پیام‌های واریز و برداشت را می‌شناسیم؛ قالب تأییدشده می‌تواند خودکار ثبت شود و سایر پیام‌ها برای بررسی می‌مانند.",
                 color = Color(0xFFE2F3E9), fontSize = 12.sp, lineHeight = 20.sp,
             )
         }
@@ -143,6 +143,19 @@ internal fun BankSmsScreen(
                     BankSmsSettings.allowBank(context, row.bankId, true)
                     approved = BankSmsSettings.approvedBanks(context)
                 }) { Text("انتخاب این بانک", color = JibikStyle.forest) }
+            }
+        }
+        val autoPending = existingRecords.filter(::needsBankAutoDetails)
+        if (autoPending.isNotEmpty()) {
+            JibikSectionTitle("تکمیل تراکنش‌های خودکار", autoPending.size.toString() + " مورد بدون توضیح")
+            autoPending.take(30).forEach { row ->
+                JibikSurfaceCard {
+                    JibikFinancialDetail(if (row.kind == ir.jibik.core.finance.LedgerKind.INCOME) "واریز ثبت‌شده" else "برداشت ثبت‌شده",
+                        formatToman(row.amountToman), emphasis = true)
+                    JibikFormHint(formatJalaliDueDate(row.timestampMillis))
+                    LiquidGlassButton("بابت چه چیزی بود؟", modifier = Modifier.fillMaxWidth(), enabled = !busy,
+                        onClick = { completing = row })
+                }
             }
         }
         val pending = pendingItems.filter { it.state == "PENDING" }
@@ -233,6 +246,22 @@ internal fun BankSmsScreen(
         )
         notice?.let { JibikFormHint(it) }
     }
+    completing?.let { row ->
+        BankAutoDetailsDialog(row, customCategories, busy, onDismiss = { if (!busy) completing = null },
+            onSave = { note, category ->
+                busy = true
+                scope.launch {
+                    try {
+                        val updated = store.completeBankAutoDetails(row.id, note, category)
+                        completing = null
+                        onRegistered(updated)
+                        notice = "توضیح و دسته‌بندی ذخیره شد؛ مبلغ و حساب تغییر نکرد."
+                    } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (_: Exception) { notice = "تکمیل تراکنش انجام نشد." }
+                    finally { busy = false }
+                }
+            })
+    }
     selected?.let { candidate ->
         BankSmsReviewDialog(
             candidate = candidate,
@@ -265,4 +294,28 @@ internal fun BankSmsScreen(
             },
         )
     }
+}
+
+@Composable
+private fun BankAutoDetailsDialog(row: LedgerRecord, custom: List<CustomCategoryEntity>, busy: Boolean,
+    onDismiss: () -> Unit, onSave: (String, String) -> Unit) {
+    var note by remember(row.id) { mutableStateOf("") }
+    var category by remember(row.id) { mutableStateOf(row.category) }
+    var picker by remember { mutableStateOf(false) }
+    val income = row.kind == ir.jibik.core.finance.LedgerKind.INCOME
+    JibikModalDialog(onDismissRequest = onDismiss, modifier = Modifier.jibikDialogSurface(),
+        properties = JibikWideDialogProperties,
+        title = { JibikDialogHeading("تکمیل تراکنش خودکار", formatToman(row.amountToman)) },
+        text = {
+            Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(note, { note = it.take(250) }, modifier = Modifier.fillMaxWidth(),
+                    label = { Text(if (income) "بابت چه چیزی دریافت کردی؟" else "بابت چه چیزی پرداخت کردی؟") }, minLines = 2, enabled = !busy)
+                TextButton(enabled = !busy, onClick = { picker = true }) { Text("دسته: " + category) }
+                JibikFormHint("مبلغ، حساب و تاریخ از پیامک ثبت شده‌اند؛ فقط توضیح و دسته تکمیل می‌شوند.")
+            }
+        },
+        confirmButton = { LiquidGlassButton("ذخیره توضیح", enabled = !busy && note.isNotBlank(), onClick = { onSave(note, category) }) },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("بعداً") } })
+    if (picker) CategoryPickerDialog(income = income, selected = category, custom = custom,
+        onSelected = { category = it; picker = false }, onDismiss = { picker = false })
 }

@@ -326,7 +326,10 @@ internal interface BankSmsCandidateDao {
     @Query("UPDATE bank_sms_candidates SET state = 'PENDING', linkedTransactionId = NULL WHERE linkedTransactionId = :id")
     suspend fun detach(id: String): Int
 
-    @Query("DELETE FROM bank_sms_candidates WHERE state != 'PENDING' AND receivedAtMillis < :olderThan")
+    @Query("SELECT COUNT(*) FROM bank_sms_candidates WHERE id != :id AND amountRial = :amount AND receivedAtMillis BETWEEN :start AND :end")
+    suspend fun nearby(id: String, amount: Long, start: Long, end: Long): Int
+
+    @Query("DELETE FROM bank_sms_candidates WHERE state = 'IGNORED' AND linkedTransactionId IS NULL AND receivedAtMillis < :olderThan")
     suspend fun purgeOlderHandled(olderThan: Long): Int
 }
 

@@ -85,19 +85,28 @@ internal class BankSmsReceiver : BroadcastReceiver() {
         if (messages.any { bankSenderKey(it.displayOriginatingAddress.orEmpty()) != key }) return
         val profiles = BankSenderRegistry.active(context)
         val bankId = profiles.filter { it.sender == key }.map { it.bankId }.distinct().singleOrNull() ?: return
+        val body = messages.joinToString("") { it.displayMessageBody.orEmpty() }
         val match = BankSmsParser.parse(address,
-            messages.joinToString("") { it.displayMessageBody.orEmpty() },
+            body,
             messages.first().timestampMillis, BankSmsSettings.fingerprintSalt(context), bankId
         )?.takeIf { it.amountToman != null && resolveBankSender(profiles, address, bankId, it.accountLast4) != null } ?: return
 
+        val template = strictBankAutoTemplate(body, match)
         val result = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 if (BankSmsSettings.isEnabled(context) &&
                     resolveBankSender(BankSenderRegistry.active(context), address, bankId, match.accountLast4) != null
                 ) {
-                    val count = LocalLedgerStore(context).importBankSms(listOf(match))
-                    if (count > 0) BankSmsNotifications.show(context)
+                    val current = resolveBankSender(BankSenderRegistry.active(context), address, bankId, match.accountLast4)
+                    val store = LocalLedgerStore(context)
+                    val count = store.importBankSms(listOf(match))
+                    if (count > 0) {
+                        val posted = if (current != null && template != null && template in current.autoTemplates)
+                            runCatching { store.tryAutoPostBankSms(match, current, template, context) }.getOrNull()
+                        else null
+                        BankSmsNotifications.show(context, autoPosted = posted != null)
+                    }
                 }
             } catch (_: Exception) {
                 // A malformed SMS must not break the system Messages app.
@@ -109,7 +118,7 @@ internal class BankSmsReceiver : BroadcastReceiver() {
 }
 
 internal object BankSmsNotifications {
-    fun show(context: Context) {
+    fun show(context: Context, autoPosted: Boolean = false) {
         if (android.os.Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS,
@@ -137,7 +146,8 @@ internal object BankSmsNotifications {
         val notification = NotificationCompat.Builder(context, BankSmsSettings.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_jibik_due_notification)
             .setContentTitle("جیبو • پیام بانکی شناسایی شد")
-            .setContentText("برای بررسی و ثبت اختیاری تراکنش وارد جیبیک شو.")
+            .setContentText(if (autoPosted) "تراکنش ثبت شد؛ بابت چه چیزی بود؟ برای تکمیل وارد جیبیک شو."
+                else "برای بررسی و ثبت اختیاری تراکنش وارد جیبیک شو.")
             .setContentIntent(click)
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
