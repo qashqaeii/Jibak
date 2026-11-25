@@ -224,6 +224,7 @@ private fun JibikApp(
     val accounts = remember { mutableStateListOf<Account>() }
     val goals = remember { mutableStateListOf<SavingsGoalEntity>() }
     var envelopes by remember { mutableStateOf(emptyList<MoneyEnvelope>()) }
+    var assets by remember { mutableStateOf(emptyList<AssetPosition>()) }
     val customCategories = remember { mutableStateListOf<CustomCategoryEntity>() }
     val categoryBudgets = remember { mutableStateListOf<CategoryBudgetEntity>() }
     val obligations = remember { mutableStateListOf<FinancialObligationEntity>() }
@@ -335,6 +336,7 @@ private fun JibikApp(
             val loadedAccounts = store.loadAccounts()
             val persistedGoals = store.loadSavingsGoals()
             val persistedEnvelopes = store.loadEnvelopes()
+            val persistedAssets = store.loadAssets()
             val persistedCategories = store.loadCustomCategories()
             val persistedBudgets = store.loadCategoryBudgets()
             val persistedObligations = store.loadObligations()
@@ -345,6 +347,7 @@ private fun JibikApp(
             goals.clear()
             goals.addAll(persistedGoals)
             envelopes = persistedEnvelopes
+            assets = persistedAssets
             customCategories.clear()
             customCategories.addAll(persistedCategories)
             categoryBudgets.clear()
@@ -426,6 +429,7 @@ private fun JibikApp(
     var addTargetAccountId by remember { mutableStateOf<String?>(null) }
     var showCreateAccount by remember { mutableStateOf(false) }
     var showGoals by rememberSaveable { mutableStateOf(false) }
+    var showAssets by rememberSaveable { mutableStateOf(false) }
     var showCategoryManager by rememberSaveable { mutableStateOf(false) }
     var showNewCategory by remember { mutableStateOf(false) }
     var showNewGoal by remember { mutableStateOf(false) }
@@ -455,7 +459,8 @@ private fun JibikApp(
     )
     BackHandler(enabled = welcomed && isLoaded && !loadingFailed &&
         backRoute != JibikBackRoute.NONE) {
-        when (backRoute) {
+        if (section == Section.REPORTS && showAssets) showAssets = false
+        else when (backRoute) {
             JibikBackRoute.OBLIGATIONS -> showObligations = false
             JibikBackRoute.CATEGORIES -> showCategoryManager = false
             JibikBackRoute.GOALS -> showGoals = false
@@ -534,6 +539,7 @@ private fun JibikApp(
                                 if (active) {
                                     when (destination) {
                                         Section.TRANSACTIONS -> showBankSms = false
+                                        Section.REPORTS -> showAssets = false
                                         Section.ACCOUNTS -> {
                                             showGoals = false
                                             showCategoryManager = false
@@ -670,8 +676,15 @@ private fun JibikApp(
                 onEdit = { showEditBudget = true },
                 onAi = { jiboAiFeature = JiboAiFeature.BUDGET },
             )
-            Section.REPORTS -> ReportsScreen(
+            Section.REPORTS -> if (showAssets) AssetsScreen(
+                store = store, assets = assets, balances = FinanceEngine.balances(accounts, records.toList()),
+                obligations = obligations.toList(), payments = obligationPayments.toList(),
+                modifier = Modifier.padding(insets), onBack = { showAssets = false },
+                onChanged = { assets = it },
+            ) else ReportsScreen(
                 records = records,
+                wealth = netWorth(FinanceEngine.balances(accounts, records.toList()), assets, obligations.toList(), obligationPayments.toList()),
+                onAssets = { showAssets = true },
                 categorySpending = categorySpending,
                 receiptLines = savedReceiptLines.toMap(),
                 onTransactionClick = { selectedTransactionId = it.id },

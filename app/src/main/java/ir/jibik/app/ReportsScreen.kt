@@ -74,6 +74,8 @@ internal fun ReportsScreen(
     onExportEncryptedCsv: () -> Unit = {},
     onAi: () -> Unit = {},
     onTransactionClick: (LedgerRecord) -> Unit = {},
+    wealth: NetWorth? = null,
+    onAssets: () -> Unit = {},
 ) {
     val month = currentJalaliMonth()
     val totals = periodTotals(records, month.startMillis, month.endExclusiveMillis)
@@ -132,6 +134,15 @@ internal fun ReportsScreen(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+            }
+        }
+        wealth?.let { worth ->
+            LiquidGlassCard(onClick = onAssets, tone = GlassTone.CRYSTAL) {
+                JibikSectionTitle("ارزش خالص دارایی‌ها", "تصویر امروز · بر اساس اطلاعات ثبت‌شده")
+                Text(forecastMoney(worth.net), fontSize = 22.sp, color = Emerald, fontWeight = FontWeight.ExtraBold)
+                JibikFinancialDetail("مجموع دارایی‌ها", forecastMoney(worth.assets))
+                JibikFinancialDetail("مجموع بدهی‌ها", forecastMoney(worth.liabilities))
+                Text("مدیریت دارایی‌ها و ارزش‌گذاری", color = Emerald, fontWeight = FontWeight.Bold)
             }
         }
         if (expenseRoots.isNotEmpty()) {
