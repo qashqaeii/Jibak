@@ -238,6 +238,7 @@ internal fun NewCustomCategoryDialog(
     )
     val error = customCategoryValidation(candidate, existing)
     AlertDialog(
+        properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color.Transparent,
@@ -252,14 +253,16 @@ internal fun NewCustomCategoryDialog(
             ) {
                 Text("نوع دسته", color = JibikStyle.muted, fontSize = 12.sp)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    LiquidGlassButton(
-                        text = "هزینه", onClick = { income = false; parentPath = "" },
-                        tone = if (!income) GlassTone.EMERALD else GlassTone.CRYSTAL,
+                    JibikGlassChip(
+                        text = "هزینه", selected = !income,
+                        onClick = { income = false; parentPath = "" },
+                        enabled = !isSaving,
                         modifier = Modifier.weight(1f),
                     )
-                    LiquidGlassButton(
-                        text = "درآمد", onClick = { income = true; parentPath = "" },
-                        tone = if (income) GlassTone.EMERALD else GlassTone.CRYSTAL,
+                    JibikGlassChip(
+                        text = "درآمد", selected = income,
+                        onClick = { income = true; parentPath = "" },
+                        enabled = !isSaving,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -272,16 +275,17 @@ internal fun NewCustomCategoryDialog(
                     enabled = !isSaving,
                 )
                 Text("والد یا محل قرارگیری", color = JibikStyle.muted, fontSize = 12.sp)
-                LiquidGlassCard(onClick = {
-                    if (!isSaving) showParentPicker = true
-                }, tone = GlassTone.CRYSTAL) {
+                LiquidGlassCard(
+                    onClick = if (isSaving) null else ({ showParentPicker = true }),
+                    tone = GlassTone.CRYSTAL,
+                ) {
                     Text(
                         if (parentPath.isBlank()) "دسته اصلی جدید"
                         else parentPath,
                         color = JibikStyle.ink, fontSize = 13.sp,
                         maxLines = 3,
                     )
-                    Text("تغییر جایگاه ‹", color = JibikStyle.forest, fontSize = 12.sp)
+                    Text("تغییر جایگاه", color = JibikStyle.forest, fontSize = 12.sp)
                 }
                 JibikFormHint(
                     "حداکثر سه سطح. با بایگانی دسته، تراکنش‌های قبلی حذف نمی‌شن."
