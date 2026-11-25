@@ -304,7 +304,7 @@ internal fun NewObligationDialog(
     val installments = parseTomanDraft(count)?.takeIf { it in 1..120L }?.toInt()
     val valid = !isSaving && title.trim().length in 2..70 &&
         total != null && total > 0L && due != null && installments != null
-    AlertDialog(
+    JibikModalDialog(
         properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
@@ -429,7 +429,7 @@ internal fun SettleObligationDialog(
     val parsed = parseTomanDraft(amount)
     val valid = !isSaving && parsed != null &&
         parsed in 1..outstanding && accounts.any { it.id == accountId }
-    AlertDialog(
+    JibikModalDialog(
         properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = { if (!isSaving) onDismiss() },
