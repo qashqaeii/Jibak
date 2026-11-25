@@ -73,6 +73,7 @@ internal fun TransactionDetailDialog(
     obligationTitle: String? = null,
     revisions: List<LedgerRevision> = emptyList(),
     voided: Boolean = false,
+    recurringLinked: Boolean = false,
     onSchedule: (() -> Unit)? = null,
     onToggleVoid: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
@@ -147,6 +148,7 @@ internal fun TransactionDetailDialog(
                             "سوابق تسویه در بخش تعهدات هم قابل مشاهده‌اند."
                     )
                 }
+                if (recurringLinked) JibikFormHint("این تراکنش به یک نوبت مالی متصل است. برای حفظ صحت سررسید، اصلاح و ابطال مستقیم غیرفعال است.")
                 DetailRow("شناسه ثبت", record.id.take(12))
                 if (record.note.isNotBlank()) DetailRow("توضیحات", record.note)
                 if (record.kind == LedgerKind.EXPENSE) {

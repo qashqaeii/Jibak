@@ -548,7 +548,8 @@ private fun JibikApp(
                         obligationPayments.toList(), homeAmountsVisible, recurringRules, recurringDecisions)
                     FinancialReviewInbox(store, accountRows, ledger,
                         onBank = { section = Section.TRANSACTIONS; showBankSms = true },
-                        onPosted = { posted -> records.add(0, posted); retryLoad++ })
+                        obligationPaymentIds = obligationPayments.map { it.transactionId }.toSet(),
+                         onChanged = { retryLoad++ })
                     FinancialCalendar(store, accountRows, obligations.toList(), obligationPayments.toList(), calendarDay, onCalendarOpened,
                         records.firstOrNull { it.id == recurringSourceId }, { recurringSourceId = null }) { retryLoad++ }
                 },
@@ -759,14 +760,15 @@ private fun JibikApp(
                     obligations.firstOrNull { it.id == payment.obligationId }?.title
                 },
                 revisions = revisions.filter { it.transactionId == id },
+                recurringLinked = recurringDecisions.any { it.transactionId == id },
                 voided = voided != null,
-                onSchedule = if (voided == null && record.kind != LedgerKind.TRANSFER &&
+                onSchedule = if (voided == null && recurringDecisions.none { it.transactionId == id } && record.kind != LedgerKind.TRANSFER &&
                     obligationPayments.none { it.transactionId == id }) ({
                     recurringSourceId = id
                     selectedTransactionId = null
                     section = Section.HOME
                 }) else null,
-                onToggleVoid = if (!bankLinked && receiptRows != null && obligationPayments.none { it.transactionId == id } && !isSaving) ({
+                onToggleVoid = if (recurringDecisions.none { it.transactionId == id } && !bankLinked && receiptRows != null && obligationPayments.none { it.transactionId == id } && !isSaving) ({
                     isSaving = true
                     scope.launch {
                         try {
@@ -774,11 +776,11 @@ private fun JibikApp(
                             selectedTransactionId = null
                             retryLoad++
                         } catch (_: Exception) {
-                            storageError = "تغییر وضعیت ممکن نیست. تراکنش متصل به پرداخت بانکی یا تعهد باید حفظ شود."
+                            storageError = "تغییر وضعیت ممکن نیست. تراکنش متصل به پرداخت بانکی، تعهد یا نوبت دوره‌ای باید حفظ شود."
                         } finally { isSaving = false }
                     }
                 }) else null,
-                onEdit = if (voided == null && !bankLinked && receiptRows?.isEmpty() == true &&
+                onEdit = if (voided == null && recurringDecisions.none { it.transactionId == id } && !bankLinked && receiptRows?.isEmpty() == true &&
                     obligationPayments.none { it.transactionId == id }) ({
                     editOriginal = record
                     selectedTransactionId = null

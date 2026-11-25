@@ -13,9 +13,10 @@ import ir.jibik.core.finance.Account
 import ir.jibik.core.finance.LedgerKind
 import ir.jibik.core.finance.LedgerRecord
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 @Composable
-internal fun FinancialReviewInbox(store: LocalLedgerStore, accounts: List<Account>, records: List<LedgerRecord>, onBank: () -> Unit, onPosted: (LedgerRecord) -> Unit) {
+internal fun FinancialReviewInbox(store: LocalLedgerStore, accounts: List<Account>, records: List<LedgerRecord>, onBank: () -> Unit, obligationPaymentIds: Set<String>, onChanged: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     var rules by remember { mutableStateOf(emptyList<RecurringRule>()) }
     var decisions by remember { mutableStateOf(emptyList<RecurringDecision>()) }
@@ -25,10 +26,30 @@ internal fun FinancialReviewInbox(store: LocalLedgerStore, accounts: List<Accoun
     var amount by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(reload) {
-        rules = store.recurringRules()
-        decisions = store.allRecurringDecisions()
-        bank = store.bankSmsSuggestions().filter { it.state == "PENDING" }
+    var error by remember { mutableStateOf("") }
+    var loaded by remember { mutableStateOf(false) }
+    LaunchedEffect(reload, records, open) {
+        try {
+            rules = store.recurringRules()
+            decisions = store.allRecurringDecisions()
+            bank = store.bankSmsSuggestions().filter { it.state == "PENDING" }
+            loaded = true
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { loaded = false; error = "صندوق بررسی بارگذاری نشد." }
+    }
+    fun submit(action: suspend () -> Unit) {
+        if (busy || !loaded) return
+        busy = true
+        error = ""
+        scope.launch {
+            try {
+                action()
+                selected = null
+                onChanged()
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { error = "ثبت انجام نشد؛ وضعیت تراکنش را دوباره بررسی کن." }
+            finally { reload++; busy = false }
+        }
     }
     val now = System.currentTimeMillis()
     val pending = remember(rules, decisions, now) {
@@ -43,32 +64,37 @@ internal fun FinancialReviewInbox(store: LocalLedgerStore, accounts: List<Accoun
     LiquidGlassCard(onClick = { open = true }, tone = if (pending.isEmpty() && bank.isEmpty()) GlassTone.CRYSTAL else GlassTone.HONEY) {
         JibikSectionTitle("صندوق بررسی", "${pending.size + bank.size} مورد منتظر بررسی")
     }
-    if (open) JibikModalDialog(
+    if (open && selected == null) JibikModalDialog(
         modifier = Modifier.jibikDialogSurface(), properties = JibikWideDialogProperties,
-        onDismissRequest = { open = false },
+        onDismissRequest = { if (!busy) open = false },
         title = { JibikDialogHeading("صندوق بررسی مالی", "نوبت‌ها و پیشنهادهای بانکی") },
         text = {
             Column(Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (pending.isEmpty() && bank.isEmpty()) Text("موردی برای بررسی باقی نمانده است.")
+                if (error.isNotEmpty()) JibikFormHint(error, isWarning = true)
+                if (!loaded) TextButton(onClick = { error = ""; reload++ }) { Text("تلاش دوباره") }
+                if (loaded && pending.isEmpty() && bank.isEmpty()) Text("موردی برای بررسی باقی نمانده است.")
                 pending.forEach { (rule, day) ->
                     JibikSurfaceCard {
                         Text(rule.title + " · " + formatJalaliDueDate(day))
                         Text(formatToman(rule.amount))
-                        TextButton(onClick = { selected = rule to day; amount = rule.amount.toString() }) { Text("بررسی مبلغ واقعی") }
+                        TextButton(enabled = loaded && !busy, onClick = { selected = rule to day; amount = rule.amount.toString() }) { Text("بررسی مبلغ واقعی") }
                         TextButton(enabled = !busy, onClick = {
-                            busy = true
-                            scope.launch { store.decideRecurring(rule.id, day, null); reload++; busy = false }
+                            submit { store.decideRecurring(rule.id, day, null) }
                         }) { Text("رد این نوبت") }
-                        val match = records.firstOrNull {
-                            it.amountToman == rule.amount &&
+                        val matches = records.filter {
+                            it.id !in obligationPaymentIds && decisions.none { d -> d.transactionId == it.id } &&
+                                it.amountToman == rule.amount &&
                                 it.kind == (if (rule.income) LedgerKind.INCOME else LedgerKind.EXPENSE) &&
                                 (it.fromAccountId ?: it.toAccountId) == rule.accountId &&
                                 kotlin.math.abs(it.timestampMillis - day) < 36L * 60 * 60 * 1000
                         }
-                        if (match != null) TextButton(enabled = !busy, onClick = {
-                            busy = true
-                            scope.launch { store.linkRecurring(rule.id, day, match); reload++; busy = false }
-                        }) { Text("اتصال تراکنش موجود · " + formatToman(match.amountToman)) }
+                        if (matches.isNotEmpty()) JibikFormHint("پرداخت مشابه پیدا شد؛ برای جلوگیری از ثبت دوباره، مورد درست را انتخاب کن.")
+                        matches.forEach { match ->
+                            TextButton(enabled = loaded && !busy, onClick = {
+                                submit { store.linkRecurring(rule.id, day, match) }
+                            }) { Text(listOf("اتصال", formatToman(match.amountToman), formatJalaliDueDate(match.timestampMillis),
+                                match.note, match.id.take(8)).filter { it.isNotBlank() }.joinToString(" · ")) }
+                        }
                     }
                 }
                 if (bank.isNotEmpty()) {
@@ -77,25 +103,25 @@ internal fun FinancialReviewInbox(store: LocalLedgerStore, accounts: List<Accoun
                 }
             }
         },
-        confirmButton = { LiquidGlassButton("بستن", { open = false }) },
+        confirmButton = { LiquidGlassButton("بستن", { open = false }, enabled = !busy) },
     )
     selected?.let { (rule, day) ->
         val parsed = parseTomanDraft(amount)
         JibikModalDialog(
             modifier = Modifier.jibikDialogSurface(), properties = JibikWideDialogProperties,
-            onDismissRequest = { selected = null },
+            onDismissRequest = { if (!busy) selected = null },
             title = { JibikDialogHeading("تأیید نوبت", rule.title) },
-            text = { JibikTomanField(amount, { amount = it }, "مبلغ واقعی") },
-            confirmButton = { LiquidGlassButton("ثبت", enabled = !busy && parsed != null && parsed > 0, onClick = {
-                busy = true
-                scope.launch {
-                    store.decideRecurring(rule.id, day, parsed)
-                    val posted = store.load().firstOrNull { it.note == rule.title && it.timestampMillis >= day }
-                    posted?.let(onPosted)
-                    reload++; busy = false; selected = null
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    JibikTomanField(amount, { amount = it }, "مبلغ واقعی")
+                    if (error.isNotEmpty()) JibikFormHint(error, isWarning = true)
+                    if (!loaded) TextButton(onClick = { error = ""; reload++ }) { Text("تلاش دوباره") }
                 }
+            },
+            confirmButton = { LiquidGlassButton("ثبت", enabled = loaded && !busy && parsed != null && parsed > 0, onClick = {
+                submit { store.decideRecurring(rule.id, day, requireNotNull(parsed)) }
             }) },
-            dismissButton = { TextButton(onClick = { selected = null }) { Text("انصراف") } },
+            dismissButton = { TextButton(enabled = !busy, onClick = { selected = null }) { Text("انصراف") } },
         )
     }
 }
