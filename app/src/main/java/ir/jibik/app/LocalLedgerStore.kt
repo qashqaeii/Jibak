@@ -422,6 +422,8 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         }
     }
 
+    suspend fun pendingBankSmsSuggestions() = withContext(Dispatchers.IO) { bankSmsDao.pending() }
+
     suspend fun bankSmsSuggestions(): List<BankSmsCandidateEntity> =
         withContext(Dispatchers.IO) { bankSmsDao.recent() }
 

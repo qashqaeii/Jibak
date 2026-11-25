@@ -296,6 +296,9 @@ internal interface BankSmsCandidateDao {
     @Query("SELECT * FROM bank_sms_candidates ORDER BY receivedAtMillis DESC, id DESC LIMIT 400")
     suspend fun recent(): List<BankSmsCandidateEntity>
 
+    @Query("SELECT * FROM bank_sms_candidates WHERE state = 'PENDING' ORDER BY receivedAtMillis DESC, id DESC")
+    suspend fun pending(): List<BankSmsCandidateEntity>
+
     @Query("SELECT * FROM bank_sms_candidates WHERE id = :id LIMIT 1")
     suspend fun find(id: String): BankSmsCandidateEntity?
 

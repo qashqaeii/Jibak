@@ -424,10 +424,12 @@ internal fun SettleObligationDialog(
     onDismiss: () -> Unit,
     onSave: (String, Long, String?) -> Unit,
     isSaving: Boolean = false,
+    suggestedAmount: Long? = null,
+    error: String = "",
 ) {
     val outstanding = obligationProgress(obligation, payments).remainingToman
     var accountId by rememberSaveable { mutableStateOf(accounts.firstOrNull()?.id.orEmpty()) }
-    var amount by rememberSaveable { mutableStateOf(outstanding.toString()) }
+    var amount by rememberSaveable { mutableStateOf((suggestedAmount?.coerceIn(1L, outstanding.coerceAtLeast(1L)) ?: outstanding).toString()) }
     var linking by rememberSaveable { mutableStateOf(false) }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var limit by rememberSaveable { mutableStateOf(10) }
@@ -497,6 +499,7 @@ internal fun SettleObligationDialog(
                     )
                     JibikFormHint("اگر پرداخت را قبلاً ثبت کرده‌ای، گزینهٔ تراکنش قبلی را انتخاب کن.")
                 }
+                if (error.isNotEmpty()) JibikFormHint(error, isWarning = true)
                 if (parsed != null && parsed > outstanding) JibikFormHint(
                     "مبلغ نمی‌تواند بیشتر از مانده تعهد باشد.", isWarning = true,
                 )

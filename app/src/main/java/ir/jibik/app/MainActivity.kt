@@ -553,7 +553,8 @@ private fun JibikApp(
                         obligationPayments.toList(), homeAmountsVisible, recurringRules, recurringDecisions)
                     FinancialReviewInbox(store, accountRows, ledger,
                         onBank = { section = Section.TRANSACTIONS; showBankSms = true },
-                        obligationPaymentIds = obligationPayments.map { it.transactionId }.toSet(),
+                        obligations = obligations.toList(), payments = obligationPayments.toList(),
+                        customCategories = customCategories.toList(), showAmounts = homeAmountsVisible,
                          onChanged = { retryLoad++ })
                     FinancialCalendar(store, accountRows, obligations.toList(), obligationPayments.toList(), calendarDay, onCalendarOpened,
                         records.firstOrNull { it.id == recurringSourceId }, { recurringSourceId = null }) { retryLoad++ }
@@ -859,7 +860,7 @@ private fun JibikApp(
                 obligation = obligation,
                 payments = obligationPayments,
                 accounts = accounts,
-                records = records,
+                records = records.filter { record -> recurringDecisions.none { it.transactionId == record.id } },
                 isSaving = isSaving,
                 onDismiss = { if (!isSaving) settlingObligationId = null },
                 onSave = { accountId, value, existingId ->

@@ -35,6 +35,7 @@ internal fun BankSmsReviewDialog(
     busy: Boolean,
     onDismiss: () -> Unit,
     onConfirm: (LedgerRecord, Boolean) -> Unit,
+    error: String = "",
 ) {
     val income = candidate.income
     var accountId by remember(candidate.id) {
@@ -91,6 +92,7 @@ internal fun BankSmsReviewDialog(
                     "مبلغ و جهت تراکنش را با پیام بانک مقایسه کن. " +
                         "شماره حساب پیامک الزاماً با حساب‌های جیبیک همسان نیست."
                 )
+                if (error.isNotEmpty()) JibikFormHint(error, isWarning = true)
                 if (matches.isNotEmpty()) {
                     JibikFormHint(
                         "احتمال ثبت تکراری: تراکنشی با همین مبلغ و جهت " +
