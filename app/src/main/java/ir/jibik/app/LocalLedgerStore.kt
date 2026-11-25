@@ -136,6 +136,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         if (void) {
             check(dao.find(record.id)?.toRecord() == record)
             check(obligationPaymentDao.list().none { it.transactionId == record.id })
+            check(!database.assetDao().isLinked(record.id)) { "Asset trade is immutable" }
             check(!bankSmsDao.isLinked(record.id))
             check(!database.recurringDao().isLinked(record.id)) { "Transaction is linked to a recurring occurrence" }
             dao.markVoid(LedgerVoid(record.id, System.currentTimeMillis()))
@@ -202,6 +203,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         require(kotlin.math.abs(existing.timestampMillis - day) < 36L * 60 * 60 * 1000)
         require(dao.find(existing.id)?.toRecord() == existing)
         // Bank evidence may coexist with settlement; independent commitments cannot reuse a payment.
+        check(!database.assetDao().isLinked(existing.id))
         check(!recurring.isLinked(existing.id)) { "Transaction already linked to a recurring occurrence" }
         check(obligationPaymentDao.list().none { it.transactionId == existing.id }) { "Transaction already settles an obligation" }
         require(recurring.decisions(0, Long.MAX_VALUE).none { it.ruleId == ruleId && it.day == day })
@@ -247,6 +249,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         validateItemizedPurchase(corrected, lines)
         val previous = requireNotNull(dao.find(original.id))
         check(previous.toRecord() == original)
+        check(!database.assetDao().isLinked(original.id))
         check(!bankSmsDao.isLinked(original.id) && !database.recurringDao().isLinked(original.id))
         check(obligationPaymentDao.list().none { it.transactionId == original.id })
         val purchaseDao = database.purchaseLineDao()
@@ -282,6 +285,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         database.withTransaction {
             val previous = requireNotNull(dao.find(original.id))
             check(previous.toRecord() == original && !bankSmsDao.isLinked(original.id))
+            check(!database.assetDao().isLinked(original.id)) { "Asset trade is immutable" }
             check(database.purchaseLineDao().forTransaction(original.id).isEmpty())
             check(obligationPaymentDao.list().none { it.transactionId == original.id })
             check(!database.recurringDao().isLinked(original.id)) { "Transaction is linked to a recurring occurrence" }
@@ -424,6 +428,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
             val record = requireNotNull(dao.find(transactionId)).toRecord()
             val paid = obligationPaymentDao.forObligation(obligationId)
             if (paid.none { it.transactionId == transactionId }) {
+                check(!database.assetDao().isLinked(transactionId))
                 check(!database.recurringDao().isLinked(transactionId)) { "Transaction already linked to a recurring occurrence" }
                 val remaining = obligationProgress(item, paid).remainingToman
                 require(record.matchesSettlement(item, accountId, remaining))
@@ -608,10 +613,44 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         }
     }
 
+    suspend fun buyAsset(holding: AssetHolding, value: Long, accountId: String, transactionId: String) = withContext(Dispatchers.IO) {
+        ensureDefaultWallet(); migrateLegacyIfNeeded()
+        database.withTransaction {
+            val cost = requireNotNull(holding.costBasisToman)
+            require(cost > 0 && value >= 0)
+            val record = LedgerRecord(transactionId, LedgerKind.EXPENSE, cost, fromAccountId = accountId,
+                category = "خرید دارایی", note = holding.title, timestampMillis = holding.createdAtMillis)
+            val clean = holding.copy(title = holding.title.trim())
+            validateAsset(clean)
+            val accounts = accountDao.list().map { it.toAccount() }
+            require(FinanceEngine.balances(accounts, dao.getAll().map { it.toRecord() }).getValue(accountId) >= cost)
+            append(record)
+            database.assetDao().insertHolding(clean)
+            database.assetDao().insertEvent(AssetEvent(assetId = clean.id, kind = "VALUE", valueToman = value,
+                atMillis = clean.createdAtMillis, note = "خرید ثبت‌شده", transactionId = record.id))
+        }
+    }
+
+    suspend fun sellAsset(expected: AssetPosition, proceeds: Long, accountId: String, transactionId: String) = withContext(Dispatchers.IO) {
+        ensureDefaultWallet(); migrateLegacyIfNeeded()
+        database.withTransaction {
+            val current = loadAssets().first { it.holding.id == expected.holding.id }
+            check(current == expected && !current.archived)
+            require(proceeds > 0)
+            val at = maxOf(System.currentTimeMillis(), current.latest.atMillis)
+            val record = LedgerRecord(transactionId, LedgerKind.INCOME, proceeds, toAccountId = accountId,
+                category = "فروش دارایی", note = current.holding.title, timestampMillis = at)
+            append(record)
+            database.assetDao().insertEvent(AssetEvent(assetId = current.holding.id, kind = "SALE", valueToman = proceeds,
+                atMillis = at, note = "فروش ثبت‌شده", transactionId = record.id))
+        }
+    }
+
     suspend fun changeAsset(expected: AssetPosition, kind: String, value: Long, note: String) = withContext(Dispatchers.IO) {
         database.withTransaction {
             val current = assetPositions(database.assetDao().holdings(), database.assetDao().events()).first { it.holding.id == expected.holding.id }
-            check(current.latest.id == expected.latest.id) { "Asset changed" }
+            check(current.latest.id == expected.latest.id && !current.sold) { "Asset changed or sold" }
+            require(kind in listOf("VALUE", "ARCHIVE", "RESTORE"))
             val next = AssetEvent(id = Math.addExact(current.latest.id, 1L), assetId = current.holding.id,
                 kind = kind, valueToman = value, atMillis = maxOf(System.currentTimeMillis(), current.latest.atMillis), note = note.trim())
             assetPositions(listOf(current.holding), current.history + next)

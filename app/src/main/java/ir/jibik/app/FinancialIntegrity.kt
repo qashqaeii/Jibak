@@ -50,7 +50,7 @@ internal object FinancialIntegrity {
             OR l.kind != CASE WHEN s.income = 1 THEN 'INCOME' ELSE 'EXPENSE' END))
         """.trimIndent())
         scan("پاکت مالی نامعتبر", "SELECT e.id FROM money_envelopes e LEFT JOIN financial_accounts a ON a.id = e.accountId LEFT JOIN savings_goals g ON g.accountId = e.accountId WHERE a.id IS NULL OR g.id IS NOT NULL OR e.targetToman <= 0 OR e.reservedToman < 0 OR e.reservedToman > e.targetToman OR e.priority NOT BETWEEN 0 AND 2 OR e.monthlyPlanToman < 0")
-        if (runCatching { assetPositions(room.assetDao().holdings(), room.assetDao().events()) }.isFailure)
+        if (runCatching { validateAssetTransactions(assetPositions(room.assetDao().holdings(), room.assetDao().events()), room.ledgerDao().getAll().map { it.toRecord() }) }.isFailure)
             issues.add(IntegrityIssue("تاریخچه دارایی نامعتبر", "دارایی‌ها"))
         room.wealthDao().list().forEach { row -> if (runCatching { row.worth() }.isFailure)
             issues.add(IntegrityIssue("تصویر ثروت نامعتبر", row.id.toString())) }

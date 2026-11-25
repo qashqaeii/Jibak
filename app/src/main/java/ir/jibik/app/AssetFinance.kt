@@ -16,10 +16,11 @@ internal data class AssetHolding(
 
 @Entity(tableName = "asset_events", foreignKeys = [ForeignKey(
     entity = AssetHolding::class, parentColumns = ["id"], childColumns = ["assetId"],
-    onDelete = ForeignKey.RESTRICT)], indices = [Index("assetId")])
+    onDelete = ForeignKey.RESTRICT), ForeignKey(entity = LedgerEntity::class, parentColumns = ["id"], childColumns = ["transactionId"], onDelete = ForeignKey.RESTRICT)], indices = [Index("assetId"), Index(value = ["transactionId"], unique = true)])
 internal data class AssetEvent(
     @PrimaryKey(autoGenerate = true) val id: Long = 0, val assetId: String,
     val kind: String, val valueToman: Long, val atMillis: Long, val note: String,
+    val transactionId: String? = null,
 )
 
 @Dao
@@ -28,13 +29,16 @@ internal interface AssetDao {
     suspend fun holdings(): List<AssetHolding>
     @Query("SELECT * FROM asset_events ORDER BY id")
     suspend fun events(): List<AssetEvent>
+    @Query("SELECT EXISTS(SELECT 1 FROM asset_events WHERE transactionId = :id)")
+    suspend fun isLinked(id: String): Boolean
     @Insert suspend fun insertHolding(holding: AssetHolding)
     @Insert suspend fun insertEvent(event: AssetEvent)
 }
 
 internal data class AssetPosition(val holding: AssetHolding, val history: List<AssetEvent>) {
     val latest get() = history.last()
-    val archived get() = latest.kind == "ARCHIVE"
+    val sold get() = latest.kind == "SALE"
+    val archived get() = latest.kind == "ARCHIVE" || sold
     val valueToman get() = latest.valueToman
     val valuationAtMillis get() = history.last { it.kind == "VALUE" }.atMillis
     val valuationChange: BigInteger? get() = holding.costBasisToman?.let { valueToman.toBigInteger() - it.toBigInteger() }
@@ -61,11 +65,13 @@ internal fun assetPositions(holdings: List<AssetHolding>, events: List<AssetEven
             val previous = last
             require(previous == null || event.atMillis >= previous.atMillis)
             when (event.kind) {
-                "VALUE" -> require(active)
+                "VALUE" -> require(active && (event.transactionId == null || previous == null))
+                "SALE" -> { require(active && previous != null && event.transactionId != null && event.valueToman > 0); active = false }
                 "ARCHIVE" -> { require(active && previous != null && event.valueToman == previous.valueToman); active = false }
-                "RESTORE" -> { require(!active && previous != null && event.valueToman == previous.valueToman); active = true }
+                "RESTORE" -> { require(!active && previous != null && previous.kind == "ARCHIVE" && event.valueToman == previous.valueToman); active = true }
                 else -> error("Unknown asset event")
             }
+            require(event.transactionId == null || event.kind in listOf("VALUE", "SALE"))
             last = event
         }
         require(history.first().kind == "VALUE")
@@ -98,4 +104,15 @@ internal fun netWorth(balances: Map<String, Long>, assets: List<AssetPosition>,
         if (item.kind == "RECEIVABLE") receivables += remaining else debts += remaining
     }
     return NetWorth(cash, holdings, receivables, overdrafts, debts)
+}
+
+internal fun validateAssetTransactions(positions: List<AssetPosition>, records: List<ir.jibik.core.finance.LedgerRecord>) {
+    val ledger = records.associateBy { it.id }
+    positions.forEach { item -> item.history.filter { it.transactionId != null }.forEach { event ->
+        val record = requireNotNull(ledger[event.transactionId])
+        val sale = event.kind == "SALE"
+        require(record.kind == if (sale) ir.jibik.core.finance.LedgerKind.INCOME else ir.jibik.core.finance.LedgerKind.EXPENSE)
+        require(record.amountToman == if (sale) event.valueToman else item.holding.costBasisToman)
+        require(record.timestampMillis == event.atMillis)
+    } }
 }

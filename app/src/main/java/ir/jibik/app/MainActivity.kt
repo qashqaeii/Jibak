@@ -678,9 +678,9 @@ private fun JibikApp(
             )
             Section.REPORTS -> if (showAssets) AssetsScreen(
                 store = store, assets = assets, balances = FinanceEngine.balances(accounts, records.toList()),
-                obligations = obligations.toList(), payments = obligationPayments.toList(),
+                obligations = obligations.toList(), payments = obligationPayments.toList(), accounts = accounts.toList(),
                 modifier = Modifier.padding(insets), onBack = { showAssets = false },
-                onChanged = { assets = it },
+                onChanged = { assets = it; retryLoad++ },
             ) else ReportsScreen(
                 records = records,
                 wealth = netWorth(FinanceEngine.balances(accounts, records.toList()), assets, obligations.toList(), obligationPayments.toList()),

@@ -18,7 +18,7 @@ import java.util.UUID
 @Composable
 internal fun AssetsScreen(store: LocalLedgerStore, assets: List<AssetPosition>,
     balances: Map<String, Long>, obligations: List<FinancialObligationEntity>,
-    payments: List<ObligationPaymentEntity>, modifier: Modifier = Modifier,
+    payments: List<ObligationPaymentEntity>, accounts: List<ir.jibik.core.finance.Account>, modifier: Modifier = Modifier,
     onBack: () -> Unit, onChanged: (List<AssetPosition>) -> Unit) {
     val worth = remember(assets, balances, obligations, payments) { netWorth(balances, assets, obligations, payments) }
     var showArchived by rememberSaveable { mutableStateOf(false) }
@@ -90,8 +90,8 @@ internal fun AssetsScreen(store: LocalLedgerStore, assets: List<AssetPosition>,
         }
         if (error.isNotBlank() && !create && selected == null) JibikFormHint(error, isWarning = true)
     }
-    if (create) NewAssetDialog(busy, error, onDismiss = { if (!busy) create = false }) { holding, value ->
-        save { store.addAsset(holding, value) }
+    if (create) NewAssetDialog(busy, error, accounts, onDismiss = { if (!busy) create = false }) { holding, value, account ->
+        save { if (account == null) store.addAsset(holding, value) else store.buyAsset(holding, value, account, UUID.randomUUID().toString()) }
     }
     selected?.let { item ->
         if (action == null) JibikModalDialog(properties = JibikWideDialogProperties,
@@ -105,17 +105,21 @@ internal fun AssetsScreen(store: LocalLedgerStore, assets: List<AssetPosition>,
                     JibikSectionTitle("تاریخچه", "آخرین ۲۰ تغییر")
                     item.history.asReversed().take(20).forEach { event ->
                         Text(formatJalaliDueDate(event.atMillis) + " · " + when (event.kind) {
-                            "ARCHIVE" -> "بایگانی"; "RESTORE" -> "بازگشت به سبد"; else -> formatToman(event.valueToman)
+                            "ARCHIVE" -> "بایگانی"; "RESTORE" -> "بازگشت به سبد"; "SALE" -> "فروش: " + formatToman(event.valueToman); else -> formatToman(event.valueToman)
                         })
                         if (event.note.isNotBlank()) Text(event.note, color = JibikStyle.muted)
                         HorizontalDivider()
                     }
                     if (!item.archived) LiquidGlassButton("ارزش‌گذاری جدید", onClick = { action = "VALUE" })
-                    TextButton(onClick = { action = if (item.archived) "RESTORE" else "ARCHIVE" }) {
+                    if (!item.archived) TextButton(onClick = { action = "SALE" }) { Text("ثبت فروش کامل") }
+                    if (!item.sold) TextButton(onClick = { action = if (item.archived) "RESTORE" else "ARCHIVE" }) {
                         Text(if (item.archived) "بازگرداندن به سبد" else "بایگانی دارایی")
                     }
                 }
             }, confirmButton = { LiquidGlassButton("بستن", onClick = { selectedId = null }) })
+        else if (action == "SALE") AssetSaleDialog(item, accounts, busy, error, onDismiss = { if (!busy) action = null }) { amount, account ->
+            save { store.sellAsset(item, amount, account, UUID.randomUUID().toString()) }
+        }
         else AssetChangeDialog(item, requireNotNull(action), busy, error,
             onDismiss = { if (!busy) action = null },
             onSave = { value, note -> save { store.changeAsset(item, requireNotNull(action), value, note) } })
@@ -123,8 +127,8 @@ internal fun AssetsScreen(store: LocalLedgerStore, assets: List<AssetPosition>,
 }
 
 @Composable
-private fun NewAssetDialog(busy: Boolean, error: String, onDismiss: () -> Unit,
-    onSave: (AssetHolding, Long) -> Unit) {
+private fun NewAssetDialog(busy: Boolean, error: String, accounts: List<ir.jibik.core.finance.Account>, onDismiss: () -> Unit,
+    onSave: (AssetHolding, Long, String?) -> Unit) {
     var title by rememberSaveable { mutableStateOf("") }
     var kind by rememberSaveable { mutableStateOf("GOLD") }
     var menu by remember { mutableStateOf(false) }
@@ -132,6 +136,8 @@ private fun NewAssetDialog(busy: Boolean, error: String, onDismiss: () -> Unit,
     var cost by rememberSaveable { mutableStateOf("") }
     val amount = parseTomanDraft(value)
     val basis = parseTomanDraft(cost)
+    var purchase by rememberSaveable { mutableStateOf(false) }
+    var account by rememberSaveable { mutableStateOf(accounts.firstOrNull()?.id.orEmpty()) }
     JibikModalDialog(properties = JibikWideDialogProperties, modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = onDismiss, title = { JibikDialogHeading("دارایی جدید", "ثبت ارزش دستی") },
         text = {
@@ -149,13 +155,15 @@ private fun NewAssetDialog(busy: Boolean, error: String, onDismiss: () -> Unit,
                 }
                 JibikTomanField(value, { value = it }, "ارزش کل فعلی", allowZero = true, enabled = !busy)
                 JibikTomanField(cost, { cost = it }, "بهای خرید (اختیاری)", allowZero = true, enabled = !busy)
-                JibikFormHint("فقط دارایی خارج از موجودی حساب‌ها را ثبت کن. اگر خرید یا فروش انجام شده، گردش نقدی آن را جداگانه در تراکنش‌ها ثبت کن؛ این فرم پول را تغییر نمی‌دهد.")
+                JibikSegmentedControl(listOf(false to "دارایی موجود", true to "خرید جدید"), purchase, onSelected = { if (!busy) purchase = it })
+                if (purchase) JibikAccountChoice("حساب پرداخت", accounts, account, { account = it }, enabled = !busy)
+                JibikFormHint(if (purchase) "بهای خرید یک بار از حساب کسر می‌شود. اگر قبلاً پرداخت را ثبت کرده‌ای، حالت دارایی موجود را انتخاب کن." else "فقط ارزش دارایی موجود ثبت می‌شود؛ مانده حساب تغییر نمی‌کند.")
                 if (error.isNotBlank()) JibikFormHint(error, isWarning = true)
             }
         },
         confirmButton = { LiquidGlassButton("ثبت دارایی", enabled = !busy && title.isNotBlank() &&
-            amount != null && (cost.isBlank() || basis != null), onClick = {
-            onSave(AssetHolding(UUID.randomUUID().toString(), title.trim(), kind, basis, System.currentTimeMillis()), requireNotNull(amount))
+            amount != null && (cost.isBlank() || basis != null) && (!purchase || (basis != null && basis > 0 && accounts.any { it.id == account })), onClick = {
+            onSave(AssetHolding(UUID.randomUUID().toString(), title.trim(), kind, basis, System.currentTimeMillis()), requireNotNull(amount), account.takeIf { purchase })
         }) },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("انصراف") } })
 }
@@ -183,5 +191,24 @@ private fun AssetChangeDialog(item: AssetPosition, action: String, busy: Boolean
         },
         confirmButton = { LiquidGlassButton(heading, enabled = !busy && amount != null,
             onClick = { onSave(requireNotNull(amount), note.trim()) }) },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("انصراف") } })
+}
+
+@Composable
+private fun AssetSaleDialog(item: AssetPosition, accounts: List<ir.jibik.core.finance.Account>, busy: Boolean, error: String,
+    onDismiss: () -> Unit, onSave: (Long, String) -> Unit) {
+    var draft by rememberSaveable { mutableStateOf(item.valueToman.toString()) }
+    var account by rememberSaveable { mutableStateOf(accounts.firstOrNull()?.id.orEmpty()) }
+    val amount = parseTomanDraft(draft)
+    JibikModalDialog(properties = JibikWideDialogProperties, modifier = Modifier.jibikDialogSurface(), onDismissRequest = onDismiss,
+        title = { JibikDialogHeading("ثبت فروش کامل", item.holding.title) },
+        text = {
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                JibikTomanField(draft, { draft = it }, "دریافتی خالص فروش", enabled = !busy)
+                JibikAccountChoice("حساب دریافت", accounts, account, { account = it }, enabled = !busy)
+                JibikFormHint("فقط اگر فروش و دریافت وجه هنوز ثبت نشده‌اند تأیید کن. دارایی از سبد خارج و وجه یک بار ثبت می‌شود. بازگردانی خودکار معامله فعلاً در دسترس نیست.")
+                if (error.isNotBlank()) JibikFormHint(error, isWarning = true)
+            }
+        }, confirmButton = { LiquidGlassButton("تأیید فروش", enabled = !busy && amount != null && amount > 0 && accounts.any { it.id == account }, onClick = { onSave(requireNotNull(amount), account) }) },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("انصراف") } })
 }

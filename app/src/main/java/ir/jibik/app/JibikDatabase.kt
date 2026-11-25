@@ -363,7 +363,7 @@ internal interface SavingsGoalDao {
         FinancialObligationEntity::class, ObligationPaymentEntity::class,
         BankSmsCandidateEntity::class, LedgerRevision::class, MonthlyBudget::class, LedgerVoid::class, RecurringRule::class, RecurringDecision::class, FinancialEditHistory::class, MoneyEnvelope::class, EnvelopeEvent::class, AssetHolding::class, AssetEvent::class, WealthSnapshot::class,
     ],
-    version = 18,
+    version = 19,
     exportSchema = false,
 )
 internal abstract class JibikDatabase : RoomDatabase() {
@@ -591,6 +591,13 @@ internal abstract class JibikDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE asset_events ADD COLUMN transactionId TEXT REFERENCES ledger_records(id) ON DELETE RESTRICT")
+                db.execSQL("CREATE UNIQUE INDEX index_asset_events_transactionId ON asset_events(transactionId)")
+            }
+        }
+
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
                 instance ?: open(context, "jibik_ledger_v1.db").also { instance = it }
@@ -603,7 +610,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
                     name,
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18,
+                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19,
                 ).build()
     }
 }
