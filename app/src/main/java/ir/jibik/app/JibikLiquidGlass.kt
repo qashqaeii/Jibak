@@ -80,7 +80,7 @@ private fun toneStops(tone: GlassTone): List<Color> = when (tone) {
         Color(0xFFFFFFFF), Color(0xFFFBFDFC), Color(0xFFF0F6F2),
     )
     GlassTone.EMERALD -> listOf(
-        Color(0xF41A806F), Color(0xF406665B), Color(0xFF02483F),
+        Color(0xFF146E61), Color(0xFF07574C), Color(0xFF02483F),
     )
     GlassTone.HONEY -> listOf(
         Color(0xFFFFFAF3), Color(0xFFFFF4E4), Color(0xFFFDECD5),
@@ -264,8 +264,14 @@ internal fun LiquidGlassButton(
     Box(
         modifier = baseModifier
             .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
-            .heightIn(min = 52.dp)
-            .liquidGlass(tone = if (enabled) tone else GlassTone.CRYSTAL, radius = 16.dp, elevation = 2.dp)
+            .heightIn(min = 48.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(when {
+                !enabled -> Color(0xFFE8EEEA)
+                tone == GlassTone.EMERALD -> JibikStyle.forest
+                else -> toneStops(tone).first()
+            })
+            .border(1.dp, if (enabled && tone == GlassTone.EMERALD) JibikStyle.forest else Color(0xFFDCE5DF), RoundedCornerShape(14.dp))
             .clickable(
                 interactionSource = interaction,
                 indication = LocalIndication.current,
@@ -273,7 +279,7 @@ internal fun LiquidGlassButton(
                 role = Role.Button,
                 onClick = onClick,
             )
-            .padding(horizontal = 15.dp, vertical = 12.dp),
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -283,7 +289,7 @@ internal fun LiquidGlassButton(
             textAlign = TextAlign.Center,
             lineHeight = 21.sp,
             color = when {
-                !enabled -> Color(0xFF667971)
+                !enabled -> Color(0xFF526660)
                 tone == GlassTone.EMERALD -> Color.White
                 else -> Color(0xFF143E36)
             },
@@ -341,11 +347,9 @@ internal fun JibikGlassChip(
         modifier = modifier
             .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
             .heightIn(min = 52.dp)
-            .liquidGlass(
-                tone = if (selected && enabled) GlassTone.EMERALD else GlassTone.CRYSTAL,
-                radius = 15.dp,
-                elevation = 2.dp,
-            )
+            .clip(RoundedCornerShape(13.dp))
+            .background(if (selected && enabled) JibikStyle.greenSurface else Color.White)
+            .border(1.dp, if (selected && enabled) JibikStyle.forest else Color(0xFFDCE5DF), RoundedCornerShape(13.dp))
             .semantics {
                 this.selected = selected
                 stateDescription = if (selected) "انتخاب‌شده" else "انتخاب‌نشده"
@@ -369,7 +373,7 @@ internal fun JibikGlassChip(
             overflow = TextOverflow.Ellipsis,
             color = when {
                 !enabled -> Color(0xFF788985)
-                selected -> Color.White
+                selected -> JibikStyle.forest
                 else -> Color(0xFF31574F)
             },
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,

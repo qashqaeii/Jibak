@@ -1,6 +1,17 @@
 package ir.jibik.app
 
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.runtime.key
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -52,6 +63,7 @@ internal fun JibikModalDialog(
     containerColor: Color = Color.Transparent,
     shape: Shape = RoundedCornerShape(26.dp),
     tonalElevation: Dp = 0.dp,
+    bodyKey: Any? = Unit,
 ) {
     Dialog(
         onDismissRequest = onDismissRequest,
@@ -62,8 +74,10 @@ internal fun JibikModalDialog(
             contentAlignment = Alignment.Center,
         ) {
             val availableHeight = if (maxHeight.value.isFinite()) {
-                (maxHeight - 16.dp).coerceAtLeast(160.dp)
+                (maxHeight - 16.dp).coerceAtLeast(0.dp)
             } else 720.dp
+            val compact = availableHeight < 400.dp
+            val stackActions = maxWidth < 330.dp || LocalDensity.current.fontScale >= 1.35f
             Surface(
                 modifier = modifier.heightIn(max = availableHeight),
                 shape = shape,
@@ -74,7 +88,7 @@ internal fun JibikModalDialog(
                     if (title != null) {
                         Box(
                             Modifier.fillMaxWidth()
-                                .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 14.dp),
+                                .padding(start = 18.dp, end = 18.dp, top = if (compact) 10.dp else 16.dp, bottom = if (compact) 8.dp else 12.dp),
                         ) {
                             title()
                         }
@@ -87,35 +101,33 @@ internal fun JibikModalDialog(
                         Box(
                             Modifier.fillMaxWidth()
                                 .weight(1f, fill = false)
-                                .padding(horizontal = 20.dp, vertical = 14.dp),
+                                .clipToBounds()
+                                .padding(horizontal = 18.dp, vertical = if (compact) 6.dp else 12.dp),
                         ) {
-                            text()
+                            key(bodyKey) { text() }
                         }
                     }
                     HorizontalDivider(
                         color = JibikStyle.line,
                         thickness = 1.dp,
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        if (dismissButton != null) {
-                            Box(
-                                modifier = Modifier.weight(0.9f),
-                                contentAlignment = Alignment.Center,
-                            ) {
+                    val footerModifier = Modifier.fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = if (compact) 6.dp else 10.dp)
+                    if (stackActions && dismissButton != null && !compact) {
+                        Column(footerModifier, verticalArrangement = Arrangement.spacedBy(4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally) {
+                            CompositionLocalProvider(LocalJibikModalPrimaryAction provides true) { confirmButton() }
+                            dismissButton()
+                        }
+                    } else {
+                        Row(footerModifier, verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (dismissButton != null) Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                                 dismissButton()
                             }
-                        }
-                        Box(
-                            modifier = Modifier.weight(if (dismissButton != null) 1.55f else 1f),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CompositionLocalProvider(LocalJibikModalPrimaryAction provides true) {
-                                confirmButton()
+                            Box(Modifier.weight(if (dismissButton == null) 1f else 1.6f),
+                                contentAlignment = Alignment.Center) {
+                                CompositionLocalProvider(LocalJibikModalPrimaryAction provides true) { confirmButton() }
                             }
                         }
                     }
@@ -123,4 +135,22 @@ internal fun JibikModalDialog(
             }
         }
     }
+}
+
+/** Visible, non-interactive scroll cue on the trailing edge. The form remains the only scroll owner. */
+@Composable
+internal fun Modifier.jibikScrollableBody(state: ScrollState): Modifier {
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    return this.drawWithContent {
+        drawContent()
+        val max = state.maxValue
+        if (max > 0 && max != Int.MAX_VALUE && size.height > 0f) {
+            val thumb = (size.height * size.height / (size.height + max.toFloat()))
+                .coerceIn(minOf(18.dp.toPx(), size.height), size.height)
+            val start = (size.height - thumb) * (state.value.toFloat() / max).coerceIn(0f, 1f)
+            val x = if (rtl) 2.dp.toPx() else size.width - 2.dp.toPx()
+            drawLine(JibikStyle.forest.copy(alpha = .28f), Offset(x, start),
+                Offset(x, start + thumb), 2.dp.toPx(), StrokeCap.Round)
+        }
+    }.padding(end = 7.dp).verticalScroll(state)
 }

@@ -185,7 +185,12 @@ class MainActivity : ComponentActivity() {
         protection = AppProtection(this)
         val store = LocalLedgerStore(applicationContext)
         setContent {
-            MaterialTheme(colorScheme = colors, typography = JibikTypography) {
+            MaterialTheme(colorScheme = colors, typography = JibikTypography,
+                shapes = androidx.compose.material3.Shapes(
+                    extraSmall = RoundedCornerShape(14.dp), small = RoundedCornerShape(14.dp),
+                    medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(22.dp),
+                    extraLarge = RoundedCornerShape(26.dp),
+                )) {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     if (protection.locked) AppLockedScreen(protection)
                     else JibikApp(

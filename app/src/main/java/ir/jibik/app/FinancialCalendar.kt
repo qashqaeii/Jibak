@@ -136,6 +136,7 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
     JibikModalDialog(
         modifier = Modifier.jibikDialogSurface(), properties = JibikWideDialogProperties,
         onDismissRequest = { if (!busy) back() },
+        bodyKey = mode,
         title = { JibikDialogHeading(when(mode) {
             "new" -> if (editingRuleId == null) "ثبت دوره‌ای جدید" else "اصلاح تکرار آینده"
             "review" -> "بررسی نوبت"
@@ -143,21 +144,21 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
             else -> "تقویم مالی"
         }, month.title) },
         text = {
-            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+            Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 when (mode) {
                     "new" -> {
                         JibikSegmentedControl(listOf(false to "هزینه", true to "درآمد"), income, onSelected = { income = it; category = "" })
-                        OutlinedTextField(title, { title = it.take(70) }, label = { Text("عنوان، مثلاً اجاره") })
+                        OutlinedTextField(title, { title = it.take(70) }, label = { Text("عنوان، مثلاً اجاره") }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy)
                         JibikTomanField(estimate, { estimate = it }, "مبلغ معمول")
-                        OutlinedTextField(date, { date = it.take(12) }, label = { Text("اولین سررسید شمسی (سال/ماه/روز)") })
+                        OutlinedTextField(date, { date = it.take(12) }, label = { Text("اولین سررسید شمسی") }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy, supportingText = { Text("سال/ماه/روز") })
                         JibikAccountChoice("حساب", accounts, account, { account = it })
                         TextButton(enabled = !busy, onClick = { categoryOpen = true }) { Text("دسته‌بندی: " + category.ifBlank { "انتخاب دسته" }) }
                         if (editingRuleId != null) JibikFormHint("فقط برنامه آینده جایگزین می‌شود؛ نوبت‌های امروز و گذشته محفوظ می‌مانند.")
                         JibikSegmentedControl(listOf("DAILY" to "روزانه", "WEEKLY" to "هفتگی", "MONTHLY" to "ماهانه", "YEARLY" to "سالانه"),
                             frequency, onSelected = { frequency = it })
-                        OutlinedTextField(intervalText, { intervalText = it.take(3) }, label = { Text("هر چند " + recurringFrequencyLabel(frequency) + "؟") }, singleLine = true)
-                        OutlinedTextField(endText, { endText = it.take(12) }, label = { Text("آخرین تاریخ شمسی (اختیاری)") }, singleLine = true)
+                        OutlinedTextField(intervalText, { intervalText = it.take(3) }, label = { Text("هر چند " + recurringFrequencyLabel(frequency) + "؟") }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                        OutlinedTextField(endText, { endText = it.take(12) }, label = { Text("آخرین تاریخ شمسی (اختیاری)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy)
                         JibikFormHint("تکرار به تاریخ نخست متصل است؛ ماه کوتاه‌تر به آخرین روز همان ماه محدود می‌شود.")
                     }
                     "review" -> if (row != null) {
@@ -186,7 +187,11 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
                         }) { Text("رد همین نوبت") }
                     }
                     "manage" -> {
-                        if (rules.isEmpty()) Text("هنوز تکراری تعریف نشده است.")
+                        if (!loaded) JibikFormHint(if (error.isBlank()) "در حال بارگذاری…" else error)
+                        else if (rules.isEmpty()) JibikStatePanel(
+                            title = "هنوز تکراری نداری",
+                            description = "برای اجاره، حقوق یا پرداخت‌های منظم یک برنامه بساز تا در تقویم نمایش داده شود.",
+                        )
                         rules.forEach { rule ->
                             Text(rule.title + " · " + formatToman(rule.amount) + " · هر " + rule.interval + " " + recurringFrequencyLabel(rule.frequency))
                             if (rule.stoppedAt == null) {
@@ -286,8 +291,9 @@ internal fun FinancialCalendar(store: LocalLedgerStore, accounts: List<Account>,
                 else -> LiquidGlassButton(text = if (mode == "calendar") "بستن" else "بازگشت", onClick = { back() })
             }
         },
-        dismissButton = { if (mode in listOf("stop", "new", "review"))
-            TextButton(enabled = !busy, onClick = { back() }) { Text("انصراف") } },
+        dismissButton = if (mode in listOf("stop", "new", "review")) {
+            { TextButton(enabled = !busy, onClick = { back() }) { Text("انصراف") } }
+        } else null,
     )
     if (categoryOpen && mode == "new") CategoryPickerDialog(
         income = income, selected = category, custom = customCategories,

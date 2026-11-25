@@ -120,7 +120,7 @@ internal fun JibikTomanField(
     val formattedPreview = remember(number) {
         number?.let(::formatToman)
     }
-    Column(verticalArrangement = Arrangement.spacedBy(5.dp), modifier = modifier) {
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp), modifier = modifier.fillMaxWidth()) {
         OutlinedTextField(
             value = value,
             onValueChange = {

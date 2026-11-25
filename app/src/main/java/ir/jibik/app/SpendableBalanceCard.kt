@@ -66,10 +66,16 @@ internal fun SpendableBalanceCard(
         onDismissRequest = { details = false; editing = false },
         title = { JibikDialogHeading(label, "تا پایان روز $date") },
         text = {
-            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+            Column(Modifier.fillMaxWidth().jibikScrollableBody(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(amount, style = MaterialTheme.typography.titleLarge)
-                Text("از ماندهٔ فعلی حساب‌ها، پس‌انداز هدف‌ها تا سقف هر هدف و تعهدات پرداخت‌نشده تا این تاریخ کم می‌شود. حقوق آینده و طلب‌ها پس از دریافت وارد مانده می‌شوند.")
+                JibikSurfaceCard {
+                    JibikStatusText(if (visible && available.signum() < 0) "کسری پیش‌بینی‌شده" else "مانده قابل خرج",
+                        color = if (visible && available.signum() < 0) JibikStyle.coral else JibikStyle.forest)
+                    Text(amount, style = MaterialTheme.typography.headlineSmall,
+                        color = if (visible && available.signum() < 0) JibikStyle.coral else JibikStyle.ink,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold)
+                    JibikFormHint("مانده حساب‌ها پس از کسر ذخیره اهداف، پاکت‌ها و تعهدات تا تاریخ انتخابی؛ درآمد دریافت‌نشده وارد محاسبه نمی‌شود.")
+                }
                 if (visible) {
                     JibikSurfaceCard {
                         JibikSectionTitle("برنامه خرج", "${forecast.days} روز، شامل امروز")
@@ -79,7 +85,7 @@ internal fun SpendableBalanceCard(
                         }
                         JibikFormHint("این سقف میانگین محافظه‌کارانه تا تاریخ انتخابی است؛ درآمد آینده، خریدهای ثبت‌نشده و تغییر قیمت‌ها در آن لحاظ نمی‌شوند.")
                         CashForecastChart(forecast)
-                        LiquidGlassButton("قبل از خرید بررسی کن", onClick = { simulation = true }, enabled = accounts.isNotEmpty())
+                        LiquidGlassButton("قبل از خرید بررسی کن", modifier = Modifier.fillMaxWidth(), onClick = { simulation = true }, enabled = accounts.isNotEmpty())
                     }
                     Text("موجودی حساب‌ها", style = MaterialTheme.typography.titleMedium)
                     accounts.forEach { Text(it.title + " · " + formatToman(balances.getOrDefault(it.id, 0))) }
@@ -105,7 +111,7 @@ internal fun SpendableBalanceCard(
                 if (editing) {
                     val day = parseJalaliDueDate(draft)
                     OutlinedTextField(value = draft, onValueChange = { draft = it.take(12) },
-                        label = { Text("تاریخ شمسی، مثلاً ۱۴۰۵/۰۹/۱۰") }, singleLine = true,
+                        label = { Text("تاریخ شمسی، مثلاً ۱۴۰۵/۰۹/۱۰") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
                         isError = day == null || day < today)
                     TextButton(enabled = day != null && day >= today, onClick = {
                         chosen = requireNotNull(day)

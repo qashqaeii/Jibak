@@ -1,5 +1,8 @@
 package ir.jibik.app
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -49,11 +52,14 @@ internal fun <T> JibikSegmentedControl(
         items.forEach { (value, label) ->
             val isSelected = value == selected
             val canSelect = enabled(value)
+            val background by animateColorAsState(
+                if (isSelected) JibikStyle.forest else Color.Transparent,
+                animationSpec = tween(180), label = "segment-background")
             Box(
                 modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                     .background(
-                        if (isSelected) JibikStyle.forest else Color.Transparent,
-                        RoundedCornerShape(14.dp),
+                        background,
+                        RoundedCornerShape(12.dp),
                     )
                     .selectable(
                         selected = isSelected,
