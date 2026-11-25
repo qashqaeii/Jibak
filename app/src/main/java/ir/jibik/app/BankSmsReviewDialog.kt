@@ -106,19 +106,21 @@ internal fun BankSmsReviewDialog(
                         else "از کدام حساب برداشت شده؟",
                     accounts = accounts, selectedId = accountId,
                     onSelect = { accountId = it },
+                    enabled = !busy,
                 )
                 LiquidGlassCard(
-                    onClick = { if (!busy) choosingCategory = true },
+                    onClick = if (busy) null else ({ choosingCategory = true }),
                     tone = GlassTone.CRYSTAL,
                 ) {
                     Text("دسته: " + category, color = JibikStyle.ink, fontSize = 13.sp)
-                    Text("‹ انتخاب دسته و زیر‌دسته",
+                    Text("انتخاب دسته و زیر‌دسته",
                         color = JibikStyle.forest, fontSize = 12.sp)
                 }
                 OutlinedTextField(
                     value = note, onValueChange = { note = it.take(250) },
                     label = { Text("یادداشت اختیاری") },
                     modifier = Modifier.fillMaxWidth(), maxLines = 3,
+                    enabled = !busy,
                 )
                 JibikFormHint(
                     "با تأیید دقیقاً یک تراکنش با مبلغ پیامک ثبت می‌شود. " +
