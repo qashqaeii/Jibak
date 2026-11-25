@@ -15,10 +15,32 @@ for source in sorted(APP.glob("*.kt")):
     dialogs = text.count("AlertDialog(")
     if dialogs:
         chrome = text.count(".jibikDialogSurface()")
+        wide = text.count("properties = JibikWideDialogProperties")
         if chrome != dialogs:
             errors.append(
                 f"{source.name}: {dialogs} AlertDialog(s) but {chrome} shared chrome calls"
             )
+        if wide != dialogs:
+            errors.append(
+                f"{source.name}: {dialogs} AlertDialog(s) but only {wide} "
+                "opt out of the narrow Android platform dialog width"
+            )
+
+dialog_style = (APP / "JibikLiquidGlass.kt").read_text(encoding="utf-8")
+if "usePlatformDefaultWidth = false" not in dialog_style:
+    errors.append("Shared modal window must opt out of platform default width")
+if ".fillMaxWidth(0.94f)" not in dialog_style:
+    errors.append("Shared modal must fill a documented fraction of phone width")
+if "widthIn(max = 600.dp)" not in dialog_style:
+    errors.append("Tablet dialog width needs a sensible maximum")
+if "LocalDensity.current.fontScale >= 1.3f" not in (
+    APP / "ItemizedPurchaseDialog.kt"
+).read_text(encoding="utf-8"):
+    errors.append("Itemized form must stack inputs at large font scale")
+if ".weight(1f, fill = false)" not in (
+    APP / "CategoryPickerDialog.kt"
+).read_text(encoding="utf-8"):
+    errors.append("Long category picker list needs flexible dialog height")
 
 for filename in (
     "MainActivity.kt",
