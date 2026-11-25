@@ -203,27 +203,28 @@ if "KeyboardActions(onDone =" not in forms_source:
     errors.append("Money fields need a keyboard completion action")
 
 manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
-# Single full offline build: receive/read only, gated by runtime consent.
+# Direct-install distribution must not request SMS or other sensitive message access.
 import xml.etree.ElementTree as ET
 android = "{http://schemas.android.com/apk/res/android}"
 root = ET.fromstring(manifest)
-permissions = {node.get(android + "name") for node in root.findall("uses-permission")}
-if not {"android.permission.READ_SMS", "android.permission.RECEIVE_SMS"} <= permissions:
-    errors.append("Full offline APK must include bank SMS permissions")
-if "android.permission.SEND_SMS" in permissions:
-    errors.append("Jibik must never request SMS sending permission")
-receivers = {node.get(android + "name"): node for node in root.findall("./application/receiver")}
-incoming = receivers.get(".BankSmsReceiver")
-reply = receivers.get(".BankAutoReplyReceiver")
-if incoming is None or incoming.get(android + "permission") != "android.permission.BROADCAST_SMS" or incoming.get(android + "exported") != "true" or not any(
-    action.get(android + "name") == "android.provider.Telephony.SMS_RECEIVED" for action in incoming.findall("./intent-filter/action")
+restricted = {"READ_SMS", "RECEIVE_SMS", "SEND_SMS", "RECEIVE_MMS", "RECEIVE_WAP_PUSH",
+              "BIND_NOTIFICATION_LISTENER_SERVICE", "BIND_ACCESSIBILITY_SERVICE"}
+for node in root.iter():
+    if any(node.get(android + attr, "") == "android.permission." + name
+           for attr in ("name", "permission") for name in restricted):
+        errors.append("Direct APK must not request restricted SMS or sensitive service access")
+receivers = {node.get(android + "name") for node in root.findall("./application/receiver")}
+if receivers.intersection({".BankSmsReceiver", ".BankAutoReplyReceiver"}):
+    errors.append("Background bank receivers must not be registered in direct distribution")
+if not any(
+    any(a.get(android + "name") == "android.intent.action.SEND" for a in f.findall("action")) and
+    any(d.get(android + "mimeType") == "text/plain" for d in f.findall("data"))
+    for f in root.findall("./application/activity/intent-filter")
 ):
-    errors.append("Bank SMS receiver must be protected and listen for system SMS")
-if reply is None or reply.get(android + "exported") != "false":
-    errors.append("Bank reply receiver must remain private")
+    errors.append("User-initiated text sharing entry is missing")
 gradle = (ROOT / "app/build.gradle.kts").read_text(encoding="utf-8")
-if 'buildConfigField("boolean", "BANK_SMS_AVAILABLE", "true")' not in gradle or 'create("smsDebug")' in gradle:
-    errors.append("Bank SMS must be enabled in the unified primary build")
+if 'buildConfigField("boolean", "BANK_SMS_AVAILABLE", "true")' in gradle or 'create("smsDebug")' in gradle:
+    errors.append("Direct APK cannot enable background bank SMS")
 workflow = (ROOT / ".github/workflows/android.yml").read_text(encoding="utf-8")
 if workflow.count("name: Jibik-APK") != 1 or "assembleSmsDebug" in workflow or "assembleRecoveryDebug" in workflow:
     errors.append("Android CI must publish exactly one installable APK channel")
@@ -246,4 +247,4 @@ if errors:
         print(" - " + error)
     sys.exit(1)
 
-print("Jibik UI contract OK: consistent dialog chrome, headings and unified offline SMS build")
+print("Jibik UI contract OK: consistent dialog chrome, headings and user-shared offline banking")

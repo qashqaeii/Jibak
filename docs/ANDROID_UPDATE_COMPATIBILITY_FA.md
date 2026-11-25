@@ -20,3 +20,6 @@
 
 ## سیاست جایگزین — نسخه یکپارچه 0.1.5
 از این نسخه، Android CI فقط یک artifact نصب به نام Jibik-APK با Jibik.apk، checksum و مشخصات امضا منتشر می‌کند. تمام امکانات موجود نسخه آفلاین، شامل SMS بانکی، در debug اصلی فعال در سطح build هستند؛ پایش همچنان به رضایت، مجوز و معرفی سرشماره نیاز دارد. نسخه مستقل recoveryDebug صرفاً برای ساخت دستی در شرایط بازیابی نگه داشته می‌شود و در CI منتشر نمی‌شود. تنظیم اختیاری امضای ثابت پابرجاست؛ بدون آن فایل توسعه‌ای ممکن است روی نصب قبلی قابل جایگزینی نباشد. اطلاعات و شناسه اصلی ثابت هستند. برای انتشار در فروشگاه، مجوزهای SMS و سیاست‌های توزیع باید جداگانه تأیید شوند.
+
+## نسخه نصب مستقیم 0.1.6
+Play Protect may block sideloads declaring restricted SMS permissions. The sole Jibik-APK now omits READ_SMS/RECEIVE_SMS/SEND_SMS, SMS and inline-reply receivers, notification listeners and accessibility services. The local parser and user-confirmed banking workflows remain available through ACTION_SEND text/plain or paste. Background monitoring and inbox scanning are unavailable in this distribution; future authorized release requires separate policy review. No schema/package change, no automatic uninstall, and no claim that Play Protect will accept every APK. Existing signature compatibility remains a separate issue.

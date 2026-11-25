@@ -329,6 +329,9 @@ internal interface BankSmsCandidateDao {
     @Query("UPDATE bank_sms_candidates SET state = 'PENDING', linkedTransactionId = NULL WHERE linkedTransactionId = :id")
     suspend fun detach(id: String): Int
 
+    @Query("SELECT COUNT(*) FROM bank_sms_candidates WHERE bankId = :bankId AND income = :income AND amountRial = :amount AND accountLast4 = :last4 AND receivedAtMillis BETWEEN :start AND :end")
+    suspend fun sameBankMessageNearby(bankId: String, income: Boolean, amount: Long, last4: String, start: Long, end: Long): Int
+
     @Query("SELECT COUNT(*) FROM bank_sms_candidates WHERE id != :id AND amountRial = :amount AND receivedAtMillis BETWEEN :start AND :end")
     suspend fun nearby(id: String, amount: Long, start: Long, end: Long): Int
 

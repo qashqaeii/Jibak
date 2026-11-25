@@ -576,6 +576,21 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
             importBankSms(matches)
         }
 
+    /** A user-shared message is only evidence for review, not an automatic posting.
+     * Reject an already seen fingerprint or near-identical bank candidate, including
+     * older background imports; never change any balance from this method.
+     */
+    suspend fun importUserSharedBankSms(match: BankSmsMatch): Int = withContext(Dispatchers.IO) {
+        require(match.sender == USER_SHARED_BANK_SENDER && match.amountToman != null)
+        database.withTransaction {
+            if (bankSmsDao.find(match.fingerprint) != null ||
+                bankSmsDao.sameBankMessageNearby(match.bankId, match.income, match.amountRial,
+                    match.accountLast4, match.receivedAtMillis - 60_000L, match.receivedAtMillis + 60_000L) > 0)
+                return@withTransaction 0
+            importBankSms(listOf(match))
+        }
+    }
+
     suspend fun importBankSms(matches: List<BankSmsMatch>): Int =
         withContext(Dispatchers.IO) {
             require(matches.size <= 500)

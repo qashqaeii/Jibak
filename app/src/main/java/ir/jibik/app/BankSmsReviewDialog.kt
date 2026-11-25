@@ -43,7 +43,7 @@ internal fun BankSmsReviewDialog(
     val income = candidate.income
     var accountId by remember(candidate.id) {
         mutableStateOf(accounts.firstOrNull { it.id == suggestedAccountId && !it.archived }?.id
-            ?: accounts.firstOrNull { !it.archived }?.id.orEmpty())
+            ?: "")
     }
     var category by remember(candidate.id) {
         mutableStateOf(if (income) "سایر درآمدها" else "سایر هزینه‌ها")
@@ -102,7 +102,7 @@ internal fun BankSmsReviewDialog(
                     fontWeight = FontWeight.ExtraBold,
                 )
                 Text(
-                    "تاریخ دریافت: " + formatJalaliDueDate(candidate.receivedAtMillis) +
+                    "تاریخ تراکنش: " + formatJalaliDueDate(candidate.receivedAtMillis) +
                         (if (candidate.accountLast4.isNotBlank())
                             " • حساب پیامک ⋯" + candidate.accountLast4 else ""),
                     color = JibikStyle.muted, fontSize = 12.sp,

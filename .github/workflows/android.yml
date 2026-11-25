@@ -92,19 +92,21 @@ jobs:
             exit 1
           fi
           test -s "${apks[0]}"
-          # The single installable APK must include offline banking, never SMS sending.
+          # The direct-install APK must not request restricted message access.
           permissions="$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump permissions "${apks[0]}")"
-          grep -Fq 'android.permission.READ_SMS' <<< "$permissions"
-          grep -Fq 'android.permission.RECEIVE_SMS' <<< "$permissions"
-          if grep -Fq 'android.permission.SEND_SMS' <<< "$permissions"; then
-            echo "::error::Unexpected SMS sending permission" >&2
+          if grep -Eq 'android.permission.(READ_SMS|RECEIVE_SMS|SEND_SMS|RECEIVE_MMS|RECEIVE_WAP_PUSH|BIND_NOTIFICATION_LISTENER_SERVICE|BIND_ACCESSIBILITY_SERVICE)' <<< "$permissions"; then
+            echo "::error::Unexpected sensitive message or service permission" >&2
             exit 1
           fi
           badging="$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "${apks[0]}")"
           grep -q "^package: name='ir.jibik.app' " <<< "$badging"
           manifest="$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "${apks[0]}" AndroidManifest.xml)"
-          grep -Fq 'BankSmsReceiver' <<< "$manifest"
-          grep -Fq 'BankAutoReplyReceiver' <<< "$manifest"
+          if grep -Eq 'BankSmsReceiver|BankAutoReplyReceiver|BIND_NOTIFICATION_LISTENER_SERVICE|BIND_ACCESSIBILITY_SERVICE' <<< "$manifest"; then
+            echo "::error::Unexpected sensitive message receiver/service" >&2
+            exit 1
+          fi
+          grep -Fq 'android.intent.action.SEND' <<< "$manifest"
+          grep -Fq 'text/plain' <<< "$manifest"
           # Verify embedded offline Persian typography is actually packaged.
           apk_contents="$(unzip -Z1 "${apks[0]}")"
           for weight in regular medium semibold bold extrabold; do
@@ -114,7 +116,7 @@ jobs:
               exit 1
             fi
           done
-          echo "APK SMS permissions and embedded Persian fonts verified"
+          echo "APK user-shared text entry, absence of restricted SMS access and embedded Persian fonts verified"
           signer="$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "${apks[0]}" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
           [[ "$signer" =~ ^[0-9a-fA-F]{64}$ ]]
           stable="${{ steps.signing.outputs.stable }}"
@@ -147,7 +149,7 @@ jobs:
           cp "${apks[0]}" dist/Jibik.apk
           cp app/build/outputs/apk/debug/update-identity.txt dist/
           (cd dist && sha256sum Jibik.apk > Jibik.apk.sha256)
-          echo "Download Jibik-APK (one APK with offline banking and all existing offline features)." >> "$GITHUB_STEP_SUMMARY"
+          echo "Download Jibik-APK (one APK with offline banking via user-shared text; no automatic SMS access)." >> "$GITHUB_STEP_SUMMARY"
       - name: Upload single Jibik APK
         if: success()
         uses: actions/upload-artifact@v4

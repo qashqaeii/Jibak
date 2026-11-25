@@ -41,8 +41,8 @@ internal fun BankSenderSettingsPanel(accounts: List<Account>, busy: Boolean, onS
         monitoring = BankSmsSettings.isEnabled(context)
     }
     JibikSurfaceCard {
-        JibikSectionTitle("دسترسی و پایش بانکی", if (monitoring) "پایش فعال · فقط سرشماره‌های مجاز" else "پایش غیرفعال")
-        if (!BuildConfig.BANK_SMS_AVAILABLE) JibikFormHint("پایش پیامک در نسخه مستقل بازیابی فعال نیست. در نسخه اصلی جیبیک می‌توانی دسترسی بانکی را فعال کنی.")
+        JibikSectionTitle("روش ورود پیام بانکی", if (!BuildConfig.BANK_SMS_AVAILABLE) "اشتراک‌گذاری یا جای‌گذاری دستی" else if (monitoring) "پایش فعال · فقط سرشماره‌های مجاز" else "پایش غیرفعال")
+        if (!BuildConfig.BANK_SMS_AVAILABLE) JibikFormHint("نسخه نصب مستقیم به پیامک‌ها دسترسی ندارد. فقط پیامی که خودت به جیبیک می‌فرستی روی گوشی تحلیل می‌شود. پایش خودکار و اسکن صندوق فعلاً فعال نیستند.")
         else {
             JibikFormHint("خواندن پیامک فقط برای یافتن فرستنده و تحلیل پیام بانک‌های معرفی‌شده است؛ رمزها ذخیره نمی‌شوند.")
             if (!allowed) LiquidGlassButton("اعطای دسترسی پیامک", modifier = Modifier.fillMaxWidth(), onClick = {
@@ -77,8 +77,8 @@ internal fun BankSenderSettingsPanel(accounts: List<Account>, busy: Boolean, onS
                     profile.sender + " · " + if (profile.accountLast4.isBlank()) "پیام بدون شناسه حساب" else "حساب ••••" + profile.accountLast4)
                 val account = accounts.firstOrNull { it.id == profile.accountId && !it.archived }
                 JibikFinancialDetail("حساب جیبیک", account?.title ?: "حساب در دسترس نیست")
-                JibikStatusText(if (profile.autoTemplates.isEmpty()) "فقط بررسی" else "ثبت خودکار: " + profile.autoTemplates.size + " قالب")
-                if ((profile.accountLast4.isNotBlank() || profile.bankId == "blu" &&
+                JibikStatusText(if (!BuildConfig.BANK_SMS_AVAILABLE || profile.autoTemplates.isEmpty()) "فقط بررسی" else "ثبت خودکار: " + profile.autoTemplates.size + " قالب")
+                if (BuildConfig.BANK_SMS_AVAILABLE && (profile.accountLast4.isNotBlank() || profile.bankId == "blu" &&
                     profiles.count { it.sender == profile.sender } == 1) && account != null && profile.enabled) {
                     TextButton(onClick = { training = profile }) { Text("آموزش قالب ثبت خودکار") }
                     if (profile.autoTemplates.isNotEmpty()) TextButton(onClick = {

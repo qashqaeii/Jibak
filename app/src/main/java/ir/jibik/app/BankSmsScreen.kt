@@ -49,13 +49,28 @@ internal fun BankSmsScreen(
     modifier: Modifier = Modifier,
     focusTransactionId: String? = null,
     onFocusConsumed: () -> Unit = {},
+    sharedText: String? = null,
+    onSharedTextConsumed: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var pendingItems by remember { mutableStateOf<List<BankSmsCandidateEntity>>(emptyList()) }
     var sample by remember { mutableStateOf("") }
     var sampleResult by remember { mutableStateOf<BankSmsMatch?>(null) }
+    var sampleDay by remember { mutableStateOf(formatJalaliDueDate(System.currentTimeMillis())) }
+    var sampleClock by remember { mutableStateOf(java.time.LocalTime.now(java.time.ZoneId.of("Asia/Tehran")).format(java.time.format.DateTimeFormatter.ofPattern("HH:mm", java.util.Locale.US))) }
+    var otherBank by remember { mutableStateOf(false) }
+
     var balanceAccountId by remember { mutableStateOf("") }
+    LaunchedEffect(sharedText) {
+        if (sharedText != null) {
+            sample = sharedText
+            sampleResult = null
+            balanceAccountId = ""
+            otherBank = false
+            onSharedTextConsumed()
+        }
+    }
     var scanDialog by remember { mutableStateOf(false) }
     var scanPreview by remember { mutableStateOf<BankHistoryPreview?>(null) }
     var pendingLimit by rememberSaveable { mutableStateOf(12) }
@@ -102,7 +117,7 @@ internal fun BankSmsScreen(
             Text("پولِ تو، تصمیمِ تو", color = Color.White,
                 fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
             Text(
-                "پیام‌های واریز و برداشت را می‌شناسیم؛ قالب تأییدشده می‌تواند خودکار ثبت شود و سایر پیام‌ها برای بررسی می‌مانند.",
+                "پیام بانکی را با جیبیک به اشتراک بگذار یا جای‌گذاری کن؛ مبلغ و جهت روی گوشی تشخیص داده می‌شوند و ثبت با تأیید تو انجام می‌شود.",
                 color = Color(0xFFE2F3E9), fontSize = 12.sp, lineHeight = 20.sp,
             )
         }
@@ -118,8 +133,9 @@ internal fun BankSmsScreen(
         )
         BankSenderSettingsPanel(accounts = accounts, busy = busy, onScan = { scanDialog = true })
         LiquidGlassCard(tone = GlassTone.CRYSTAL) {
-            JibikSectionTitle("آزمایش نمونه پیام",
-                "پیام نمونه را جای‌گذاری کن؛ متن آن ذخیره نمی‌شود")
+            JibikSectionTitle("ورود پیام بانکی",
+                "در پیام‌رسان، اشتراک‌گذاری ← جیبیک؛ یا متن را اینجا جای‌گذاری کن")
+            JibikFormHint("فقط پیام تراکنش مالی را بفرست. رمز پویا و کد ورود پذیرفته نمی‌شوند. جیبیک به صندوق پیامک دسترسی ندارد.")
             OutlinedTextField(
                 value = sample,
                 onValueChange = { sample = it.take(1500); sampleResult = null; balanceAccountId = "" },
@@ -127,19 +143,28 @@ internal fun BankSmsScreen(
                 label = { Text("متن پیام بانک ملی، بلو یا بانک دیگر") },
                 minLines = 3, maxLines = 7,
             )
+            OutlinedTextField(sampleDay, { sampleDay = it.take(10); sampleResult = null },
+                label = { Text("تاریخ واقعی تراکنش (شمسی)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedTextField(sampleClock, { sampleClock = it.take(5); sampleResult = null },
+                label = { Text("ساعت واقعی تراکنش (HH:mm)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            JibikFormHint("تاریخ و ساعت پیام را بررسی کن؛ مقدار اولیه زمان فعلی است.")
+            TextButton(onClick = { otherBank = !otherBank; sampleResult = null }) {
+                Text(if (otherBank) "بانک دیگر انتخاب شد" else "بانک دیگر / نام ناشناخته")
+            }
             LiquidGlassButton(
-                text = "تحلیل نمونه روی گوشی",
-                enabled = sample.isNotBlank(),
+                text = "تحلیل پیام روی گوشی",
+                enabled = sample.isNotBlank() && !busy,
                 tone = GlassTone.CRYSTAL,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
-                    sampleResult = BankSmsParser.parse(
-                        "", sample, System.currentTimeMillis(),
-                        BankSmsSettings.fingerprintSalt(context),
-                    )
+                    val day = parseJalaliDueDate(sampleDay)
+                    val at = day?.let { manualBankTimestamp(it, sampleClock) }
+                    sampleResult = at?.takeIf { it <= System.currentTimeMillis() }?.let {
+                        parseUserSharedBankSms(sample, it, BankSmsSettings.fingerprintSalt(context), otherBank)
+                    }
                     notice = if (sampleResult == null)
-                        "پیام مبهم است؛ نمونه دیگری را امتحان کن."
-                    else "فقط تحلیل شد؛ هیچ تراکنشی ثبت نشده است."
+                        "پیام مالی معتبر نیست یا تاریخ و ساعت نیاز به اصلاح دارد."
+                    else "پیام تحلیل شد؛ هنوز مبلغی ثبت نشده است."
                 },
             )
             sampleResult?.let { row ->
@@ -166,7 +191,26 @@ internal fun BankSmsScreen(
                         }
                     }
                 }
-                JibikFormHint("برای ثبت خودکار، سرشماره را در بانک‌های من معرفی و قالب را در همان ارتباط تأیید کن.")
+                LiquidGlassButton("بررسی و ثبت تراکنش", modifier = Modifier.fillMaxWidth(), enabled = !busy && row.amountToman != null,
+                    onClick = {
+                        busy = true
+                        scope.launch {
+                            try {
+                                val count = store.importUserSharedBankSms(row)
+                                pendingItems = store.bankSmsSuggestions()
+                                if (count > 0) {
+                                    selected = pendingItems.firstOrNull { it.id == row.fingerprint && it.state == "PENDING" }
+                                    reviewError = ""
+                                    sample = ""; sampleResult = null; balanceAccountId = ""
+                                    notice = "پیشنهاد آماده تأیید است؛ موجودی هنوز تغییر نکرده."
+                                } else {
+                                    notice = "این پیام یا یک پیام بانکی بسیار مشابه قبلاً پردازش شده است؛ صندوق بررسی و تراکنش‌ها را بررسی کن."
+                                }
+                            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                            catch (_: Exception) { notice = "ورود پیام انجام نشد." }
+                            finally { busy = false }
+                        }
+                    })
             }
         }
         val pairs = bankTransferPairs(pendingItems, BankSenderRegistry.active(context), accounts, existingRecords)
@@ -228,7 +272,7 @@ internal fun BankSmsScreen(
         )
         if (pending.isEmpty()) JibikStatePanel(
             title = "پیام جدیدی در صف نیست",
-            description = "پیام‌های قابل تشخیص از سرشماره‌های معرفی‌شده پس از دریافت یا اسکن در این بخش نمایش داده می‌شوند.",
+            description = "پیام بانکی را به اشتراک بگذار یا جای‌گذاری کن تا پیشنهاد تراکنش در این بخش نمایش داده شود.",
         )
         pending.take(pendingLimit).forEach { item ->
             LiquidGlassCard(tone = GlassTone.CRYSTAL) {

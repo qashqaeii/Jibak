@@ -158,7 +158,23 @@ class MainActivity : ComponentActivity() {
     private val dueReminderOpenSignal = mutableIntStateOf(0)
     private val bankSmsOpenSignal = mutableIntStateOf(0)
     private val bankFocusId = mutableStateOf<String?>(null)
+    // Kept only in memory; never write external message text into saved state or logs.
+    private val sharedBankText = mutableStateOf<String?>(null)
     private fun acceptBankIntent(source: Intent?) {
+        if (source?.action == Intent.ACTION_SEND) {
+            val text = runCatching {
+                if (source.type == "text/plain")
+                    source.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.takeIf { it.length in 12..1500 }
+                else null
+            }.getOrNull()
+            source.removeExtra(Intent.EXTRA_TEXT)
+            source.clipData = null
+            source.action = null
+            sharedBankText.value = text
+            bankFocusId.value = null
+            bankSmsOpenSignal.intValue++
+            return
+        }
         if (source?.getBooleanExtra(BankSmsSettings.EXTRA_OPEN_BANK_SMS, false) != true) return
         bankFocusId.value = source.getStringExtra(BankSmsSettings.EXTRA_BANK_TRANSACTION)?.takeIf {
             isBankAutoId(it) && source.data?.authority == "bank-review" && source.data?.lastPathSegment == it
@@ -212,6 +228,7 @@ class MainActivity : ComponentActivity() {
                         { calendarDay.longValue = 0; intent?.removeExtra(LocalDueReminders.OPEN_CALENDAR_DAY) },
                         protection,
                         bankFocusId.value, { bankFocusId.value = null },
+                        sharedBankText.value, { sharedBankText.value = null },
                     )
                 }
             }
@@ -235,6 +252,8 @@ private fun JibikApp(
     protection: AppProtection,
     bankFocusId: String?,
     onBankFocusConsumed: () -> Unit,
+    sharedBankText: String?,
+    onSharedBankTextConsumed: () -> Unit,
 ) {
     var welcomed by remember { mutableStateOf(store.hasFinishedWelcome()) }
     var recurringRules by remember { mutableStateOf(emptyList<RecurringRule>()) }
@@ -647,7 +666,8 @@ private fun JibikApp(
                     accounts = accounts.filterNot { it.archived },
                     customCategories = customCategories,
                     existingRecords = records,
-                    onBack = { showBankSms = false; onBankFocusConsumed() },
+                    onBack = { showBankSms = false; onBankFocusConsumed(); onSharedBankTextConsumed() },
+                    sharedText = sharedBankText, onSharedTextConsumed = onSharedBankTextConsumed,
                     focusTransactionId = bankFocusId, onFocusConsumed = onBankFocusConsumed,
                     obligations = obligations.toList(), payments = obligationPayments.toList(),
                     rules = recurringRules, decisions = recurringDecisions,
