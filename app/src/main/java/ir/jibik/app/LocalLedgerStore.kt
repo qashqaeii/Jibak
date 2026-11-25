@@ -571,6 +571,33 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         }
     }
 
+    suspend fun loadAssets(): List<AssetPosition> = database.withTransaction {
+        assetPositions(database.assetDao().holdings(), database.assetDao().events())
+    }
+
+    /** A holding is a non-cash memorandum; acquisition/disposal never silently posts a transaction. */
+    suspend fun addAsset(holding: AssetHolding, initialValue: Long) = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            val clean = holding.copy(title = holding.title.trim())
+            validateAsset(clean)
+            require(initialValue >= 0)
+            database.assetDao().insertHolding(clean)
+            database.assetDao().insertEvent(AssetEvent(assetId = clean.id, kind = "VALUE", valueToman = initialValue,
+                atMillis = clean.createdAtMillis, note = "ارزش اولیه"))
+        }
+    }
+
+    suspend fun changeAsset(expected: AssetPosition, kind: String, value: Long, note: String) = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            val current = assetPositions(database.assetDao().holdings(), database.assetDao().events()).first { it.holding.id == expected.holding.id }
+            check(current.latest.id == expected.latest.id) { "Asset changed" }
+            val next = AssetEvent(id = Math.addExact(current.latest.id, 1L), assetId = current.holding.id,
+                kind = kind, valueToman = value, atMillis = maxOf(System.currentTimeMillis(), current.latest.atMillis), note = note.trim())
+            assetPositions(listOf(current.holding), current.history + next)
+            database.assetDao().insertEvent(next.copy(id = 0))
+        }
+    }
+
     suspend fun loadEnvelopes() = withContext(Dispatchers.IO) { database.envelopeDao().list() }
     suspend fun envelopeHistory(id: String) = withContext(Dispatchers.IO) { database.envelopeDao().history(id) }
 

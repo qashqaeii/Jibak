@@ -324,6 +324,8 @@ class FinancialRecoveryTest {
         }
         // Construct the v8 layout and reopen through the production migration chain.
         SQLiteDatabase.openDatabase(ctx.getDatabasePath(name).path, null, SQLiteDatabase.OPEN_READWRITE).use {
+            it.execSQL("DROP TABLE asset_events")
+            it.execSQL("DROP TABLE asset_holdings")
             it.execSQL("DROP TABLE envelope_events")
             it.execSQL("DROP TABLE money_envelopes")
             it.execSQL("DROP TABLE financial_edit_history")

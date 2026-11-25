@@ -361,9 +361,9 @@ internal interface SavingsGoalDao {
         PurchaseLineEntity::class, SavingsGoalEntity::class,
         CustomCategoryEntity::class, CategoryBudgetEntity::class,
         FinancialObligationEntity::class, ObligationPaymentEntity::class,
-        BankSmsCandidateEntity::class, LedgerRevision::class, MonthlyBudget::class, LedgerVoid::class, RecurringRule::class, RecurringDecision::class, FinancialEditHistory::class, MoneyEnvelope::class, EnvelopeEvent::class,
+        BankSmsCandidateEntity::class, LedgerRevision::class, MonthlyBudget::class, LedgerVoid::class, RecurringRule::class, RecurringDecision::class, FinancialEditHistory::class, MoneyEnvelope::class, EnvelopeEvent::class, AssetHolding::class, AssetEvent::class,
     ],
-    version = 16,
+    version = 17,
     exportSchema = false,
 )
 internal abstract class JibikDatabase : RoomDatabase() {
@@ -373,6 +373,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
     abstract fun purchaseLineDao(): PurchaseLineDao
     abstract fun savingsGoalDao(): SavingsGoalDao
     abstract fun envelopeDao(): EnvelopeDao
+    abstract fun assetDao(): AssetDao
     abstract fun customCategoryDao(): CustomCategoryDao
     abstract fun categoryBudgetDao(): CategoryBudgetDao
     abstract fun obligationDao(): FinancialObligationDao
@@ -575,6 +576,14 @@ internal abstract class JibikDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE asset_holdings (id TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, kind TEXT NOT NULL, costBasisToman INTEGER, createdAtMillis INTEGER NOT NULL)")
+                db.execSQL("CREATE TABLE asset_events (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, assetId TEXT NOT NULL, kind TEXT NOT NULL, valueToman INTEGER NOT NULL, atMillis INTEGER NOT NULL, note TEXT NOT NULL, FOREIGN KEY(assetId) REFERENCES asset_holdings(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE INDEX index_asset_events_assetId ON asset_events(assetId)")
+            }
+        }
+
         fun get(context: Context): JibikDatabase =
             instance ?: synchronized(this) {
                 instance ?: open(context, "jibik_ledger_v1.db").also { instance = it }
@@ -587,7 +596,7 @@ internal abstract class JibikDatabase : RoomDatabase() {
                     name,
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16,
+                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
                 ).build()
     }
 }
