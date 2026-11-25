@@ -341,18 +341,28 @@ internal fun NewObligationDialog(
                     modifier = Modifier.fillMaxWidth(), singleLine = true,
                     label = { Text("عنوان تعهد") },
                     placeholder = { Text("مثلاً قسط وام یا اجاره") },
+                    enabled = !isSaving,
                 )
                 JibikTomanField(
                     value = amount, onValueChange = { amount = it },
                     label = if (kind == "RECEIVABLE") "مبلغ طلب" else "کل مبلغ تعهد",
+                    enabled = !isSaving,
                 )
                 OutlinedTextField(
                     value = date, onValueChange = { date = it.take(10) },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("سررسید شمسی (مثلاً ۱۴۰۵/۰۹/۲۰)") },
+                    label = { Text("سررسید شمسی") },
+                    placeholder = { Text("مثلاً ۱۴۰۵/۰۹/۲۰") },
                     singleLine = true,
                     isError = date.isNotBlank() && due == null,
+                    enabled = !isSaving,
                 )
+                if (date.isNotBlank() && due == null) {
+                    JibikFormHint(
+                        "تاریخ معتبر با قالب سال/ماه/روز وارد کن.",
+                        isWarning = true,
+                    )
+                }
                 OutlinedTextField(
                     value = count,
                     onValueChange = {
@@ -361,12 +371,14 @@ internal fun NewObligationDialog(
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("تعداد اقساط (۱ تا ۱۲۰)") },
                     singleLine = true,
+                    enabled = !isSaving,
                 )
                 OutlinedTextField(
                     value = note, onValueChange = { note = it.take(250) },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("توضیحات اختیاری") },
                     maxLines = 3,
+                    enabled = !isSaving,
                 )
                 JibikFormHint(
                     "تاریخ واردشده، سررسید اولین قسط است؛ اقساط بعدی هر ماه شمسی " +
@@ -441,10 +453,12 @@ internal fun SettleObligationDialog(
                     accounts = accounts,
                     selectedId = accountId,
                     onSelect = { accountId = it },
+                    enabled = !isSaving,
                 )
                 JibikTomanField(
                     value = amount, onValueChange = { amount = it },
                     label = "مبلغ واقعی این پرداخت / دریافت",
+                    enabled = !isSaving,
                 )
                 JibikFormHint(
                     "با تأیید، دقیقاً یک تراکنش " +
