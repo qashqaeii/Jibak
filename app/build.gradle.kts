@@ -14,8 +14,8 @@ android {
         minSdk = 26
         targetSdk = 35
         // Bump for every distributable update; never change applicationId.
-        versionCode = 4
-        versionName = "0.1.3"
+        versionCode = 5
+        versionName = "0.1.4"
         buildConfigField("boolean", "BANK_SMS_AVAILABLE", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -32,6 +32,14 @@ android {
             initWith(getByName("debug"))
             matchingFallbacks += listOf("debug")
             buildConfigField("boolean", "BANK_SMS_AVAILABLE", "true")
+        }
+        // Separate sandbox: can restore a user's encrypted backup while the
+        // previous installed app and its private data remain completely intact.
+        create("recoveryDebug") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".recovery"
+            versionNameSuffix = "-recovery"
+            matchingFallbacks += listOf("debug")
         }
         release {
             isMinifyEnabled = false
