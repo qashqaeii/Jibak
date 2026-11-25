@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -88,6 +89,8 @@ internal fun BackupActions(store: LocalLedgerStore, onRestored: () -> Unit) {
         val accounts = data.getJSONObject("financial_accounts").getJSONArray("rows").length()
         val entries = data.getJSONObject("ledger_records").getJSONArray("rows").length()
         JibikModalDialog(
+            properties = JibikWideDialogProperties,
+            modifier = Modifier.jibikDialogSurface(),
             onDismissRequest = { if (!busy) preview = null },
             title = { JibikDialogHeading("بازیابی دفتر مالی", "فقط روی دفتر خالی") },
             text = { Text("$accounts حساب و $entries تراکنش به همراه جزئیات بازیابی می‌شوند.") },
