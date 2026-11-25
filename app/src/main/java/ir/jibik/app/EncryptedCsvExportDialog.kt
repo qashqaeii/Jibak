@@ -36,6 +36,7 @@ internal fun EncryptedCsvExportDialog(
     val valid = passphrase.length in EncryptedLedgerCsvExport.MIN_PASSWORD_CHARS..256 &&
         passphrase == confirmation
     AlertDialog(
+        properties = JibikWideDialogProperties,
         modifier = Modifier.jibikDialogSurface(),
         onDismissRequest = onDismiss,
         containerColor = Color.Transparent,
