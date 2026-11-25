@@ -203,8 +203,30 @@ if "KeyboardActions(onDone =" not in forms_source:
     errors.append("Money fields need a keyboard completion action")
 
 manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
-if "android.permission.READ_SMS" in manifest or "android.permission.RECEIVE_SMS" in manifest:
-    errors.append("Restricted SMS permission leaked into test manifest")
+# Single full offline build: receive/read only, gated by runtime consent.
+import xml.etree.ElementTree as ET
+android = "{http://schemas.android.com/apk/res/android}"
+root = ET.fromstring(manifest)
+permissions = {node.get(android + "name") for node in root.findall("uses-permission")}
+if not {"android.permission.READ_SMS", "android.permission.RECEIVE_SMS"} <= permissions:
+    errors.append("Full offline APK must include bank SMS permissions")
+if "android.permission.SEND_SMS" in permissions:
+    errors.append("Jibik must never request SMS sending permission")
+receivers = {node.get(android + "name"): node for node in root.findall("./application/receiver")}
+incoming = receivers.get(".BankSmsReceiver")
+reply = receivers.get(".BankAutoReplyReceiver")
+if incoming is None or incoming.get(android + "permission") != "android.permission.BROADCAST_SMS" or incoming.get(android + "exported") != "true" or not any(
+    action.get(android + "name") == "android.provider.Telephony.SMS_RECEIVED" for action in incoming.findall("./intent-filter/action")
+):
+    errors.append("Bank SMS receiver must be protected and listen for system SMS")
+if reply is None or reply.get(android + "exported") != "false":
+    errors.append("Bank reply receiver must remain private")
+gradle = (ROOT / "app/build.gradle.kts").read_text(encoding="utf-8")
+if 'buildConfigField("boolean", "BANK_SMS_AVAILABLE", "true")' not in gradle or 'create("smsDebug")' in gradle:
+    errors.append("Bank SMS must be enabled in the unified primary build")
+workflow = (ROOT / ".github/workflows/android.yml").read_text(encoding="utf-8")
+if workflow.count("name: Jibik-APK") != 1 or "assembleSmsDebug" in workflow or "assembleRecoveryDebug" in workflow:
+    errors.append("Android CI must publish exactly one installable APK channel")
 
 # Prevent the original recurring-manager regression: the same scrolling
 # viewport must not retain its position across long/short dialog modes.
@@ -224,4 +246,4 @@ if errors:
         print(" - " + error)
     sys.exit(1)
 
-print("Jibik UI contract OK: consistent dialog chrome, headings and SMS-free test build")
+print("Jibik UI contract OK: consistent dialog chrome, headings and unified offline SMS build")

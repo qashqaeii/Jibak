@@ -42,7 +42,7 @@ internal fun BankSenderSettingsPanel(accounts: List<Account>, busy: Boolean, onS
     }
     JibikSurfaceCard {
         JibikSectionTitle("دسترسی و پایش بانکی", if (monitoring) "پایش فعال · فقط سرشماره‌های مجاز" else "پایش غیرفعال")
-        if (!BuildConfig.BANK_SMS_AVAILABLE) JibikFormHint("این APK بدون مجوز پیامک ساخته شده است. معرفی دستی بانک امکان‌پذیر است؛ برای دریافت واقعی از نسخه آزمایشی بانکی استفاده کن.")
+        if (!BuildConfig.BANK_SMS_AVAILABLE) JibikFormHint("پایش پیامک در نسخه مستقل بازیابی فعال نیست. در نسخه اصلی جیبیک می‌توانی دسترسی بانکی را فعال کنی.")
         else {
             JibikFormHint("خواندن پیامک فقط برای یافتن فرستنده و تحلیل پیام بانک‌های معرفی‌شده است؛ رمزها ذخیره نمی‌شوند.")
             if (!allowed) LiquidGlassButton("اعطای دسترسی پیامک", modifier = Modifier.fillMaxWidth(), onClick = {

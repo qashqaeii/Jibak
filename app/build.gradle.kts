@@ -14,9 +14,9 @@ android {
         minSdk = 26
         targetSdk = 35
         // Bump for every distributable update; never change applicationId.
-        versionCode = 5
-        versionName = "0.1.4"
-        buildConfigField("boolean", "BANK_SMS_AVAILABLE", "false")
+        versionCode = 6
+        versionName = "0.1.5"
+        buildConfigField("boolean", "BANK_SMS_AVAILABLE", "true")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         // Only the public Jibik API URL is injected at build time.
@@ -27,18 +27,13 @@ android {
     }
 
     buildTypes {
-        // Same application ID and debug signer; separate opt-in distribution channel.
-        create("smsDebug") {
-            initWith(getByName("debug"))
-            matchingFallbacks += listOf("debug")
-            buildConfigField("boolean", "BANK_SMS_AVAILABLE", "true")
-        }
         // Separate sandbox: can restore a user's encrypted backup while the
         // previous installed app and its private data remain completely intact.
         create("recoveryDebug") {
             initWith(getByName("debug"))
             applicationIdSuffix = ".recovery"
             versionNameSuffix = "-recovery"
+            buildConfigField("boolean", "BANK_SMS_AVAILABLE", "false")
             matchingFallbacks += listOf("debug")
         }
         release {
