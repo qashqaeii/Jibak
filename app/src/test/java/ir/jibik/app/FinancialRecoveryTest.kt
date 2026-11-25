@@ -18,6 +18,68 @@ class FinancialRecoveryTest {
         try { block(this) } finally { close() }
     }
 
+    @Test fun assetTradeAndAccountManagementPreserveExactCashAndBackup() = runBlocking {
+        val ctx: Context = RuntimeEnvironment.getApplication()
+        JibikDatabase.open(ctx, "managed-finance-source").withOpenDatabase { db ->
+            val store = LocalLedgerStore(ctx, db)
+            val now = System.currentTimeMillis()
+            store.loadAccounts()
+            store.addAccount(Account("bank", "بانک", 1000))
+            val holding = AssetHolding("gold", "سکه", "GOLD", 400L, now)
+            store.buyAsset(holding, 400, "bank", "buy")
+            val position = store.loadAssets().single()
+            assertEquals(600L, FinanceEngine.balances(store.loadAccounts(), store.load()).getValue("bank"))
+            assertEquals(1000.toBigInteger(), netWorth(FinanceEngine.balances(store.loadAccounts(), store.load()), listOf(position), emptyList(), emptyList()).net)
+            assertTrue(runCatching { store.buyAsset(holding, 400, "bank", "duplicate") }.isFailure)
+            assertEquals(1, store.load().size)
+            val purchase = store.load().single()
+            assertTrue(runCatching { store.setVoided(purchase, true) }.isFailure)
+            assertTrue(runCatching { store.correct(purchase, purchase.copy(amountToman = 200)) }.isFailure)
+            store.sellAsset(position, 500, "bank", "sale")
+            val sold = store.loadAssets().single()
+            assertTrue(sold.sold)
+            assertTrue(runCatching { store.sellAsset(position, 500, "bank", "duplicate-sale") }.isFailure)
+            assertTrue(runCatching { store.changeAsset(sold, "RESTORE", 500, "") }.isFailure)
+            val account = store.loadAccounts().first { it.id == "bank" }
+            assertEquals(1100L, FinanceEngine.balances(store.loadAccounts(), store.load()).getValue("bank"))
+            assertTrue(runCatching { store.archiveAccount(account, true) }.isFailure)
+            store.renameAccount(account, "حساب اصلی بانک")
+            val renamed = store.loadAccounts().first { it.id == "bank" }
+            assertTrue(runCatching { store.reconcileAccount(renamed, 1000, 0, "اصلاح مانده", "stale") }.isFailure)
+            store.reconcileAccount(renamed, 1100, 0, "اصلاح طبق صورتحساب", "adjust")
+            store.archiveAccount(renamed, true)
+            assertTrue(store.loadAccounts().first { it.id == "bank" }.archived)
+            assertTrue(runCatching { store.append(LedgerRecord("new", LedgerKind.INCOME, 1, toAccountId = "bank", timestampMillis = now)) }.isFailure)
+            assertTrue(runCatching { store.setVoided(store.load().first { it.id == "adjust" }, true) }.isFailure)
+            assertEquals(3, store.accountHistory("bank").size)
+            val week = reportRange("WEEK", requireNotNull(parseJalaliDueDate(formatJalaliDueDate(now)))).start
+            store.saveWeeklyBudget(WeeklyBudget(week, 1500, true))
+            store.addObligation(FinancialObligationEntity("loan", "وام", "LOAN", 500, now, 1, "", now))
+            store.saveLoanTerms("loan", 400)
+            store.settleObligation("loan", "wallet", 100, "payment", now)
+            store.classifyLoanPayment("loan", "payment", 80)
+            assertEquals(80.toBigInteger(), store.loanDetails("loan").paidPrincipal)
+            assertEquals(20.toBigInteger(), store.loanDetails("loan").paidInterest)
+            assertTrue(runCatching { store.saveLoanTerms("loan", 490) }.isFailure)
+            assertTrue(store.inspectIntegrity().isEmpty())
+            val snapshot = store.backup()
+            JibikDatabase.open(ctx, "managed-finance-target").withOpenDatabase { targetDb ->
+                val target = LocalLedgerStore(ctx, targetDb)
+                target.loadAccounts(); target.restoreBackup(snapshot)
+                assertEquals(store.loadAccounts(), target.loadAccounts())
+                assertEquals(store.load(), target.load())
+                assertEquals(store.loadAssets(), target.loadAssets())
+                assertEquals(store.loanDetails("loan"), target.loanDetails("loan"))
+                assertEquals(store.weeklyBudgets(), target.weeklyBudgets())
+                assertEquals(store.accountHistory("bank"), target.accountHistory("bank"))
+                assertTrue(target.inspectIntegrity().isEmpty())
+            }
+            store.detachPaymentLinks(store.load().first { it.id == "payment" })
+            assertTrue(store.loanDetails("loan").splits.isEmpty())
+            assertTrue(store.financialEdits("payment").any { it.details.contains("اصل") })
+        }
+    }
+
     @Test fun wealthObservationsPreserveRecordedHistoryAndRestoreBackup() = runBlocking {
         val ctx: Context = RuntimeEnvironment.getApplication()
         JibikDatabase.open(ctx, "wealth-source").withOpenDatabase { db ->
@@ -45,6 +107,19 @@ class FinancialRecoveryTest {
             }
             val older = org.json.JSONObject(backup.toString()).put("version", 8)
             older.remove("wealth_snapshots")
+            val sheet = older.getJSONObject("asset_events")
+            val names = sheet.getJSONArray("columns")
+            val retained = (0 until names.length()).filter { names.getString(it) != "transactionId" }
+            val columns = org.json.JSONArray()
+            retained.forEach { columns.put(names.getString(it)) }
+            val rows = org.json.JSONArray()
+            val sourceRows = sheet.getJSONArray("rows")
+            for (i in 0 until sourceRows.length()) {
+                val row = org.json.JSONArray()
+                retained.forEach { row.put(sourceRows.getJSONArray(i).get(it)) }
+                rows.put(row)
+            }
+            sheet.put("columns", columns).put("rows", rows)
             JibikDatabase.open(ctx, "wealth-v8").withOpenDatabase { targetDb ->
                 val target = LocalLedgerStore(ctx, targetDb)
                 target.loadAccounts(); target.restoreBackup(older)
@@ -410,6 +485,11 @@ class FinancialRecoveryTest {
         }
         // Construct the v8 layout and reopen through the production migration chain.
         SQLiteDatabase.openDatabase(ctx.getDatabasePath(name).path, null, SQLiteDatabase.OPEN_READWRITE).use {
+            it.execSQL("DROP TABLE loan_payment_splits")
+            it.execSQL("DROP TABLE loan_terms")
+            it.execSQL("DROP TABLE weekly_budgets")
+            it.execSQL("DROP TABLE account_edit_events")
+            it.execSQL("DROP TABLE account_archives")
             it.execSQL("DROP TABLE wealth_snapshots")
             it.execSQL("DROP TABLE asset_events")
             it.execSQL("DROP TABLE asset_holdings")

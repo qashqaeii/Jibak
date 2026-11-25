@@ -164,7 +164,13 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
         val terms = requireNotNull(database.managementDao().loanTerms(id))
         val split = LoanPaymentSplit(transactionId, principal, payment.amountToman - principal)
         loanDetailsFor(obligation, payments, terms, database.managementDao().splits().filterNot { it.transactionId == transactionId } + split)
-        database.managementDao().saveSplit(split)
+        val old = database.managementDao().splits().firstOrNull { it.transactionId == transactionId }
+        if (old != split) {
+            database.managementDao().saveSplit(split)
+            dao.recordFinancialEdit(FinancialEditHistory(transactionId = transactionId, atMillis = System.currentTimeMillis(), action = "LOAN_SPLIT",
+                details = "اصل و سود قبلی: " + (old?.let { formatToman(it.principalToman) + " / " + formatToman(it.interestToman) } ?: "نامشخص") +
+                    "\nاصل و سود جدید: " + formatToman(split.principalToman) + " / " + formatToman(split.interestToman)))
+        }
     }
 
     suspend fun load(): List<LedgerRecord> = withContext(Dispatchers.IO) {
@@ -224,6 +230,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
             check(!database.recurringDao().isLinked(record.id)) { "Transaction is linked to a recurring occurrence" }
             dao.markVoid(LedgerVoid(record.id, System.currentTimeMillis()))
         } else {
+            check(dao.voided().firstOrNull { it.id == record.id }?.toRecord() == record)
             check(dao.unvoid(record.id) == 1)
         }
         FinanceEngine.balances(accountDao.list().map { it.toAccount() }, dao.getAll().map { it.toRecord() })

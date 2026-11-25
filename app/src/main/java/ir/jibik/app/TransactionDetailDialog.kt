@@ -80,6 +80,7 @@ internal fun TransactionDetailDialog(
     onToggleVoid: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     onRepeat: (() -> Unit)? = null,
+    lockedReason: String? = null,
 ) {
     var confirmVoid by remember(record.id) { mutableStateOf(false) }
     var confirmDetach by remember(record.id) { mutableStateOf(false) }
@@ -116,6 +117,7 @@ internal fun TransactionDetailDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(13.dp),
             ) {
+                lockedReason?.let { JibikFormHint(it, isWarning = true) }
                 JibikHero(Modifier.fillMaxWidth()) {
                     Text("مبلغ ثبت‌شده", color = Color(0xFFD9F1E7), fontSize = 12.sp)
                     Text(

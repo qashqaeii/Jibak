@@ -805,7 +805,11 @@ private fun JibikApp(
     selectedTransactionId?.let { id ->
         val voided = voidedRecords.firstOrNull { it.id == id }
         (voided ?: records.firstOrNull { it.id == id })?.let { record ->
+            val assetLinked = assets.any { item -> item.history.any { it.transactionId == id } }
+            val archivedAccount = accounts.any { it.archived && (it.id == record.fromAccountId || it.id == record.toAccountId) }
+            val lockedReason = when { assetLinked -> "این تراکنش متعلق به خرید یا فروش دارایی است و تغییر مستقیم آن مجاز نیست."; archivedAccount -> "برای تغییر این تراکنش ابتدا حساب بایگانی‌شده را بازیابی کن."; else -> null }
             TransactionDetailDialog(
+                lockedReason = lockedReason,
                 record = record,
                 accounts = accounts,
                 lines = receiptRows,
@@ -832,13 +836,13 @@ private fun JibikApp(
                     }
                 }) else null,
                 voided = voided != null,
-                onSchedule = if (voided == null && recurringDecisions.none { it.transactionId == id } && record.kind != LedgerKind.TRANSFER &&
+                onSchedule = if (lockedReason == null && voided == null && recurringDecisions.none { it.transactionId == id } && record.kind != LedgerKind.TRANSFER &&
                     obligationPayments.none { it.transactionId == id }) ({
                     recurringSourceId = id
                     selectedTransactionId = null
                     section = Section.HOME
                 }) else null,
-                onToggleVoid = if (recurringDecisions.none { it.transactionId == id } && !bankLinked && receiptRows != null && obligationPayments.none { it.transactionId == id } && !isSaving) ({
+                onToggleVoid = if (lockedReason == null && recurringDecisions.none { it.transactionId == id } && !bankLinked && receiptRows != null && obligationPayments.none { it.transactionId == id } && !isSaving) ({
                     isSaving = true
                     scope.launch {
                         try {
@@ -850,7 +854,7 @@ private fun JibikApp(
                         } finally { isSaving = false }
                     }
                 }) else null,
-                onEdit = if (voided == null && recurringDecisions.none { it.transactionId == id } && !bankLinked && receiptRows != null && !receiptLoadError && !isSaving &&
+                onEdit = if (lockedReason == null && voided == null && recurringDecisions.none { it.transactionId == id } && !bankLinked && receiptRows != null && !receiptLoadError && !isSaving &&
                     obligationPayments.none { it.transactionId == id }) ({
                     if (receiptRows?.isNotEmpty() == true) {
                         receiptEditId = record.id
@@ -863,7 +867,7 @@ private fun JibikApp(
                     receiptRows = null
                 }) else null,
                 onRepeat = if (
-                    voided == null && obligationPayments.none { it.transactionId == record.id } &&
+                    lockedReason == null && voided == null && obligationPayments.none { it.transactionId == record.id } &&
                     receiptRows?.isEmpty() == true &&
                     (record.kind == LedgerKind.TRANSFER ||
                         isSelectableCategory(
@@ -911,7 +915,7 @@ private fun JibikApp(
                 obligation = obligation,
                 payments = obligationPayments,
                 accounts = accounts.filterNot { it.archived },
-                records = records.filter { record -> recurringDecisions.none { it.transactionId == record.id } },
+                records = records.filter { record -> recurringDecisions.none { it.transactionId == record.id } && assets.none { a -> a.history.any { it.transactionId == record.id } } },
                 isSaving = isSaving,
                 onDismiss = { if (!isSaving) settlingObligationId = null },
                 onSave = { accountId, value, existingId ->
