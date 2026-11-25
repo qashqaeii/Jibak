@@ -190,6 +190,8 @@ private fun JibikApp(
     bankSmsOpenSignal: Int,
 ) {
     var welcomed by remember { mutableStateOf(store.hasFinishedWelcome()) }
+    var recurringRules by remember { mutableStateOf(emptyList<RecurringRule>()) }
+    var recurringDecisions by remember { mutableStateOf(emptyList<RecurringDecision>()) }
     val voidedRecords = remember { mutableStateListOf<LedgerRecord>() }
     val records = remember { mutableStateListOf<LedgerRecord>() }
     val savedReceiptLines = remember { mutableStateMapOf<String, List<PurchaseLine>>() }
@@ -298,6 +300,8 @@ private fun JibikApp(
         try {
             budget = store.budgetToman()
             val persisted = store.load()
+            recurringRules = store.recurringRules()
+            recurringDecisions = store.allRecurringDecisions()
             voidedRecords.clear()
             voidedRecords.addAll(store.voided())
             val loadedReceipts = store.loadAllPurchaseLines()
@@ -535,7 +539,7 @@ private fun JibikApp(
                     val ledger = records.toList()
                     val balances = remember(accountRows, ledger) { FinanceEngine.balances(accountRows, ledger) }
                     SpendableBalanceCard(accountRows, balances, goals.toList(), obligations.toList(),
-                        obligationPayments.toList(), homeAmountsVisible)
+                        obligationPayments.toList(), homeAmountsVisible, recurringRules, recurringDecisions)
                     FinancialCalendar(store, accountRows, obligations.toList(), obligationPayments.toList()) { retryLoad++ }
                 },
                 summary = summary,

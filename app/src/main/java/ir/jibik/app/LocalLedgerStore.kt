@@ -146,6 +146,7 @@ internal class LocalLedgerStore(context: Context, private val database: JibikDat
 
     suspend fun isBankLinked(id: String) = bankSmsDao.isLinked(id)
 
+    suspend fun allRecurringDecisions() = database.recurringDao().decisions(0, Long.MAX_VALUE)
     suspend fun recurringRules() = database.recurringDao().rules()
     suspend fun recurringDecisions(month: JalaliMonthPeriod) =
         database.recurringDao().decisions(month.startMillis, month.endExclusiveMillis)

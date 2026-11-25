@@ -60,6 +60,7 @@ class FinancialRecoveryTest {
             source.decideRecurring(rule.id, first, 18)
             assertTrue(runCatching { source.decideRecurring(rule.id, first, 18) }.isFailure)
             source.decideRecurring(rule.id, next, null)
+            assertEquals(0, pendingOccurrenceCount(rule, source.allRecurringDecisions(), jalaliDueDayEndExclusive(next)))
             assertEquals(1, source.load().count { it.note == rule.title })
             assertEquals(18L, source.load().single { it.note == rule.title }.amountToman)
             source.updateBudgetToman(500)

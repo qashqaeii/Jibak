@@ -18,7 +18,7 @@ import java.util.Locale
 internal fun SpendableBalanceCard(
     accounts: List<Account>, balances: Map<String, Long>, goals: List<SavingsGoalEntity>,
     obligations: List<FinancialObligationEntity>, payments: List<ObligationPaymentEntity>,
-    visible: Boolean,
+    visible: Boolean, rules: List<RecurringRule>, decisions: List<RecurringDecision>,
 ) {
     val context = LocalContext.current
     val prefs = remember(context) { context.getSharedPreferences("spending_horizon", Context.MODE_PRIVATE) }
@@ -37,13 +37,20 @@ internal fun SpendableBalanceCard(
     val result = remember(balances, goals, obligations, payments, end) {
         spendableBalance(balances, goals, obligations, payments, end)
     }
+    val recurring = remember(rules, decisions, end) {
+        rules.filter { !it.income }.mapNotNull { rule ->
+            val count = pendingOccurrenceCount(rule, decisions, end)
+            if (count > 0) rule.title to rule.amount.toBigInteger() * count.toBigInteger() else null
+        }
+    }
+    val available = recurring.fold(result.available) { sum, item -> sum - item.second }
     var details by rememberSaveable { mutableStateOf(false) }
     var editing by rememberSaveable { mutableStateOf(false) }
     var draft by rememberSaveable { mutableStateOf("") }
     val date = formatJalaliDueDate(end - 1)
     val amount = if (visible) NumberFormat.getIntegerInstance(Locale("fa", "IR"))
-        .format(result.available.abs()) + " تومان" else "••••"
-    val label = if (visible && result.available.signum() < 0) "کسری تا تاریخ انتخابی" else "ماندهٔ قابل‌خرج"
+        .format(available.abs()) + " تومان" else "••••"
+    val label = if (visible && available.signum() < 0) "کسری تا تاریخ انتخابی" else "ماندهٔ قابل‌خرج"
     LiquidGlassCard(onClick = { details = true }, tone = GlassTone.CRYSTAL) {
         JibikSectionTitle(label, "تا $date")
         Text(amount, style = MaterialTheme.typography.titleLarge)
@@ -67,6 +74,11 @@ internal fun SpendableBalanceCard(
                     Text("اقساط و تعهدات تا این تاریخ", style = MaterialTheme.typography.titleMedium)
                     if (result.dues.isEmpty()) Text("تعهد پرداخت‌نشده‌ای در این بازه وجود ندارد.")
                     result.dues.forEach { Text(it.title + " · " + formatToman(it.amount)) }
+                    if (recurring.isNotEmpty()) Text("هزینه‌های دوره‌ای در انتظار تأیید", style = MaterialTheme.typography.titleMedium)
+                    recurring.forEach { (title, amount) ->
+                        Text(title + " · " + NumberFormat.getIntegerInstance(Locale("fa", "IR")).format(amount) + " تومان")
+                    }
+
                 } else Text("برای دیدن مبالغ، نمایش موجودی را در خانه فعال کن.")
                 if (editing) {
                     val day = parseJalaliDueDate(draft)

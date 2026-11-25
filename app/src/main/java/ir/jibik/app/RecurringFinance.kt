@@ -37,3 +37,14 @@ internal fun RecurringRule.dueIn(month: JalaliMonthPeriod): Long? {
     val day = offsetJalaliMonth(firstDay, offset)
     return day.takeIf { stoppedAt == null || it <= stoppedAt }
 }
+
+/** Count anchored monthly occurrences up to the horizon, including arrears. */
+internal fun pendingOccurrenceCount(rule: RecurringRule, decisions: List<RecurringDecision>, end: Long): Int {
+    val last = minOf(end - 1, rule.stoppedAt ?: Long.MAX_VALUE)
+    if (last < rule.firstDay) return 0
+    val first = currentJalaliMonth(rule.firstDay)
+    val month = currentJalaliMonth(last)
+    val offset = (month.year - first.year) * 12 + month.month - first.month
+    val count = offset + if (offsetJalaliMonth(rule.firstDay, offset) <= last) 1 else 0
+    return count - decisions.count { it.ruleId == rule.id && it.day in rule.firstDay..last }
+}
