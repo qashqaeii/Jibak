@@ -19,7 +19,7 @@ class FinancialRecoveryTest {
     }
 
     @Test fun migrateCorrectLinkAndRestoreWithoutChangingBalances() = runBlocking {
-        val ctx: Context = RuntimeEnvironment.getApplication<android.app.Application>()
+        val ctx: Context = RuntimeEnvironment.getApplication()
         val name = "recovery-test"
         val record = LedgerRecord("purchase", LedgerKind.EXPENSE, 30, fromAccountId = "wallet",
             category = "خرید", timestampMillis = 1000)
